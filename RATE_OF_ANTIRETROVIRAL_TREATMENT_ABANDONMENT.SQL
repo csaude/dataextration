@@ -21,7 +21,20 @@ CREATE TABLE `rate_patient` (
   `number_of_sexual_partners` int(11)  DEFAULT NULL,
   `drugs_allergies` varchar(100) DEFAULT NULL,
   `therapeutic_history_with_art` varchar(100) DEFAULT NULL,
-  `clinical_history` varchar(100) DEFAULT NULL,
+  `clinical_history_pulmonary_TB` varchar(100) DEFAULT NULL,
+  `clinical_history_extra_pulmonar` varchar(100) DEFAULT NULL,
+  `clinical_history_herpes_zoster` varchar(100) DEFAULT NULL,
+  `clinical_history_candidiase_oral` varchar(100) DEFAULT NULL,
+  `clinical_history_candidiase_esofágica` varchar(100) DEFAULT NULL,
+  `clinical_history_kaposis_sarcoma` varchar(100) DEFAULT NULL,
+  `clinical_history_dts_thinning` varchar(100) DEFAULT NULL,
+  `clinical_history_dts_ulcer` varchar(100) DEFAULT NULL,
+  `clinical_history_dts_condiloma` varchar(100) DEFAULT NULL,
+  `clinical_history_diarrhea_chronic` varchar(100) DEFAULT NULL,
+  `clinical_history_weight_loss_greater_than_ten_percent` varchar(100) DEFAULT NULL,
+  `clinical_history_prolonged_fever` varchar(100) DEFAULT NULL,
+  `clinical_history_prolonged_cough` varchar(100) DEFAULT NULL,
+  `clinical_history_others` varchar(100) DEFAULT NULL,
   `general_status` varchar(100) DEFAULT NULL,
   `pregnancy` varchar(11) DEFAULT NULL,
   `weight` int(11)  DEFAULT NULL,
@@ -193,6 +206,110 @@ set rate_patient.therapeutic_history_with_art= case obs.value_coded
              when 1066 then 'NO'
              else null end
 where obs.person_id=rate_patient.patient_id and obs.concept_id=1192 and voided=0;
+
+/*TB Pulmonar*/
+update rate_patient,obs
+set rate_patient.clinical_history_pulmonary_TB= case obs.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end
+where obs.person_id=rate_patient.patient_id and obs.concept_id=42 and voided=0;
+
+/*TB extra pulmonar */
+update rate_patient,obs
+set rate_patient.clinical_history_extra_pulmonar= case obs.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end
+where obs.person_id=rate_patient.patient_id and obs.concept_id=5042 and voided=0;
+
+/*Herpes Zoster */
+update rate_patient,obs
+set rate_patient.clinical_history_herpes_zoster= case obs.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end
+where obs.person_id=rate_patient.patient_id and obs.concept_id=836 and voided=0;
+
+/*Candidiase oral */
+update rate_patient,obs
+set rate_patient.clinical_history_candidiase_oral= case obs.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end
+where obs.person_id=rate_patient.patient_id and obs.concept_id=5334 and voided=0;
+
+/*Candidiase esofágica*/
+update rate_patient,obs
+set rate_patient.clinical_history_candidiase_esofágica= case obs.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end
+where obs.person_id=rate_patient.patient_id and obs.concept_id=5340 and voided=0;
+
+/* Sarcoma de Kaposi */
+update rate_patient,obs
+set rate_patient.clinical_history_kaposis_sarcoma= case obs.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end
+where obs.person_id=rate_patient.patient_id and obs.concept_id=507 and voided=0;
+
+/*DTS: Corrimento */
+update rate_patient,obs
+set rate_patient.clinical_history_dts_thinning= case obs.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end
+where obs.person_id=rate_patient.patient_id and obs.concept_id=1379 and voided=0;
+
+/*DTS: Úlcera */
+update rate_patient,obs
+set rate_patient.clinical_history_dts_ulcer= case obs.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end
+where obs.person_id=rate_patient.patient_id and obs.concept_id=1380 and voided=0;
+
+/*DTS: Condiloma */
+update rate_patient,obs
+set rate_patient.clinical_history_dts_condiloma= case obs.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end
+where obs.person_id=rate_patient.patient_id and obs.concept_id=1381 and voided=0;
+
+/*Diarreia crónica */
+update rate_patient,obs
+set rate_patient.clinical_history_diarrhea_chronic= case obs.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end
+where obs.person_id=rate_patient.patient_id and obs.concept_id=5018 and voided=0;
+
+/*Diarreia crónica */
+update rate_patient,obs
+set rate_patient.clinical_history_weight_loss_greater_than_ten_percent= case obs.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end
+where obs.person_id=rate_patient.patient_id and obs.concept_id=5339 and voided=0;
+
+/*Febre prolongada*/
+update rate_patient,obs
+set rate_patient.clinical_history_prolonged_fever= case obs.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end
+where obs.person_id=rate_patient.patient_id and obs.concept_id=5027 and voided=0;
+
+/* Tosse prolongada*/
+update rate_patient,obs
+set rate_patient.clinical_history_prolonged_cough= case obs.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end
+where obs.person_id=rate_patient.patient_id and obs.concept_id=1429 and voided=0;
 
 end
 ;;
