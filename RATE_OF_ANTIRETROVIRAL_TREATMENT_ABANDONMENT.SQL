@@ -34,12 +34,11 @@ CREATE TABLE `rate_patient` (
   `clinical_history_weight_loss_greater_than_ten_percent` varchar(100) DEFAULT NULL,
   `clinical_history_prolonged_fever` varchar(100) DEFAULT NULL,
   `clinical_history_prolonged_cough` varchar(100) DEFAULT NULL,
-  `clinical_history_others` varchar(100) DEFAULT NULL,
   `general_status` varchar(100) DEFAULT NULL,
   `pregnancy` varchar(11) DEFAULT NULL,
-  `weight` int(11)  DEFAULT NULL,
-  `height` int(11)  DEFAULT NULL,
-  `imc` int(11)  DEFAULT NULL,
+  `weight` double DEFAULT NULL,
+  `height` double DEFAULT NULL,
+  `imc`    double DEFAULT NULL,
   `blood_pressure_at_screening_hemoglobin` int(11)  DEFAULT NULL,
   `glycemic` int(11)  DEFAULT NULL,
   `who_stage_of_patient` varchar(100) DEFAULT NULL,
@@ -310,6 +309,31 @@ set rate_patient.clinical_history_prolonged_cough= case obs.value_coded
              when 1066 then 'NO'
              else null end
 where obs.person_id=rate_patient.patient_id and obs.concept_id=1429 and voided=0;
+
+/* Estado Geral*/
+update rate_patient,obs
+set rate_patient.general_status= case obs.value_coded
+             when 1383 then 'GOOD'
+             when 1384 then 'MODERATE'
+             when 1385 then 'BAD'
+             else null end
+where obs.person_id=rate_patient.patient_id and obs.concept_id=1382 and voided=0;
+
+
+/* Mulher Gravida*/
+update rate_patient,obs
+set rate_patient.pregnancy= case obs.value_coded
+             when 44 then 'YES PREGNANCY GESTATION'
+             when 1066 then 'NO'
+             when 1175 then 'N/A'
+             else null end
+where obs.person_id=rate_patient.patient_id and obs.concept_id=1982 and voided=0;
+
+/*Peso Na Abertura de Processo*/
+update  rate_patient,obs 
+set  rate_patient.weight=obs.value_numeric
+where   rate_patient.patient_id=obs.person_id and obs.concept_id=5089 and obs.voided=0;
+
 
 end
 ;;
