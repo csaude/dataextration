@@ -39,7 +39,9 @@ CREATE TABLE `rate_patient` (
   `weight` double DEFAULT NULL,
   `height` double DEFAULT NULL,
   `imc`    double DEFAULT NULL,
-  `blood_pressure_at_screening_hemoglobin` int(11)  DEFAULT NULL,
+  `blood_pressure_at_screening_systolic` int(11)  DEFAULT NULL,
+  `blood_pressure_at_screening_diastolic` int(11)  DEFAULT NULL,
+  `hemoglobin` int(11)  DEFAULT NULL,
   `glycemic` int(11)  DEFAULT NULL,
   `who_stage_of_patient` varchar(100) DEFAULT NULL,
   `sti_at_screening` varchar(100) DEFAULT NULL,
@@ -371,6 +373,35 @@ update rate_patient,
 set rate_patient.imc=imc.value_numeric
 where rate_patient.patient_id=imc.patient_id;
 
+
+/*Pesao 1*/
+update rate_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      o.value_numeric
+  from  rate_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=1 and o.obs_datetime=e.encounter_datetime and o.concept_id=5085
+  group by p.patient_id
+)blood_pressure_sys
+set rate_patient.blood_pressure_at_screening_systolic=blood_pressure_sys.value_numeric
+where rate_patient.patient_id=blood_pressure_sys.patient_id;
+
+
+/*Presao 2*/
+update rate_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      o.value_numeric
+  from  rate_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=1 and o.obs_datetime=e.encounter_datetime and o.concept_id=5086
+  group by p.patient_id
+)blood_pressure_dysys
+set rate_patient.blood_pressure_at_screening_diastolic=blood_pressure_dysys.value_numeric
+where rate_patient.patient_id=blood_pressure_dysys.patient_id;
 
 end
 ;;
