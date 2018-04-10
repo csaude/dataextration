@@ -61,9 +61,9 @@ CREATE TABLE `rate_patient` (
 -- ----------------------------
 -- Procedure structure for FillTCVGAACTable
 -- ----------------------------
-DROP PROCEDURE IF EXISTS `FillTCVGAACTableV2`;
+DROP PROCEDURE IF EXISTS `FillRate`;
 DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` PROCEDURE `FillTCVGAACTableV2`(beforeARTStartDate date,startDate date,endDate date,district varchar(100))
+CREATE DEFINER=`root`@`localhost` PROCEDURE `FillRate`(startDate date,endDate date,district varchar(100))
     READS SQL DATA
 begin
 truncate table rate_patient;
