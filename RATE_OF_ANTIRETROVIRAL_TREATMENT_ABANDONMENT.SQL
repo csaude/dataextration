@@ -319,7 +319,6 @@ set rate_patient.general_status= case obs.value_coded
              else null end
 where obs.person_id=rate_patient.patient_id and obs.concept_id=1382 and voided=0;
 
-
 /* Mulher Gravida*/
 update rate_patient,obs
 set rate_patient.pregnancy= case obs.value_coded
@@ -329,10 +328,48 @@ set rate_patient.pregnancy= case obs.value_coded
              else null end
 where obs.person_id=rate_patient.patient_id and obs.concept_id=1982 and voided=0;
 
-/*Peso Na Abertura de Processo*/
-update  rate_patient,obs 
-set  rate_patient.weight=obs.value_numeric
-where   rate_patient.patient_id=obs.person_id and obs.concept_id=5089 and obs.voided=0;
+/*Peso*/
+update rate_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      o.value_numeric
+  from  rate_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=1 and o.obs_datetime=e.encounter_datetime and o.concept_id=5089
+  group by p.patient_id
+)peso
+set rate_patient.weight=peso.value_numeric
+where rate_patient.patient_id=peso.patient_id;
+
+/*Altura*/
+update rate_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      o.value_numeric
+  from  rate_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=1 and o.obs_datetime=e.encounter_datetime and o.concept_id=5090
+  group by p.patient_id
+)altura
+set rate_patient.height=altura.value_numeric
+where rate_patient.patient_id=altura.patient_id;
+
+
+/*IMC*/
+update rate_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      o.value_numeric
+  from  rate_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=1 and o.obs_datetime=e.encounter_datetime and o.concept_id=1342
+  group by p.patient_id
+)imc
+set rate_patient.imc=imc.value_numeric
+where rate_patient.patient_id=imc.patient_id;
 
 
 end
