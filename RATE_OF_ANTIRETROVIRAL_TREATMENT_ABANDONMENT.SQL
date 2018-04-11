@@ -62,6 +62,8 @@ CREATE TABLE `rate_patient` (
 ) ENGINE=InnoDB AUTO_INCREMENT=32768 DEFAULT CHARSET=utf8;
 
 
+
+
 -- ----------------------------
 -- Procedure structure for FillRate
 -- ----------------------------
@@ -73,19 +75,81 @@ begin
 truncate table rate_patient;
 
 /*Inscricao*/
-insert into rate_patient(patient_id,enrollment_date,sex,age,location_id)
-Select  e.patient_id,min(encounter_datetime) data_abertura,gender,round(datediff(e.encounter_datetime,pe.birthdate)/365) idade_abertura,e.location_id
-from  openmrs.patient p     
-    inner join openmrs.encounter e on e.patient_id=p.patient_id
-    inner join openmrs.person pe on pe.person_id=p.patient_id     
-where   p.voided=0 and e.encounter_type in (1,5) and e.voided=0 and pe.voided=0 and 
-    e.encounter_datetime between startDate and endDate
-group by p.patient_id;
+insert into rate_patient(patient_id,enrollment_date)
+SELECT patient_id, data_inicio FROM (SELECT patient_id, MIN(data_inicio) data_inicio
+FROM (SELECT
+  p.patient_id,
+  MIN(e.encounter_datetime) data_inicio
+FROM patient p
+INNER JOIN encounter e
+  ON p.patient_id = e.patient_id
+INNER JOIN obs o
+  ON o.encounter_id = e.encounter_id
+WHERE e.voided = 0
+AND o.voided = 0
+AND p.voided = 0
+AND e.encounter_type IN (18, 6, 9)
+AND o.concept_id = 1255
+AND o.value_coded = 1256
+AND e.encounter_datetime <= '2018-12-31'
+AND e.location_id = 401
+GROUP BY p.patient_id
+
+UNION
+
+SELECT p.patient_id, MIN(value_datetime) data_inicio
+FROM patient p
+INNER JOIN encounter e
+  ON p.patient_id = e.patient_id
+INNER JOIN obs o
+  ON e.encounter_id = o.encounter_id
+WHERE p.voided = 0
+AND e.voided = 0
+AND o.voided = 0
+AND e.encounter_type IN (18, 6, 9)
+AND o.concept_id = 1190
+AND o.value_datetime IS NOT NULL
+AND o.value_datetime <= '2018-12-31'
+AND e.location_id = 401
+GROUP BY p.patient_id
+
+UNION
+
+SELECT pg.patient_id, date_enrolled data_inicio
+FROM patient p
+INNER JOIN patient_program pg
+  ON p.patient_id = pg.patient_id
+WHERE pg.voided = 0
+AND p.voided = 0
+AND program_id = 2
+AND date_enrolled <= '2018-12-31'
+AND location_id = 401
+
+UNION
+
+SELECT e.patient_id, MIN(e.encounter_datetime) AS data_inicio
+FROM patient p
+INNER JOIN encounter e
+  ON p.patient_id = e.patient_id
+WHERE p.voided = 0
+AND e.encounter_type = 18
+AND e.voided = 0
+AND e.encounter_datetime <= '2018-12-31'
+AND e.location_id = 401
+GROUP BY p.patient_id) inicio
+GROUP BY patient_id) inicio1 WHERE data_inicio BETWEEN '2010-01-01' AND '2018-12-31'    ;
+
+
+
+/*Sexo*/
+update rate_patient,person set rate_patient.sex=.person.gender
+where  person_id=rate_patient.patient_id;
 
 /*Bairro*/
 update rate_patient,person_address 
 set rate_patient.local_of_residence=person_address.address5
 where  person_id=patient_id;
+
 
 /*PROFISSAO*/
 update rate_patient,obs
