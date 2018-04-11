@@ -45,10 +45,12 @@ CREATE TABLE `rate_patient` (
   `glycemic` int(11)  DEFAULT NULL,
   `who_stage_of_patient` varchar(100) DEFAULT NULL,
   `sti_at_screening` varchar(100) DEFAULT NULL,
+  `date_its` datetime DEFAULT NULL,
   `tb_at_screening` varchar(100) DEFAULT NULL,
   `it_was_advised_to_start_ART` varchar(50) DEFAULT NULL,
   `type_of_therapy` varchar(100) DEFAULT NULL,
-  `number_of_tablets_consumed_daily` int(11)  DEFAULT NULL,
+  `number_of_tablets` int(11)  DEFAULT NULL,
+  `number_of_tablets_consumed_daily` varchar(100) DEFAULT NULL,
   `first_cd4` int(11)  DEFAULT NULL,
   `last_cd4` int(11)  DEFAULT NULL,
   `time_from_diagnosis_to_the_start_of_ART` int(11)  DEFAULT NULL,
@@ -402,6 +404,157 @@ update rate_patient,
 )blood_pressure_dysys
 set rate_patient.blood_pressure_at_screening_diastolic=blood_pressure_dysys.value_numeric
 where rate_patient.patient_id=blood_pressure_dysys.patient_id;
+
+/*HEMOGLOBINA */
+update rate_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      o.value_numeric
+  from  rate_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=6 and o.obs_datetime=e.encounter_datetime and o.concept_id=1692 and o.concept_id is not null
+  group by p.patient_id
+)hemoglobin
+set rate_patient.hemoglobin=hemoglobin.value_numeric
+where rate_patient.patient_id=hemoglobin.patient_id;
+
+
+/*GLICEMIA */
+update rate_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      o.value_numeric
+  from  rate_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=6 and o.obs_datetime=e.encounter_datetime and o.concept_id=887 and o.concept_id is not null
+  group by p.patient_id
+)glycemic
+set rate_patient.glycemic=glycemic.value_numeric
+where rate_patient.patient_id=glycemic.patient_id;
+
+/*ITS */
+update rate_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      o.value_coded
+  from  rate_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=6 and o.obs_datetime=e.encounter_datetime and o.concept_id=6258 and o.concept_id is not null
+  group by p.patient_id
+)its
+set rate_patient.sti_at_screening=if(its.value_coded=1065,'YES',if(its.value_coded=1066,'NO',null))
+where rate_patient.patient_id=its.patient_id;
+
+
+/*TB */
+update rate_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      o.value_coded
+  from  rate_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=6 and o.obs_datetime=e.encounter_datetime and o.concept_id=6257 and o.concept_id is not null
+  group by p.patient_id
+)tb
+set rate_patient.tb_at_screening=if(tb.value_coded=1065,'YES',if(tb.value_coded=1066,'NO',null))
+where rate_patient.patient_id=tb.patient_id;
+
+/*FOI ACONSEHLADO ARV */
+update rate_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      o.value_coded
+  from  rate_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=6 and o.obs_datetime=e.encounter_datetime and o.concept_id=1714 and o.concept_id is not null
+  group by p.patient_id
+)advise
+set rate_patient.it_was_advised_to_start_ART=if(advise.value_coded=1065,'YES',if(advise.value_coded=1066,'NO',null))
+where rate_patient.patient_id=advise.patient_id;
+
+
+/*ESTADIO OMS */
+update rate_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      o.value_coded
+  from  rate_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=6 and o.obs_datetime=e.encounter_datetime and o.concept_id=5356 and o.concept_id is not null
+  group by p.patient_id
+)stage
+set rate_patient.who_stage_of_patient=if(stage.value_coded=1204,'I',if(stage.value_coded=1205,'II',if(stage.value_coded=1206,'III','IV')))
+where rate_patient.patient_id=stage.patient_id;
+
+/*PRIMEIRO TIPO DE ARV NO PRIMEIRO FILA */
+update rate_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      o.value_coded
+  from  rate_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=18 and o.obs_datetime=e.encounter_datetime and o.concept_id=1088 and o.concept_id is not null
+  group by p.patient_id
+)firt_arv
+set rate_patient.type_of_therapy= case firt_arv.value_coded     
+         WHEN 6324 THEN  'TDF+3TC+EFV'
+         WHEN 1651 THEN 'AZT+3TC+NVP'
+         WHEN 1703 THEN 'AZT+3TC+EFV'  
+         WHEN 6343 THEN 'TDF+3TC+NVP' 
+         WHEN 792  THEN 'D4T+3TC+NVP' 
+         WHEN 6103 THEN 'D4T+3TC+LPV/r' 
+         WHEN 1827 THEN 'D4T+3TC+EFV' 
+         WHEN 6102 THEN 'D4T+3TC+ABC' 
+         WHEN 6116 THEN 'AZT+3TC+ABC' 
+         WHEN 6100 THEN 'AZT+3TC+LPV/r'
+         WHEN 6104 THEN 'ABC+3TC+EFV'
+         WHEN 6106 THEN 'ABC+3TC+LPV/r'
+         WHEN 6108 THEN 'TDF+3TC+LPV/r(2ª Linha)'
+         WHEN 1314 THEN 'AZT+3TC+LPV/r(2ª Linha)'
+         WHEN 1311 THEN 'ABC+3TC+LPV/r (2ª Linha)'
+         WHEN 1315 THEN 'TDF+3TC+EFV (2ª Linha)'
+         WHEN 6329 THEN 'TDF+3TC+RAL+DRV/r (3ª Linha)'
+         WHEN 6330 THEN 'AZT+3TC+RAL+DRV/r (3ª Linha)'
+         else null end
+where rate_patient.patient_id=firt_arv.patient_id;
+
+
+/*NUMERO DE PILULAS AVIADAS NO PRIMEIRO FILA */
+update rate_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      o.value_numeric
+  from  rate_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=18 and o.obs_datetime=e.encounter_datetime and o.concept_id=1715 and o.concept_id is not null
+  group by p.patient_id
+)number_of_tablets
+set rate_patient.number_of_tablets= number_of_tablets.value_numeric
+where rate_patient.patient_id=number_of_tablets.patient_id;
+
+
+/*DOSAGEM NO PRIMEIRO FILA*/
+update rate_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      o.value_text
+  from  rate_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=18 and o.obs_datetime=e.encounter_datetime and o.concept_id=1711 and o.concept_id is not null
+  group by p.patient_id
+)number_of_tablets_daily
+set rate_patient.number_of_tablets_consumed_daily= number_of_tablets_daily.value_text
+where rate_patient.patient_id=number_of_tablets_daily.patient_id;
+
 
 end
 ;;
