@@ -45,7 +45,6 @@ CREATE TABLE `rate_patient` (
   `glycemic` int(11)  DEFAULT NULL,
   `who_stage_of_patient` varchar(100) DEFAULT NULL,
   `sti_at_screening` varchar(100) DEFAULT NULL,
-  `date_its` datetime DEFAULT NULL,
   `tb_at_screening` varchar(100) DEFAULT NULL,
   `it_was_advised_to_start_ART` varchar(50) DEFAULT NULL,
   `type_of_therapy` varchar(100) DEFAULT NULL,
