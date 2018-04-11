@@ -51,8 +51,8 @@ CREATE TABLE `rate_patient` (
   `type_of_therapy` varchar(100) DEFAULT NULL,
   `number_of_tablets` int(11)  DEFAULT NULL,
   `number_of_tablets_consumed_daily` varchar(100) DEFAULT NULL,
-  `first_cd4` int(11)  DEFAULT NULL,
-  `last_cd4` int(11)  DEFAULT NULL,
+  `first_cd4`decimal(10,0) DEFAULT NULL,
+  `last_cd4` decimal(10,0) DEFAULT NULL,
   `time_from_diagnosis_to_the_start_of_ART` int(11)  DEFAULT NULL,
   `date_of_the_last_ARV_therapy_withdrawal` datetime DEFAULT NULL,
   `first_viral_load` int(11)  DEFAULT NULL,
@@ -63,7 +63,7 @@ CREATE TABLE `rate_patient` (
 
 
 -- ----------------------------
--- Procedure structure for FillTCVGAACTable
+-- Procedure structure for FillRate
 -- ----------------------------
 DROP PROCEDURE IF EXISTS `FillRate`;
 DELIMITER ;;
