@@ -74,7 +74,7 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `FillRate`(startDate date,endDate da
 begin
 truncate table rate_patient;
 
-/*ADULTOS QUE INICIARAM O TARV*/
+/*ADULTOS QUE INICIARAM O TARV NUM DETERMINADO PERIUDO*/
 insert into rate_patient(patient_id,enrollment_date)
 SELECT patient_id, data_inicio FROM (SELECT patient_id, MIN(data_inicio) data_inicio
 FROM (SELECT
