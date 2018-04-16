@@ -135,11 +135,11 @@ AND e.location_id = location
 GROUP BY p.patient_id) inicio
 GROUP BY patient_id) inicio1 WHERE  data_inicio BETWEEN startDate AND endDate;
 
-delete from rate_patient where age<15;
-
 /*Data de Naicimento*/
 update rate_patient,person set rate_patient.age=round(datediff(rate_patient.date_art_initiation,person.birthdate)/365)
 where  person_id=rate_patient.patient_id;
+
+delete from rate_patient where age<15;
 
 /*Sexo*/
 update rate_patient,person set rate_patient.sex=.person.gender
