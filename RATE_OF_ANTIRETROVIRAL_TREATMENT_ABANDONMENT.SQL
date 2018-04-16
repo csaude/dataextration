@@ -763,7 +763,6 @@ and obs.voided=0 and obs.obs_datetime=viral_load2.encounter_datetime
 and obs.concept_id=856;
 
 
-
 end
 ;;
 DELIMITER ;
