@@ -173,7 +173,7 @@ where obs.person_id=rate_patient.patient_id and obs.concept_id=1656 and voided=0
 
 
 /*ESTADO CIVIL*/
-update rate_patient,openmrs.obs
+update rate_patient,obs
 set rate_patient.marital_status= case obs.value_coded
              when 1057 then 'SINGLE'
              when 5555 then 'MARRIED'
