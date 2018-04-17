@@ -3,8 +3,6 @@ SET FOREIGN_KEY_CHECKS=0;
 CREATE TABLE `rate_patient` (
   `patient_id` int(11) DEFAULT NULL,
   `date_art_initiation`datetime DEFAULT NULL,
-  `urban` varchar(1) DEFAULT NULL,
-  `main` varchar(1) DEFAULT NULL,
   `sex` varchar(100) DEFAULT NULL,
   `age`int(11) DEFAULT NULL,
   `local_of_residence` varchar(100) DEFAULT NULL,
@@ -56,8 +54,7 @@ CREATE TABLE `rate_patient` (
   `last_cd4` decimal(10,0) DEFAULT NULL,
   `last_art_pick_up_date` datetime DEFAULT NULL,
   `first_viral_load` int(11)  DEFAULT NULL,
-  `last_viral_load` int(11)  DEFAULT NULL,
-  `location_id` int(11)  DEFAULT NULL
+  `last_viral_load` int(11)  DEFAULT NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=32768 DEFAULT CHARSET=utf8;
 
 -- ----------------------------
@@ -176,7 +173,7 @@ where obs.person_id=rate_patient.patient_id and obs.concept_id=1656 and voided=0
 
 
 /*ESTADO CIVIL*/
-update rate_patient,openmrs.obs
+update rate_patient,obs
 set rate_patient.marital_status= case obs.value_coded
              when 1057 then 'SINGLE'
              when 5555 then 'MARRIED'
@@ -761,8 +758,6 @@ where rate_patient.patient_id=obs.person_id
 and rate_patient.patient_id=viral_load2.patient_id 
 and obs.voided=0 and obs.obs_datetime=viral_load2.encounter_datetime
 and obs.concept_id=856;
-
-
 
 end
 ;;
