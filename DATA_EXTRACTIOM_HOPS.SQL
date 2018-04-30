@@ -32,8 +32,6 @@ CREATE TABLE IF NOT EXISTS `hops` (
   `hemoglobin_date` datetime DEFAULT NULL,
   `patient_status` varchar(1) DEFAULT NULL,
   `patient_status_date` datetime DEFAULT NULL,
-  `last_visit_date`  datetime DEFAULT NULL,
-  `next_visit_date`   datetime DEFAULT NULL,
   `urban` varchar(1) DEFAULT NULL,
   `main` varchar(1) DEFAULT NULL,
   `location_id` int(11) DEFAULT NULL
@@ -55,6 +53,13 @@ CREATE TABLE IF NOT EXISTS `art_pick_up` (
   `patient_id` int(11) DEFAULT NULL,
   `regime` varchar(255) DEFAULT NULL,
   `art_date` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+
+CREATE TABLE IF NOT EXISTS `hops_visit` (
+  `patient_id` int(11) DEFAULT NULL,
+  `next_visit_date`   datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `previous_tb_positive_screen` (
@@ -312,17 +317,15 @@ from 	hops p
 		inner join obs o on o.encounter_id=e.encounter_id
 where 	e.voided=0 and o.voided=0 and e.encounter_type in (6,9,13) and o.concept_id=5497 and o.obs_datetime between startDate and endDate;
 
-
-
-/*CD4*/
-insert into art_pick_up(patient_id,art,art_date)
+/*VISITAS*/
+insert into hops_visit(patient_id,next_visit_date)
 Select distinct	p.patient_id,
-		o.value_numeric,
-		o.obs_datetime,
+		o.obs_datetime
 from 	hops p 
 		inner join encounter e on p.patient_id=e.patient_id	
 		inner join obs o on o.encounter_id=e.encounter_id
-where 	e.voided=0 and o.voided=0 and e.encounter_type in (6,9,13) and o.concept_id=5497 and o.obs_datetime between startDate and endDate;
+where 	e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and o.concept_id=1410 and o.obs_datetime between startDate and endDate;
+
 
 
 /*TB*/
@@ -342,25 +345,53 @@ where 	e.voided=0 and o.voided=0 and e.encounter_type in (6,9,13) and o.concept_
 insert into art_pick_up(patient_id,regime,art_date)
   select  p.patient_id,
   case   o.value_coded     
-         WHEN 6324 THEN  'TDF+3TC+EFV'
-         WHEN 1651 THEN 'AZT+3TC+NVP'
-         WHEN 1703 THEN 'AZT+3TC+EFV'  
-         WHEN 6343 THEN 'TDF+3TC+NVP' 
-         WHEN 792  THEN 'D4T+3TC+NVP' 
-         WHEN 6103 THEN 'D4T+3TC+LPV/r' 
-         WHEN 1827 THEN 'D4T+3TC+EFV' 
-         WHEN 6102 THEN 'D4T+3TC+ABC' 
-         WHEN 6116 THEN 'AZT+3TC+ABC' 
-         WHEN 6100 THEN 'AZT+3TC+LPV/r'
-         WHEN 6104 THEN 'ABC+3TC+EFV'
-         WHEN 6106 THEN 'ABC+3TC+LPV/r'
-         WHEN 6108 THEN 'TDF+3TC+LPV/r(2ª Linha)'
-         WHEN 1314 THEN 'AZT+3TC+LPV/r(2ª Linha)'
-         WHEN 1311 THEN 'ABC+3TC+LPV/r (2ª Linha)'
-         WHEN 1315 THEN 'TDF+3TC+EFV (2ª Linha)'
-         WHEN 6329 THEN 'TDF+3TC+RAL+DRV/r (3ª Linha)'
-         WHEN 6330 THEN 'AZT+3TC+RAL+DRV/r (3ª Linha)'
-         else null end,
+        when 1651 then 'AZT+3TC+NVP'
+        when 6324 then 'TDF+3TC+EFV'
+        when 1703 then 'AZT+3TC+EFV'
+        when 6243 then 'TDF+3TC+NVP'
+        when 6103 then 'D4T+3TC+LPV/r'
+        when 792  then 'D4T+3TC+NVP'
+        when 1827 then 'D4T+3TC+EFV'
+        when 6102 then 'D4T+3TC+ABC'
+        when 6116 then 'AZT+3TC+ABC'
+        when 6108 then 'TDF+3TC+LPV/r(2ª Linha)'
+        when 6100 then 'AZT+3TC+LPV/r(2ª Linha)'
+        when 6329 then 'TDF+3TC+RAL+DRV/r (3ª Linha)'
+        when 6330 then 'AZT+3TC+RAL+DRV/r (3ª Linha)'
+        when 6105 then 'ABC+3TC+NVP'
+        when 6325 then 'D4T+3TC+ABC+LPV/r (2ª Linha)'
+        when 6326 then 'AZT+3TC+ABC+LPV/r (2ª Linha)'
+        when 6327 then 'D4T+3TC+ABC+EFV (2ª Linha)'
+        when 6328 then 'AZT+3TC+ABC+EFV (2ª Linha)'
+        when 6109 then 'AZT+DDI+LPV/r (2ª Linha)'
+        when 6110 then 'D4T20+3TC+NVP'
+        when 1702 then 'AZT+3TC+NFV'
+        when 817  then 'AZT+3TC+ABC'
+        when 6104 then 'ABC+3TC+EFV'
+        when 6106 then 'ABC+3TC+LPV/r'
+        when 6244 then 'AZT+3TC+RTV'
+        when 1700 then 'AZT+DDl+NFV'
+        when 633  then 'EFV'
+        when 625  then 'D4T'
+        when 631  then 'NVP'
+        when 628  then '3TC'
+        when 635  then 'NFV'
+        when 797  then 'AZT'
+        when 814  then 'ABC'
+        when 6107 then 'TDF+AZT+3TC+LPV/r'
+        when 6236 then 'D4T+DDI+RTV-IP'
+        when 1701 then 'ABC+DDI+NFV'
+        when 1311 then 'ABC+3TC+LPV/r (2ª Linha)'
+        when 1313 then 'ABC+3TC+EFV (2ª Linha)'
+        when 1314 then 'AZT+3TC+LPV (2ª Linha)'
+        when 1315 then 'TDF+3TC+EFV (2ª Linha)'
+        when 6114 then '3DFC'
+        when 6115 then '2DFC+EFV'
+        when 6233 then 'AZT+3TC+DDI+LPV'
+        when 6234 then 'ABC+TDF+LPV'
+        when 6242 then 'D4T+DDI+NVP'
+        when 6118 then 'DDI50+ABC+LPV'
+        else null end,
   		 encounter_datetime
 	from    hops p
 			inner join encounter e on p.patient_id=e.patient_id
