@@ -40,8 +40,7 @@ CREATE TABLE IF NOT EXISTS `hops` (
 -- ----------------------------
 -- Table structure for cd4
 -- ----------------------------
-DROP TABLE IF EXISTS IN NOT EXISTS `cd4`;
-CREATE TABLE `cd4` (
+CREATE TABLE IF NOT EXISTS `hops_cd4` (
   `patient_id` int(11) DEFAULT NULL,
   `cd4` double DEFAULT NULL,
   `cd4_date` datetime DEFAULT NULL,
@@ -52,13 +51,15 @@ CREATE TABLE `cd4` (
 CREATE TABLE IF NOT EXISTS `art_pick_up` (
   `patient_id` int(11) DEFAULT NULL,
   `regime` varchar(255) DEFAULT NULL,
-  `art_date` datetime DEFAULT NULL
+  `art_date` datetime DEFAULT NULL,
+  `next_art__date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 
 CREATE TABLE IF NOT EXISTS `hops_visit` (
   `patient_id` int(11) DEFAULT NULL,
+  `visit_date`   datetime DEFAULT NULL
   `next_visit_date`   datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -206,7 +207,7 @@ and hops.patient_id=peso.patient_id
 and obs.voided=0 and obs.obs_datetime=peso.encounter_datetime
 and obs.concept_id=5089;
 
-/*Altura*/
+/*ALTURA*/
 update hops,
 ( select  p.patient_id as patient_id,
       min(encounter_datetime) encounter_datetime
@@ -256,14 +257,14 @@ and hops.patient_id=imc.patient_id
 and obs.voided=0 and obs.obs_datetime=imc.encounter_datetime
 
 
-/*HEMOGLOBINA */
+/*HEMOGLOBINA SEGUIMENTO */
 update hops,
 (   select  p.patient_id,
       min(encounter_datetime) encounter_datetime      
   from    patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
-  where   e.voided=0 and e.encounter_type=6 and o.obs_datetime=e.encounter_datetime 
+  where   e.voided=0 and e.encounter_type in(6,9) and o.obs_datetime=e.encounter_datetime 
       and o.concept_id=1692 
   group by p.patient_id
 )hemoglobin,
@@ -273,6 +274,25 @@ where hops.patient_id=obs.person_id
 and hops.patient_id=hemoglobin.patient_id 
 and obs.voided=0 and obs.obs_datetime=hemoglobin.encounter_datetime
  and obs.concept_id=1692 ;
+
+
+/*HEMOGLOBINA LAB */
+update hops,
+(   select  p.patient_id,
+      min(encounter_datetime) encounter_datetime      
+  from    patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=13 and o.obs_datetime=e.encounter_datetime 
+      and o.concept_id=21 and hops.hemoglobin is null
+  group by p.patient_id
+)hemoglobin,
+obs 
+set  hops.hemoglobin=obs.value_numeric, hops.hemoglobin_date=hemoglobin.encounter_datetime
+where hops.patient_id=obs.person_id 
+and hops.patient_id=hemoglobin.patient_id 
+and obs.voided=0 and obs.obs_datetime=hemoglobin.encounter_datetime
+ and obs.concept_id=21 ;
 
 
  /*ESTADO ACTUAL TARV*/
@@ -308,24 +328,15 @@ where hops.patient_id=seguimento.patient_id;
 
 
 /*CD4*/
-insert into cd4(patient_id,cd4,cd4_date)
+insert into hops_cd4(patient_id,cd4,cd4_date)
 Select distinct	p.patient_id,
 		o.value_numeric,
 		o.obs_datetime,
 from 	hops p 
 		inner join encounter e on p.patient_id=e.patient_id	
 		inner join obs o on o.encounter_id=e.encounter_id
-where 	e.voided=0 and o.voided=0 and e.encounter_type in (6,9,13) and o.concept_id=5497 and o.obs_datetime between startDate and endDate;
-
-/*VISITAS*/
-insert into hops_visit(patient_id,next_visit_date)
-Select distinct	p.patient_id,
-		o.obs_datetime
-from 	hops p 
-		inner join encounter e on p.patient_id=e.patient_id	
-		inner join obs o on o.encounter_id=e.encounter_id
-where 	e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and o.concept_id=1410 and o.obs_datetime between startDate and endDate;
-
+where 	e.voided=0 and o.voided=0 and e.encounter_type in (6,9,13) and o.concept_id=5497 
+and o.obs_datetime between startDate and endDate;
 
 
 /*TB*/
@@ -392,18 +403,36 @@ insert into art_pick_up(patient_id,regime,art_date)
         when 6242 then 'D4T+DDI+NVP'
         when 6118 then 'DDI50+ABC+LPV'
         else null end,
-  		 encounter_datetime
+  		encounter_datetime
 	from    hops p
 			inner join encounter e on p.patient_id=e.patient_id
 			inner join obs o on o.person_id=e.patient_id
-	where   encounter_type=18  and o. concept_id=1088 and e.voided=0 and p.patient_id=o.person_id
+	where   encounter_type=18 and o.concept_id=1088  and e.voided=0 
+	and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and e.encounter_datetime between startDate and endDate; ;
 
-/*PROXIMO SEGUIMENTO*/
-update hops, obs o 
-set hops.next_visit_date=o.value_datetime
- where hops.last_visit_date=o.obs_datetime 
-		and hops.patient_id=o.person_id and 
-		 o.concept_id=1410  and o.voided=0;
+/*PROXIMO LEVANTAMENTO*/
+update art_pick_up,obs 
+set  art_pick_up.next_art__date=obs.value_datetime
+where 	art_pick_up.patient_id=obs.person_id and
+		art_pick_up.art_date=obs.obs_datetime and 
+		obs.concept_id=5096 and 
+		obs.voided=0;
+
+/*VISITAS*/
+insert into hops_visit(patient_id,visit_date)
+Select distinct	p.patient_id,e.encounter_datetime 
+from 	hops p 
+		inner join encounter e on p.patient_id=e.patient_id	
+where 	e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime between startDate and endDate;
+
+
+/* PROXIMA VISITAS*/
+update hops_visit,obs 
+set  hops_visit.next_visit_date=obs.value_datetime
+where 	hops_visit.patient_id=obs.person_id and
+		hops_visit.visit_date=obs.obs_datetime and 
+		obs.concept_id=1410 and 
+		obs.voided=0;
 
 update hops,location
 set hops.health_facility=location.name
@@ -449,9 +478,6 @@ end if;
 if district='Ile' then
 	update hops set main='Y' where location_id in (4,55); 
 end if;
-
-
-
 
 END
 ;;
