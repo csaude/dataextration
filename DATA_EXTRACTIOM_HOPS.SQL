@@ -64,8 +64,8 @@ CREATE TABLE IF NOT EXISTS `hops_visit` (
 
 CREATE TABLE IF NOT EXISTS `hops_tb_investigation` (
   `patient_id` int(11) DEFAULT NULL,
-  `tb` double DEFAULT NULL,
-  `tb_date` varchar(1) DEFAULT NULL
+  `tb` varchar(255) DEFAULT NULL,
+  `tb_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- ----------------------------
@@ -77,10 +77,10 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `FillHOPS`(startDate date,endDate da
     READS SQL DATA
 begin
 
-/*BUSCAR ID DO PACIENTE*/
+/*BUSCAR ID DO PACIENTE E LOCATION*/
 UPDATE hops,
        patient_identifier
-SET hops.patient_id = patient_identifier.patient_id
+SET hops.patient_id = patient_identifier.patient_id, hops.location_id=patient_identifier.location_id
 WHERE patient_identifier.identifier_type=2
   AND patient_identifier.identifier=hops.new_nid;
 
@@ -148,6 +148,11 @@ UPDATE hops,
    GROUP BY patient_id)inicio_real
 SET hops.art_initiation_date=inicio_real.data_inicio
 WHERE hops.patient_id=inicio_real.patient_id;
+
+
+/*Data de Naicimento*/
+update hops,person set hops.openmrs_age=round(datediff(hops.art_initiation_date,person.birthdate)/365)
+where  person_id=hops.patient_id;
 
 /*INSCRICAO*/
 UPDATE hops,
