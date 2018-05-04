@@ -21,8 +21,6 @@ CREATE TABLE IF NOT EXISTS `hops` (
   `art_initiation_date` datetime DEFAULT NULL,
   `first_viral_load_result` int(11)  DEFAULT NULL,
   `first_viral_load_result_date` datetime DEFAULT NULL,
-  `start_tb_treatment` datetime DEFAULT NULL,
-  `end_tb_treatment` datetime DEFAULT NULL,
   `weight` double DEFAULT NULL,
   `weight_date` datetime DEFAULT NULL,
   `height` double DEFAULT NULL,
@@ -67,6 +65,18 @@ CREATE TABLE IF NOT EXISTS `hops_tb_investigation` (
   `tb` varchar(255) DEFAULT NULL,
   `tb_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `hops_start_tb_tretment` (
+  `patient_id` int(11) DEFAULT NULL,
+  `start_tb_treatment` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `hops_end_tb_tretment` (
+  `patient_id` int(11) DEFAULT NULL,
+  `end_tb_treatment` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
 
 -- ----------------------------
 -- Procedure structure for FillTCVGAACTable
@@ -203,7 +213,7 @@ update hops,
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
   where   e.voided=0 and e.encounter_type=1 
-  and o.obs_datetime=e.encounter_datetime and o.concept_id=5089
+  and o.obs_datetime=e.encounter_datetime and o.concept_id=5089 and e.encounter_datetime between startDate and endDate
   group by p.patient_id
 )peso,obs
 set hops.weight=obs.value_numeric, hops.weight_date=peso.encounter_datetime
@@ -219,7 +229,7 @@ update hops,
       from  patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
-  where   e.voided=0 and e.encounter_type=1 and o.obs_datetime=e.encounter_datetime and o.concept_id=5090
+  where   e.voided=0 and e.encounter_type=1 and o.obs_datetime=e.encounter_datetime and o.concept_id=5090 and e.encounter_datetime between startDate and endDate
   group by p.patient_id
 )altura,obs
 set hops.height=obs.value_numeric, hops.height_date=altura.encounter_datetime
@@ -228,47 +238,14 @@ and hops.patient_id=altura.patient_id
 and obs.voided=0 and obs.obs_datetime=altura.encounter_datetime
 and obs.concept_id=5090;
 
-/*TB start Date*/
-update hops,
-( select  p.patient_id,
-      max(encounter_datetime) encounter_datetime
-  from  patient p
-      inner join encounter e on p.patient_id=e.patient_id
-      inner join obs o on o.encounter_id=e.encounter_id
-  where   e.voided=0 and e.encounter_type in (6,9) and o.concept_id=1113 and o.voided=0
-  group by p.patient_id
-)tb, obs
-set hops.start_tb_treatment=obs.value_datetime
-where hops.patient_id=obs.person_id 
-and hops.patient_id=tb.patient_id 
-and obs.voided=0 and obs.obs_datetime=tb.encounter_datetime
-and obs.concept_id=1113;
 
-/*TB end Date*/
-update hops,
-( select  p.patient_id,
-      max(encounter_datetime) encounter_datetime
-  from  patient p
-      inner join encounter e on p.patient_id=e.patient_id
-      inner join obs o on o.encounter_id=e.encounter_id
-  where   e.voided=0 and e.encounter_type in (6,9) and o.concept_id=6120 and o.voided=0
-  group by p.patient_id
-)tb, obs
-set hops.end_tb_treatment=obs.value_datetime
-where hops.patient_id=obs.person_id 
-and hops.patient_id=tb.patient_id 
-and obs.voided=0 and obs.obs_datetime=tb.encounter_datetime
-and obs.concept_id=6120;
-
-
-/*IMC*/
 update hops,
 ( select  p.patient_id,
       min(encounter_datetime) encounter_datetime
   from  patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
-  where   e.voided=0 and e.encounter_type=1 and o.obs_datetime=e.encounter_datetime and o.concept_id=1342
+  where   e.voided=0 and e.encounter_type=1 and o.obs_datetime=e.encounter_datetime and o.concept_id=1342 and e.encounter_datetime between startDate and endDate
   group by p.patient_id
 )imc,obs
 set hops.imc=obs.value_numeric, hops.imc_date=imc.encounter_datetime
@@ -284,7 +261,7 @@ update hops,
   from    patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
-  where   e.voided=0 and e.encounter_type in(6,9) and o.obs_datetime=e.encounter_datetime 
+  where   e.voided=0 and e.encounter_type in(6,9) and o.obs_datetime=e.encounter_datetime  and e.encounter_datetime between startDate and endDate
       and o.concept_id=1692 
   group by p.patient_id
 )hemoglobin,obs 
@@ -302,7 +279,7 @@ update hops,
   from    patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
-  where   e.voided=0 and e.encounter_type=13 and o.obs_datetime=e.encounter_datetime 
+  where   e.voided=0 and e.encounter_type=13 and o.obs_datetime=e.encounter_datetime and e.encounter_datetime between startDate and endDate 
       and o.concept_id=21
   group by p.patient_id
 )hemoglobin,
@@ -338,9 +315,7 @@ Select distinct p.patient_id,o.value_numeric, o.obs_datetime
 from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type in (6,9,13) and o.concept_id=5497 
-and o.obs_datetime between startDate and endDate;
-
+where   e.voided=0 and o.voided=0 and e.encounter_type in (6,9,13) and o.concept_id=5497 ;
 
 /*TB*/
 insert into hops_tb_investigation(patient_id,tb,tb_date)
@@ -411,7 +386,7 @@ insert into hops_art_pick_up(patient_id,regime,art_date)
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
   where   encounter_type=18 and o.concept_id=1088  and e.voided=0 
-  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and e.encounter_datetime between startDate and endDate;
+  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime;
 
 /*PROXIMO LEVANTAMENTO*/
 update hops_art_pick_up,obs 
@@ -426,7 +401,27 @@ insert into hops_visit(patient_id,visit_date)
 Select distinct p.patient_id,e.encounter_datetime 
 from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
-where   e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime between startDate and endDate;
+where   e.voided=0 and e.encounter_type in (6,9) ;
+
+
+/*TB start Date*/
+insert into hops_start_tb_tretment(patient_id,start_tb_treatment)
+Select distinct p.patient_id, min(encounter_datetime) encounter_datetime
+from  hops p 
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type in (6,9) and o.concept_id=1113 and o.voided=0
+  group by p.patient_id;
+
+
+  /*TB end Date*/
+insert into hops_end_tb_tretment(patient_id,end_tb_treatment)
+Select distinct p.patient_id, max(encounter_datetime) encounter_datetime
+from  hops p 
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type in (6,9) and o.concept_id=6120
+  group by p.patient_id;
 
 
 /* PROXIMA VISITAS*/
