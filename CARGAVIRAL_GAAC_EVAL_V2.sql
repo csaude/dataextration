@@ -13,8 +13,6 @@ CREATE TABLE `cvgaac_patient_v2` (
   `last_visit_date`  datetime DEFAULT NULL,
   `last_art_pick_up`  datetime DEFAULT NULL,
   `next_visit_date`   datetime DEFAULT NULL,
-  `location_id` int(11) DEFAULT NULL,
-  `health_facility` varchar(100) DEFAULT NULL,
   `next_artpick_up_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=32768 DEFAULT CHARSET=utf8;
 
@@ -31,8 +29,8 @@ begin
 truncate table cvgaac_patient_v2;
 
 /*Inscricao*/
-insert into cvgaac_patient_v2(patient_id, location_id)
-Select 	e.patient_id, e.location_id
+insert into cvgaac_patient_v2(patient_id)
+Select 	e.patient_id
 from 	patient p			
 		inner join encounter e on e.patient_id=p.patient_id
 		inner join person pe on pe.person_id=p.patient_id			
@@ -80,11 +78,6 @@ set cvgaac_patient_v2.next_artpick_up_date=o.value_datetime
  where cvgaac_patient_v2.last_art_pick_up=o.obs_datetime 
 		and cvgaac_patient_v2.patient_id=o.person_id and 
 		 o.concept_id=5096  and o.voided=0;
-
-
-update cvgaac_patient_v2,location
-set cvgaac_patient_v2.health_facility=location.name
-where cvgaac_patient_v2.location_id=location.location_id;
 
 update cvgaac_patient_v2 set urban='N';
 
