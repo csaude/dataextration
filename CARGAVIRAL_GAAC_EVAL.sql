@@ -79,9 +79,9 @@ CREATE TABLE `cvgaac_cv` (
 -- ----------------------------
 -- Procedure structure for FillTCVGAACTable
 -- ----------------------------
-DROP PROCEDURE IF EXISTS `	`;
+DROP PROCEDURE IF EXISTS `FillTCVGAACTable`;
 DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` PROCEDURE `''FillTCVGAACTable''`(beforeARTStartDate date,cvStartDate date,cvEndDate date,district varchar(100))
+CREATE DEFINER=`root`@`localhost` PROCEDURE `FillTCVGAACTable`(beforeARTStartDate date,cvStartDate date,cvEndDate date,district varchar(100))
     READS SQL DATA
 begin
 

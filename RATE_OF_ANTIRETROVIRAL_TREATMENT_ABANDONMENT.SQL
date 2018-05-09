@@ -54,7 +54,9 @@ CREATE TABLE `rate_patient` (
   `last_cd4` decimal(10,0) DEFAULT NULL,
   `last_art_pick_up_date` datetime DEFAULT NULL,
   `first_viral_load` int(11)  DEFAULT NULL,
-  `last_viral_load` int(11)  DEFAULT NULL
+  `last_viral_load` int(11)  DEFAULT NULL,
+  `diagnostic_date` varchar(225) DEFAULT NULL,
+  `patient_status` varchar(225) DEFAULT NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=32768 DEFAULT CHARSET=utf8;
 
 -- ----------------------------
@@ -412,6 +414,32 @@ set rate_patient.pregnancy= 'YES'
 where obs.person_id=rate_patient.patient_id and obs.concept_id=1600 and obs.voided=0 and encounter.voided=0 and rate_patient.pregnancy is null
 and encounter.encounter_type in(1,5) and encounter.encounter_datetime=obs.obs_datetime 
 and obs.person_id=encounter.patient_id;
+
+
+/*DATA DE DIAGNISTICO*/
+update rate_patient,obs
+set rate_patient.diagnostic_date = obs.value_datetime
+where obs.person_id=rate_patient.patient_id and obs.concept_id=6123 and voided=0;
+
+
+ /*ESTADO ACTUAL TARV*/
+update rate_patient,
+    (select   pg.patient_id,ps.start_date,
+        case ps.state
+          when 7 then 'TRASFERRED OUT'
+          when 8 then 'SUSPENDED'
+          when 9 then 'ART LTFU'
+          when 10 then 'DEAD'
+        else null end as codeestado
+    from  rate_patient p 
+        inner join patient_program pg on p.patient_id=pg.patient_id
+        inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+    where   pg.voided=0 and ps.voided=0 and  
+        pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null
+    ) out_state
+set   rate_patient.patient_status=out_state.codeestado
+where rate_patient.patient_id=out_state.patient_id;
+
 
 /*Peso*/
 update rate_patient,
