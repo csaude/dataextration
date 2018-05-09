@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS `hops` (
   `imc_date` datetime DEFAULT NULL,
   `hemoglobin` int(11)  DEFAULT NULL,
   `hemoglobin_date` datetime DEFAULT NULL,
-  `patient_status` varchar(1) DEFAULT NULL,
+  `patient_status` varchar(225) DEFAULT NULL,
   `patient_status_date` datetime DEFAULT NULL,
   `urban` varchar(1) DEFAULT NULL,
   `main` varchar(1) DEFAULT NULL
@@ -332,7 +332,7 @@ where   e.voided=0 and o.voided=0 and e.encounter_type in (6,9,13) and o.concept
 
 /*LEVANTAMENTO ARV*/
 insert into hops_art_pick_up(patient_id,regime,art_date)
-  select  p.patient_id,
+  select distinct p.patient_id,
   case   o.value_coded     
         when 1651 then 'AZT+3TC+NVP'
         when 6324 then 'TDF+3TC+EFV'
