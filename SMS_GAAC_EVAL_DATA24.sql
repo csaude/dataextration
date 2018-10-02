@@ -473,11 +473,11 @@ update 	sms_patient,person_attribute
 set 	has_phone_number='Y'
 where 	patient_id=person_id and person_attribute_type_id=9 and voided=0 and value is not null and length(value)>=9;
 
-/*SMS sent*/
-insert into sms_sent(patient_id,date_sent,alert_date)
-Select 	distinct p.patient_id,ss.created,alert_date
-from 	sms_patient p 
-		inner join smsreminder_sent ss on p.patient_id=ss.patient_id;
+-- /*SMS sent*/
+-- insert into sms_sent(patient_id,date_sent,alert_date)
+-- Select 	distinct p.patient_id,ss.created,alert_date
+-- from 	sms_patient p 
+-- 		inner join smsreminder_sent ss on p.patient_id=ss.patient_id;
 
 
 /*ART Pickup*/
