@@ -19,9 +19,8 @@ SET FOREIGN_KEY_CHECKS=0;
 -- Table structure for art_pickup
 -- ----------------------------
 
-DROP TABLE IF EXISTS `healers_patient`;
 
-CREATE TABLE `healers_patient` (
+CREATE TABLE IF NOT EXISTS `healers_patient` (
   `nid`varchar(100) DEFAULT NULL,
   `health_facility` varchar(100) DEFAULT NULL,
   `location_id` int(11) DEFAULT NULL,
