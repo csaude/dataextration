@@ -98,6 +98,22 @@ CREATE TABLE `healers_viral_load` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
+DROP TABLE IF EXISTS `healers_home_visitq30`;
+CREATE TABLE `healers_home_visitq30` (
+  `patient_id` int(11) DEFAULT NULL,
+  `reason_for_the_visit` varchar(100) DEFAULT NULL,
+  `visit_date` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `healers_home_visitq31`;
+CREATE TABLE `healers_home_visitq31` (
+  `patient_id` int(11) DEFAULT NULL,
+  `reason_for_the_visit` varchar(100) DEFAULT NULL,
+  `visit_date` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+
 DROP PROCEDURE IF EXISTS `FillHealersPatient`;
 
 DELIMITER ;;
@@ -108,18 +124,20 @@ begin
 truncate table healers_art_pickup;
 truncate table healers_viral_load;
 truncate table healers_cd4;
-
-
-/*Sexo*/
-update healers_patient,person set healers_patient.sex=person.gender
-where  person.person_id=healers_patient.patient_id;
+truncate table healers_home_visitq30;
+truncate table healers_home_visitq31;
 
 /*BUSCAR ID DO PACIENTE E LOCATION*/
 UPDATE healers_patient,
        patient_identifier
 SET healers_patient.patient_id = patient_identifier.patient_id, healers_patient.location_id=patient_identifier.location_id
 WHERE patient_identifier.identifier_type=2
-  AND patient_identifier.identifier=healers_patient.nid;
+  AND patient_identifier.identifier=healers_patient.nid AND patient_identifier.voided=0;
+
+
+  /*Sexo*/
+update healers_patient,person set healers_patient.sex=person.gender
+where  person.person_id=healers_patient.patient_id;
 
   /*BUSCAR NOME DA LOCATION*/
 UPDATE healers_patient,
@@ -380,11 +398,10 @@ update healers_patient,
     (
         select  p.patient_id,
                 max(e.encounter_datetime) datafila
-        from    patient p 
+        from    healers_patient p 
                 inner join encounter e on p.patient_id=e.patient_id
-        where   e.encounter_type=18 and e.voided=0 and p.voided=0 and 
-                e.encounter_datetime between startDate AND endDate
-        GROUP by e.patient_id
+        where   e.encounter_type=18 and e.voided=0  and e.encounter_datetime between startDate AND endDate
+                GROUP by e.patient_id
     ) max_fila
     inner join obs o on o.person_id=max_fila.patient_id and o.obs_datetime=max_fila.datafila
     where o.voided=0 and o.concept_id=1088
@@ -470,6 +487,48 @@ insert into healers_art_pickup(patient_id,regime,art_date)
   where   encounter_type=18 and o.concept_id=1088  and e.voided=0  
   and e.encounter_datetime between startDate AND endDate
   and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime;
+
+
+   /*VISIT Q30*/   
+insert into healers_home_visitq30(patient_id,reason_for_the_visit,visit_date)
+select  p.patient_id,
+        case o.value_coded
+        when 2005  then 'PATIENT FORGOT VISIT DATE'
+        when 2006  then 'PATIENT IS BEDRIDDEN AT HOME'
+        when 2007  then 'DISTANCE OR MONEY FOR TRANSPORT IS TO MUCH FOR PATIENT'
+        when 2008  then 'PATIENT HAS LACK OF FOOD'
+        when 2014  then 'PATIENTS WORK PREVENTS CLINIC VISIT'
+        when 2010  then 'PATIENT IS DISSATISFIED WITH DAY HOSPITAL SERVICES'
+        when 2015  then 'PATIENT DOES NOT LIKE ARV TREATMENT SIDE EFFECTS'
+        when 2013  then 'PATIENT IS TREATING HIV WITH TRADITIONAL MEDICINE'
+        when 2012  then 'PATIENT HAS LACK OF MOTIVATION'
+        when 2017  then 'OTHER REASON WHY PATIENT MISSED VISIT'
+        else null end,
+        o.obs_datetime
+  from  healers_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where e.encounter_datetime  between startDate AND endDate and 
+  e.encounter_type=21 and o.voided=0 and e.voided=0 and o.concept_id=2016;
+
+     /*VISIT Q31*/   
+insert into healers_home_visitq31(patient_id,reason_for_the_visit,visit_date)
+select  p.patient_id,
+        case o.value_coded
+        when 1383  then 'GOOD'
+        when 2157  then 'THE PATIENT HAD DIFFICULTY'
+        when 2156  then 'CONCERNS WITH FAMILY'
+        when 2015  then 'PATIENT DOES NOT LIKE ARV TREATMENT SIDE EFFECTS'
+        when 2153  then 'PATIENT HAS LACK OF SUPPORT'
+        when 2154  then 'PROBLEMS IN TAKING MEDICINES'
+        when 2155  then 'NOT REVEALED HIS DIAGNOSIS'
+        else null end,
+        o.obs_datetime
+  from  healers_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where e.encounter_datetime  between '2018-04-01'AND '2018-08-01' and 
+  e.encounter_type=21 and o.voided=0 and e.voided=0 and o.concept_id=2157;
 
 
   /*TB DIAGNOSTIC*/   
