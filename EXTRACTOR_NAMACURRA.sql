@@ -208,7 +208,7 @@ update patient,
         inner join openmrs.encounter e on p.patient_id=e.patient_id 
         inner join openmrs.obs o on o.encounter_id=e.encounter_id
     where   e.voided=0 and o.voided=0 and
-        e.encounter_type in (5,7) and o.concept_id=6123 and o.value_datetime between '2016-02-02' AND '2017-09-30' and e.location_id=5
+        e.encounter_type in (5,7) and o.concept_id=6123 and o.value_datetime between '2017-04-01' AND '2018-08-01' and e.location_id=5
   ) diagnostico
 set   patient.date_of_diagnosis=diagnostico.value_datetime
 where   patient.patient_id=diagnostico.patient_id;
@@ -224,7 +224,7 @@ update patient,
           inner join openmrs.obs o on o.encounter_id=e.encounter_id
       where   e.voided=0 and o.voided=0 and  
           e.encounter_type in (18,6,9) and o.concept_id=1255 and o.value_coded=1256 
-          and e.encounter_datetime between '2016-02-02' AND '2017-09-30'  and e.location_id=5
+          and e.encounter_datetime between '2017-04-01' AND '2018-08-01'  and e.location_id=5
       group by p.patient_id
       
       union
@@ -235,7 +235,7 @@ update patient,
           inner join openmrs.obs o on e.encounter_id=o.encounter_id
       where   e.voided=0 and o.voided=0 and e.encounter_type in (18,6,9) and 
           o.concept_id=1190 and o.value_datetime is not null and 
-          o.value_datetime between '2016-02-02' AND '2017-09-30'  and e.location_id=5
+          o.value_datetime between '2017-04-01' AND '2018-08-01'  and e.location_id=5
       group by p.patient_id
       
       union
