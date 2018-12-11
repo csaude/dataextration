@@ -34,8 +34,8 @@ CREATE TABLE `cvgaac_patient` (
   `weight_enrollment` double DEFAULT NULL,
   `weight_date` datetime DEFAULT NULL,
   `height_enrollment` double DEFAULT NULL,
-  `date_of_TB_medication_completion`  datetime DEFAULT NULL,
   `tb_at_screening` varchar(255) DEFAULT NULL,
+  `date_of_TB_medication_completion` datetime DEFAULT NULL,
   `height_date` datetime DEFAULT NULL,
   `pmtct_entry_date` datetime DEFAULT NULL,
   `pmtct_exit_date` datetime DEFAULT NULL,
@@ -407,6 +407,24 @@ where 	estado_final=6  and
 where (valor_carga is not null and valor_carga<1000) or (valor_carga is null and valor_cd4 is not null and valor_cd4>200)
 group by patient_id;
 
+
+/*INSCRICAO*/
+UPDATE cvgaac_patient,
+
+  (SELECT e.patient_id,
+          min(encounter_datetime) data_abertura
+   FROM patient p
+   INNER JOIN encounter e ON e.patient_id=p.patient_id
+   INNER JOIN person pe ON pe.person_id=p.patient_id
+   WHERE p.voided=0
+     AND e.encounter_type IN (5,7)
+     AND e.voided=0
+     AND pe.voided=0
+   GROUP BY p.patient_id) enrollment
+
+SET cvgaac_patient.enrollment_date=enrollment.data_abertura
+WHERE cvgaac_patient.patient_id=enrollment.patient_id;
+
 delete from cvgaac_patient where enrollment_date < startDate;
 
 
@@ -535,24 +553,6 @@ set cvgaac_patient.partner_status= case obs.value_coded
              when 1457 then 'NO INFORMATION'
              else null end
 where obs.person_id=cvgaac_patient.patient_id and obs.concept_id=1449 and obs.voided=0;
-
-/*INSCRICAO*/
-UPDATE cvgaac_patient,
-
-  (SELECT e.patient_id,
-          min(encounter_datetime) data_abertura
-   FROM patient p
-   INNER JOIN encounter e ON e.patient_id=p.patient_id
-   INNER JOIN person pe ON pe.person_id=p.patient_id
-   WHERE p.voided=0
-     AND e.encounter_type IN (5,7)
-     AND e.voided=0
-     AND pe.voided=0
-   GROUP BY p.patient_id) enrollment
-
-SET cvgaac_patient.enrollment_date=enrollment.data_abertura
-WHERE cvgaac_patient.patient_id=enrollment.patient_id;
-
 
 /*ESTADIO OMS */
 update cvgaac_patient,
@@ -910,8 +910,6 @@ set 	scheduled_artpickp=value_datetime
 where 	patient_id=person_id and 
 		obs_datetime=last_artpickup and 
 		concept_id=5096 and voided=0;
-
-
 
 end
 ;;
