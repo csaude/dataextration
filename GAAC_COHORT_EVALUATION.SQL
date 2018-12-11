@@ -18,6 +18,14 @@ CREATE TABLE `cvgaac_patient` (
   `partner_status` varchar(100) DEFAULT NULL,
   `hiv_entry_point` varchar(100) DEFAULT NULL,
   `art_initiation_date` datetime DEFAULT NULL,
+  `last_clinic_visit` datetime DEFAULT NULL,
+  `scheduled_clinic_visit` datetime DEFAULT NULL,
+  `last_artpickup` datetime DEFAULT NULL,
+  `scheduled_artpickp` datetime DEFAULT NULL,  
+  `cd4_first_visit` decimal(10,0) DEFAULT NULL,
+  `cd4_first_visit_date` datetime DEFAULT NULL,
+  `bmi_art` decimal(10,0) DEFAULT NULL,
+  `bmi_art_date` datetime DEFAULT NULL,
   `WHO_clinical_stage_at_enrollment` varchar(1) DEFAULT NULL,
   `pregnancy_status_at_enrollment` varchar(100) DEFAULT NULL,
   `enrollment_date` datetime DEFAULT NULL,
@@ -825,6 +833,84 @@ update cvgaac_patient,
     ) out_state
 set   cvgaac_patient.patient_status=out_state.codeestado, cvgaac_patient.patient_status_date=out_state.start_date
 where cvgaac_patient.patient_id=out_state.patient_id;
+
+
+/*LAST CLINIC VISIT*/
+update cvgaac_patient,
+(	select 	p.patient_id,
+			max(encounter_datetime) encounter_datetime
+	from 	cvgaac_patient p
+			inner join encounter e on p.patient_id=e.patient_id
+	where 	e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime between startDate and endDate
+	group by p.patient_id
+)seguimento
+set cvgaac_patient.last_clinic_visit=seguimento.encounter_datetime
+where cvgaac_patient.patient_id=seguimento.patient_id;
+
+
+/*NEXT CLINIC VISIT*/
+update 	cvgaac_patient,obs
+set 	scheduled_clinic_visit=value_datetime
+where 	patient_id=person_id and 
+		obs_datetime=last_clinic_visit and 
+		concept_id=5096 and voided=0;
+
+/*CD4  FIRST VISIT */
+update cvgaac_patient,
+(	select 	e.patient_id,
+			min(encounter_datetime) encounter_datetime
+	from 	cvgaac_patient p
+			inner join encounter e on p.patient_id=e.patient_id
+			inner join obs o on o.encounter_id=e.encounter_id
+	where 	e.voided=0 and e.encounter_type=13 and 
+			e.encounter_datetime between enrollment_date and date_add(enrollment_date, interval 6 month) and o.concept_id=5497
+	group by p.patient_id
+)seguimento
+set cvgaac_patient.cd4_first_visit_date=seguimento.encounter_datetime
+where cvgaac_patient.patient_id=seguimento.patient_id;
+
+update 	cvgaac_patient,obs 
+set 	cvgaac_patient.cd4_first_visit=obs.value_numeric
+where 	cvgaac_patient.patient_id=obs.person_id and obs.obs_datetime=cvgaac_patient.cd4_first_visit_date and obs.concept_id=5497 and obs.voided=0;
+
+/*BMI  FIRST VISIT */
+update cvgaac_patient,
+(	select 	e.patient_id,
+			min(encounter_datetime) encounter_datetime
+	from 	cvgaac_patient p
+			inner join encounter e on p.patient_id=e.patient_id
+			inner join obs o on o.encounter_id=e.encounter_id
+	where 	e.voided=0 and e.encounter_type in (6,9) and 
+			e.encounter_datetime <=p.art_initiation_date and o.concept_id=1342 and 
+			p.art_initiation_date is not null
+	group by p.patient_id
+)seguimento
+set cvgaac_patient.bmi_art_date=seguimento.encounter_datetime
+where cvgaac_patient.patient_id=seguimento.patient_id;
+
+update 	cvgaac_patient,obs 
+set 	cvgaac_patient.bmi_art=obs.value_numeric
+where 	cvgaac_patient.patient_id=obs.person_id and obs.obs_datetime=cvgaac_patient.bmi_art_date and obs.concept_id=1342 and obs.voided=0;
+
+
+/*LAST ART PICKUP*/
+update cvgaac_patient,
+(	select 	p.patient_id,
+			max(encounter_datetime) encounter_datetime
+	from 	cvgaac_patient p
+			inner join encounter e on p.patient_id=e.patient_id
+	where 	e.voided=0 and e.encounter_type=18 and e.encounter_datetime between  startDate and endDate
+	group by p.patient_id
+)levantamento
+set cvgaac_patient.last_artpickup=levantamento.encounter_datetime
+where cvgaac_patient.patient_id=levantamento.patient_id;
+
+update 	cvgaac_patient,obs
+set 	scheduled_artpickp=value_datetime
+where 	patient_id=person_id and 
+		obs_datetime=last_artpickup and 
+		concept_id=5096 and voided=0;
+
 
 
 end
