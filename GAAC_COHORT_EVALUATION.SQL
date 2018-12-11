@@ -399,7 +399,6 @@ where 	estado_final=6  and
 where (valor_carga is not null and valor_carga<1000) or (valor_carga is null and valor_cd4 is not null and valor_cd4>200)
 group by patient_id;
 
-delete from cvgaac_patient where art_initiation_date < startDate;
 delete from cvgaac_patient where enrollment_date < startDate;
 
 
