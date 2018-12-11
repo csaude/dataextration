@@ -24,22 +24,31 @@ CREATE TABLE `cvgaac_patient` (
   `date_consent_sms` datetime DEFAULT NULL,  
   `has_phone_number` varchar(100) DEFAULT NULL, 
   `weight_enrollment` double DEFAULT NULL,
+  `weight_date` datetime DEFAULT NULL,
   `height_enrollment` double DEFAULT NULL,
+  `date_of_TB_medication_completion`  datetime DEFAULT NULL,
+  `tb_at_screening` varchar(255) DEFAULT NULL,
+  `height_date` datetime DEFAULT NULL,
   `pmtct_entry_date` datetime DEFAULT NULL,
   `pmtct_exit_date` datetime DEFAULT NULL,
+  `prophylaxis_isoniazide` varchar(100) DEFAULT NULL,
+  `prophylaxis_isoniazide_date` datetime DEFAULT NULL,
+  `patient_status` varchar(225) DEFAULT NULL,
+  `patient_status_date` datetime DEFAULT NULL,
   `location_id` int(11) DEFAULT NULL,
   `tb_co_infected_at_time_of_enrollment` varchar(5) DEFAULT NULL,   
+  `its_in_gaac` varchar(100) DEFAULT NULL,
+  `gaac_start_date`datetime DEFAULT NULL,
+  `gaac_end_date` datetime DEFAULT NULL,
   `id` int(11) NOT NULL AUTO_INCREMENT,
    PRIMARY KEY (`id`)
-
   ) ENGINE=InnoDB AUTO_INCREMENT=32768 DEFAULT CHARSET=utf8;
-
 
 -- ----------------------------
 -- Table structure for cvgaac_cv
 -- ----------------------------
-DROP TABLE IF EXISTS `cvgaac_cv`;
-CREATE TABLE `cvgaac_cv` (
+DROP TABLE IF EXISTS `gaac_cv`;
+CREATE TABLE `gaac_cv` (
   `patient_id` int(11) DEFAULT NULL,
   `cv` decimal(12,2) DEFAULT NULL,
   `cv_date` datetime DEFAULT NULL,
@@ -49,27 +58,54 @@ CREATE TABLE `cvgaac_cv` (
 
 
 -- ----------------------------
+-- Table structure for cd4
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS `gaac_cd4` (
+  `patient_id` int(11) DEFAULT NULL,
+  `cd4` double DEFAULT NULL,
+  `cd4_date` datetime DEFAULT NULL,
+  `uuid` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+CREATE TABLE IF NOT EXISTS `gaac_art_pick_up` (
+  `patient_id` int(11) DEFAULT NULL,
+  `regime` varchar(255) DEFAULT NULL,
+  `art_date` datetime DEFAULT NULL,
+  `next_art_date` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+CREATE TABLE IF NOT EXISTS `gaac_visit` (
+  `patient_id` int(11) DEFAULT NULL,
+  `visit_date`   datetime DEFAULT NULL,
+  `next_visit_date`   datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+-- ----------------------------
 -- Procedure structure for FillTCVGAACTable
 -- ----------------------------
 DROP PROCEDURE IF EXISTS `FillTCVGAACTable`;
 DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` PROCEDURE `FillTCVGAACTable`(beforeARTStartDate date,cvStartDate date,cvEndDate date,district varchar(100))
-    READS SQL DATA
+CREATE DEFINER=`root`@`localhost` PROCEDURE `FillTCVGAACTable`(startDate date,endDate date,district varchar(100)) 
+
+READS SQL DATA
 begin
 
-truncate table cvgaac_cv;
 truncate table cvgaac_patient;
+truncate table gaac_cd4;
+truncate table gaac_art_pick_up;
+truncate table gaac_visit;
 
-
-/*Inscricao*/
-insert into cvgaac_patient(patient_id, sex, birth_date, age_enrollment,art_initiation_date)
-select elegiveiscv.patient_id, elegiveiscv.gender, elegiveiscv.birthdate, elegiveiscv.idade, elegiveiscv.data_inicio from
+insert into cvgaac_patient(patient_id, sex, birth_date, age_enrollment,art_initiation_date, location_id)
+select elegiveiscv.patient_id, elegiveiscv.gender, elegiveiscv.birthdate, elegiveiscv.idade, elegiveiscv.data_inicio, elegiveiscv.location from
 (select  		
 	    pid.identifier as nid,
-		concat(ifnull(pn.given_name,''),' ',ifnull(pn.middle_name,''),' ',ifnull(pn.family_name,'')) nome,
+	    pid.location_id as location,
 		pe.gender,
 		pe.birthdate,
-		round(datediff('2018-09-20',pe.birthdate)/360) idade,
+		round(datediff(endDate,pe.birthdate)/360) idade,
 		coorte12meses_final.data_inicio,
 		regime.ultimo_regime,
 		primeiracv.data_carga,
@@ -103,7 +139,7 @@ from
 		if(if(data_proximo_lev is null and data_proximo_seguimento_estimada is not null,data_proximo_seguimento_estimada,
             if(data_proximo_lev is not null and data_proximo_seguimento_estimada is null,data_proximo_lev,
               if(data_proximo_seguimento_estimada>data_proximo_lev,data_proximo_seguimento_estimada,data_proximo_lev))) is null,9,
-		if(date('2018-09-20')>date_add(if(data_proximo_lev is null and data_proximo_seguimento_estimada is not null,data_proximo_seguimento_estimada,
+		if(date(endDate)>date_add(if(data_proximo_lev is null and data_proximo_seguimento_estimada is not null,data_proximo_seguimento_estimada,
             if(data_proximo_lev is not null and data_proximo_seguimento_estimada is null,data_proximo_lev,
               if(data_proximo_seguimento_estimada>data_proximo_lev,data_proximo_seguimento_estimada,data_proximo_lev))), interval 60 day),9,6))) estado_final
 
@@ -150,7 +186,7 @@ from
 						inner join obs o on o.encounter_id=e.encounter_id
 				where 	e.voided=0 and o.voided=0 and p.voided=0 and
 						e.encounter_type in (18,6,9) and o.concept_id=1255 and o.value_coded=1256 and
-						e.encounter_datetime<='2018-09-20' and e.location_id=252
+						e.encounter_datetime<=endDate
 				group by p.patient_id
 
 				union
@@ -162,7 +198,7 @@ from
 						inner join obs o on e.encounter_id=o.encounter_id
 				where 	p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type in (18,6,9) and
 						o.concept_id=1190 and o.value_datetime is not null and
-						o.value_datetime<='2018-09-20' and e.location_id=252
+						o.value_datetime<=endDate
 				group by p.patient_id
 
 				union
@@ -170,7 +206,7 @@ from
 				-- leva a primeira ocorrencia da inscricao do paciente no programa de Tratamento ARV
 				select 	pg.patient_id,date_enrolled data_inicio
 				from 	patient p inner join patient_program pg on p.patient_id=pg.patient_id
-				where 	pg.voided=0 and p.voided=0 and program_id=2 and date_enrolled<='2018-09-20' and pg.location_id=252
+				where 	pg.voided=0 and p.voided=0 and program_id=2 and date_enrolled<=endDate
 
 				union
 				
@@ -178,7 +214,7 @@ from
 				  SELECT 	e.patient_id, MIN(e.encounter_datetime) AS data_inicio
 				  FROM 		patient p
 							inner join encounter e on p.patient_id=e.patient_id
-				  WHERE		p.voided=0 and e.encounter_type=18 AND e.voided=0 and e.encounter_datetime<='2018-09-20' and e.location_id=252
+				  WHERE		p.voided=0 and e.encounter_type=18 AND e.voided=0 and e.encounter_datetime<=endDate
 				  GROUP BY 	p.patient_id
 
 
@@ -190,30 +226,27 @@ from
 left join
 	patient_program pg on inicio.patient_id=pg.patient_id
 	and pg.program_id=2
-	and pg.location_id=252
 	and pg.voided=0
 left join
 	patient_state ps on pg.patient_program_id=ps.patient_program_id
 	and ps.voided=0
 	and ps.state in (7,8,9,10)
-	and ps.start_date between inicio.data_inicio and '2018-09-20'
-	and (ps.end_date is null or (ps.end_date is not null and ps.end_date) > '2018-09-20')
+	and ps.start_date between inicio.data_inicio and endDate
+	and (ps.end_date is null or (ps.end_date is not null and ps.end_date) > endDate)
 -- Aqui encontramos os levantamentos de ARV efectuados do paciente antes dos 12 meses de TARV
 left join
 	encounter e on e.patient_id=inicio.patient_id
 	and e.encounter_type=18
-	and e.encounter_datetime between inicio.data_inicio and '2018-09-20'
+	and e.encounter_datetime between inicio.data_inicio and endDate
 	and e.voided=0
-	and e.location_id=252
 -- Aqui encontramos as consultas efectuadas do paciente antes dos 12 meses de TARV
 left join
 	encounter e1 on e1.patient_id=inicio.patient_id
 	and e1.encounter_type in (6,9)
-	and e1.encounter_datetime between inicio.data_inicio and '2018-09-20'
+	and e1.encounter_datetime between inicio.data_inicio and endDate
 	and e1.voided=0
-	and e1.location_id=252
 -- Aqui filtramos os pacientes que somente iniciaram TARV no nosso periodo de interesse
-where data_inicio<='2018-09-20'
+where data_inicio<=endDate
 group by patient_id
 ) inicio_estado
 -- Aqui encontramos a data do proximo levantamento marcado no ultimo levantamento de ARV antes dos 12 meses
@@ -222,14 +255,12 @@ left join
 	and obs_fila.voided=0
 	and obs_fila.obs_datetime=inicio_estado.data_fila
 	and obs_fila.concept_id=5096
-	and obs_fila.location_id=252
 -- Aqui encontramos a data da proxima consulta marcada na ultima consulta antes dos 12 meses
 left join
 	obs obs_seguimento on obs_seguimento.person_id=inicio_estado.patient_id
 	and obs_seguimento.voided=0
 	and obs_seguimento.obs_datetime=inicio_estado.data_seguimento
 	and obs_seguimento.concept_id=1410
-	and obs_seguimento.location_id=252
 ) coorte12meses
 group by patient_id
 ) coorte12meses_final
@@ -244,11 +275,11 @@ left join
 				inner join obs o on e.encounter_id=o.encounter_id
 		where 	p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type in (13,6,9) and 
 				o.concept_id=856 and o.value_numeric is not null and 
-				e.encounter_datetime<='2018-09-20' and e.location_id=252
+				e.encounter_datetime<=endDate
 		group by p.patient_id
 	) ultima_carga
 	inner join obs on obs.person_id=ultima_carga.patient_id and obs.obs_datetime=ultima_carga.data_carga
-	where 	obs.voided=0 and obs.concept_id=856 and obs.location_id=252 		
+	where 	obs.voided=0 and obs.concept_id=856 		
 )primeiracv on coorte12meses_final.patient_id=primeiracv.patient_id
 left join 
 (	Select primeirocd4.*,obs.value_numeric valor_cd4
@@ -259,11 +290,11 @@ left join
 				inner join obs o on e.encounter_id=o.encounter_id
 		where 	p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type=13 and 
 				o.concept_id=5497 and o.value_numeric is not null and 
-				e.encounter_datetime<='2018-09-20' and e.location_id=252
+				e.encounter_datetime<=endDate
 		group by p.patient_id
 	) primeirocd4
 	inner join obs on obs.person_id=primeirocd4.patient_id and obs.obs_datetime=primeirocd4.data_cd4
-	where 	obs.voided=0 and obs.concept_id=5497 and obs.location_id=252 		
+	where 	obs.voided=0 and obs.concept_id=5497		
 )primeirocd4 on coorte12meses_final.patient_id=primeirocd4.patient_id
 left join 
 (	Select ultimo_estadio.*,obs.value_coded valor_estadio
@@ -273,16 +304,16 @@ left join
 				inner join encounter e on p.patient_id=e.patient_id
 				inner join obs o on e.encounter_id=o.encounter_id
 		where 	p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and 
-				o.concept_id=5356 and e.encounter_datetime<='2018-09-20' and e.location_id=252
+				o.concept_id=5356 and e.encounter_datetime<=endDate
 		group by p.patient_id
 	) ultimo_estadio
 	inner join obs on obs.person_id=ultimo_estadio.patient_id and obs.obs_datetime=ultimo_estadio.data_estadio
-	where 	obs.voided=0 and obs.concept_id=5356 and obs.location_id=252 		
+	where 	obs.voided=0 and obs.concept_id=5356		
 )ultimoestadio on coorte12meses_final.patient_id=ultimoestadio.patient_id
 left join 
 (
 	select 	ultimo_lev.patient_id,
-			case o.value_coded
+		case o.value_coded
 				when 1651 then 'AZT+3TC+NVP'
 				when 6324 then 'TDF+3TC+EFV'
 				when 1703 then 'AZT+3TC+EFV'
@@ -313,11 +344,11 @@ left join
 				from 	patient p
 						inner join encounter e on p.patient_id=e.patient_id								
 				where 	encounter_type=18 and e.voided=0 and
-						encounter_datetime <='2018-09-20' and e.location_id=252 and p.voided=0
+						encounter_datetime <=endDate and p.voided=0
 				group by patient_id
 			) ultimo_lev
 	where 	o.person_id=ultimo_lev.patient_id and o.obs_datetime=ultimo_lev.encounter_datetime and o.voided=0 and 
-			o.concept_id=1088 and o.location_id=252
+			o.concept_id=1088
 ) regime on regime.patient_id=coorte12meses_final.patient_id
 left join 
 (	select pid1.*
@@ -359,14 +390,16 @@ left join person_attribute pat on pat.person_id=coorte12meses_final.patient_id a
 
 -- Verificação qual é o estado final
 where 	estado_final=6  and 
-		datediff('2018-09-20',coorte12meses_final.data_inicio)/30 > 6 and 
+		datediff(endDate,coorte12meses_final.data_inicio)/30 > 6 and 
 		( primeirocd4.valor_cd4> 200 or primeiracv.value_numeric<1000) and 
 		regime.value_coded not in (6108,6100,6329,6330,6325,6326,6327,6328,6109,6329) and 
 		ultimoestadio.valor_estadio in (1204,1205) and 
-		round(datediff('2018-09-20',pe.birthdate)/360)>=15		
+		round(datediff(endDate,pe.birthdate)/360)>=15		
 ) elegiveiscv
 where (valor_carga is not null and valor_carga<1000) or (valor_carga is null and valor_cd4 is not null and valor_cd4>200)
 group by patient_id;
+
+delete from cvgaac_patient where enrollment_date < startDate;
 
 
 update cvgaac_patient,location
@@ -413,7 +446,9 @@ if district='Ile' then
 	update cvgaac_patient set main='Y' where location_id in (4,55); 
 end if;
 
-
+if district='Namarroi' then
+	update cvgaac_patient set main='Y' where location_id in (252);
+end if;
 
 /*UPDATE CODPROVENIENCIA*/
 update cvgaac_patient,
@@ -452,7 +487,6 @@ update cvgaac_patient,
     ) proveniencia
 set cvgaac_patient.hiv_entry_point=proveniencia.codProv
 where proveniencia.patient_id=cvgaac_patient.patient_id;
-
 
 
 /*ESTADO CIVIL*/
@@ -512,18 +546,25 @@ SET cvgaac_patient.enrollment_date=enrollment.data_abertura
 WHERE cvgaac_patient.patient_id=enrollment.patient_id;
 
 
-/*WHO STAGE AT ENRROLMENT*/
-update 	cvgaac_patient,obs 
-set cvgaac_patient.WHO_clinical_stage_at_enrollment=case obs.value_coded
-						when 1204 then 'I'
-						when 1205 then 'II'
-						when 1206 then 'III'
-						when 1207 then 'IV'
-						else 'OUTRO' end 
-where cvgaac_patient.patient_id=obs.person_id and obs.concept_id=5356 and obs.voided=0;
+/*ESTADIO OMS */
+update cvgaac_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime
+  from patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type in(6,9) and o.obs_datetime=e.encounter_datetime 
+  and o.concept_id=5356
+  group by p.patient_id
+)stage, obs
+set cvgaac_patient.WHO_clinical_stage_at_enrollment=if(obs.value_coded=1204,'I',if(obs.value_coded=1205,'II',if(obs.value_coded=1206,'III','IV')))
+where cvgaac_patient.patient_id=obs.person_id 
+and cvgaac_patient.patient_id=stage.patient_id 
+and obs.voided=0 and obs.obs_datetime=stage.encounter_datetime
+and obs.concept_id=5356;
 
 
-/*Pregnancy status at time of ART enrollment*/
+/*PREGNANCY STATUS AT TIME OF ART ENROLLMENT*/
 update cvgaac_patient,obs
 set cvgaac_patient.pregnancy_status_at_enrollment= if(obs.value_coded=44,'YES',null)
 where cvgaac_patient.patient_id=obs.person_id and obs.concept_id=1982 and obs.obs_datetime=cvgaac_patient.enrollment_date;
@@ -538,7 +579,7 @@ set cvgaac_patient.pregnancy_status_at_enrollment= 'YES'
 where cvgaac_patient.patient_id=patient_program.patient_id and program_id=8 and  voided=0 and pregnancy_status_at_enrollment is null;
 
 
-/*TB Pulmonarat time of ART enrollment*/
+/*TB PULMONARAT TIME OF ART ENROLLMENT*/
 update cvgaac_patient,obs
 set cvgaac_patient.tb_co_infected_at_time_of_enrollment= case obs.value_coded
              when 1065 then 'YES'
@@ -547,7 +588,7 @@ set cvgaac_patient.tb_co_infected_at_time_of_enrollment= case obs.value_coded
 where obs.person_id=cvgaac_patient.patient_id and obs.concept_id=42 and voided=0;
 
 
-/*TB extra pulmonar at time of ART enrollment */
+/*TB EXTRA PULMONAR AT TIME OF ART ENROLLMENT */
 update cvgaac_patient,obs
 set cvgaac_patient.tb_co_infected_at_time_of_enrollment= case obs.value_coded
              when 1065 then 'YES'
@@ -557,7 +598,7 @@ where obs.person_id=cvgaac_patient.patient_id and obs.concept_id=5042 and
  voided=0 AND cvgaac_patient.tb_co_infected_at_time_of_enrollment is null ;
 
 
- /*Peso at time of ART enrollment*/
+ /*PESO AT TIME OF ART ENROLLMENT*/
 update cvgaac_patient,
 ( select  p.patient_id,
       min(encounter_datetime) encounter_datetime,
@@ -569,13 +610,13 @@ update cvgaac_patient,
   and o.obs_datetime=e.encounter_datetime and o.concept_id=5089
   group by p.patient_id
 )peso,obs
-set cvgaac_patient.weight_enrollment=obs.value_numeric
+set cvgaac_patient.weight_enrollment=obs.value_numeric, cvgaac_patient.weight_date=peso.encounter_datetime
 where cvgaac_patient.patient_id=obs.person_id 
 and cvgaac_patient.patient_id=peso.patient_id 
 and obs.voided=0 and obs.obs_datetime=peso.encounter_datetime
 and obs.concept_id=5089;
 
-/*Altura at time of ART enrollment*/
+/*ALTURA AT TIME OF ART ENROLLMENT*/
 update cvgaac_patient,
 ( select  p.patient_id as patient_id,
       min(encounter_datetime) encounter_datetime
@@ -585,19 +626,19 @@ update cvgaac_patient,
   where   e.voided=0 and e.encounter_type=1 and o.obs_datetime=e.encounter_datetime and o.concept_id=5090 
   group by p.patient_id
 )altura,obs
-set cvgaac_patient.height_enrollment=obs.value_numeric
+set cvgaac_patient.height_enrollment=obs.value_numeric, cvgaac_patient.height_date=altura.encounter_datetime
 where cvgaac_patient.patient_id=obs.person_id 
 and cvgaac_patient.patient_id=altura.patient_id 
 and obs.voided=0 and obs.obs_datetime=altura.encounter_datetime
 and obs.concept_id=5090;
 
 
-/*has phone number*/		
+/*HAS PHONE NUMBER*/		
 update 	cvgaac_patient,person_attribute
 set 	has_phone_number='Y'
 where 	patient_id=person_id and person_attribute_type_id=9 and voided=0 and value is not null and length(value)>=9;
 
-/*SMS consent date*/		
+/*SMS CONSENT DATE*/		
 update 	cvgaac_patient,obs
 set 	date_consent_sms=obs_datetime
 where 	cvgaac_patient.patient_id=person_id and 
@@ -605,12 +646,186 @@ where 	cvgaac_patient.patient_id=person_id and
 
 update cvgaac_patient, patient_program
 	set cvgaac_patient.pmtct_entry_date=date_enrolled
-	where voided=0 and program_id=8 and cvgaac_patient.patient_id=patient_program.patient_id
+	where voided=0 and program_id=8 and cvgaac_patient.patient_id=patient_program.patient_id;
 
 
 update cvgaac_patient, patient_program
 	set cvgaac_patient.pmtct_exit_date=date_completed
-	where voided=0 and program_id=8 and cvgaac_patient.patient_id=patient_program.patient_id
+	where voided=0 and program_id=8 and cvgaac_patient.patient_id=patient_program.patient_id;
+
+/*TB */
+update cvgaac_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime
+  from  patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=6 and o.obs_datetime=e.encounter_datetime 
+  and o.concept_id=6257
+  group by p.patient_id
+)tb, obs
+set cvgaac_patient.tb_at_screening=if(obs.value_coded=1065,'YES',if(obs.value_coded=1066,'NO',null))
+where cvgaac_patient.patient_id=obs.person_id 
+and cvgaac_patient.patient_id=tb.patient_id 
+and obs.voided=0 and obs.obs_datetime=tb.encounter_datetime
+and obs.concept_id=6257 ;
+
+ /*DATA FIM DA MEDICACAO DE TB DATE*/   
+update cvgaac_patient,
+    (select 
+         p.patient_id,
+         e.encounter_datetime,
+         o.value_datetime
+    from  cvgaac_patient p 
+        inner join encounter e on e.patient_id=p.patient_id
+        inner join obs o on o.encounter_id=e.encounter_id
+    where   o.voided=0 and o.concept_id=6120 and e.encounter_type in (6,9) and e.voided=0 AND o.obs_datetime  between startDate AND endDate
+    ) tb
+set cvgaac_patient.date_of_TB_medication_completion= tb.value_datetime
+where tb.patient_id=cvgaac_patient.patient_id;
+
+/*VISITAS*/
+insert into gaac_visit(patient_id,visit_date)
+Select distinct p.patient_id,e.encounter_datetime 
+from  cvgaac_patient p 
+    inner join encounter e on p.patient_id=e.patient_id 
+where   e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime  between startDate AND endDate ;
+
+
+/* PROXIMA VISITAS*/
+update gaac_visit,obs 
+set  gaac_visit.next_visit_date=obs.value_datetime
+where   gaac_visit.patient_id=obs.person_id and
+    gaac_visit.visit_date=obs.obs_datetime and 
+    obs.concept_id=1410 and 
+    obs.voided=0;
+
+    /*LEVANTAMENTO ARV*/
+insert into gaac_art_pick_up(patient_id,regime,art_date)
+  select distinct p.patient_id,
+  case   o.value_coded     
+        when 1651 then 'AZT+3TC+NVP'
+        when 6324 then 'TDF+3TC+EFV'
+        when 1703 then 'AZT+3TC+EFV'
+        when 6243 then 'TDF+3TC+NVP'
+        when 6103 then 'D4T+3TC+LPV/r'
+        when 792  then 'D4T+3TC+NVP'
+        when 1827 then 'D4T+3TC+EFV'
+        when 6102 then 'D4T+3TC+ABC'
+        when 6116 then 'AZT+3TC+ABC'
+        when 6108 then 'TDF+3TC+LPV/r(2ª Linha)'
+        when 6100 then 'AZT+3TC+LPV/r(2ª Linha)'
+        when 6329 then 'TDF+3TC+RAL+DRV/r (3ª Linha)'
+        when 6330 then 'AZT+3TC+RAL+DRV/r (3ª Linha)'
+        when 6105 then 'ABC+3TC+NVP'
+        when 6325 then 'D4T+3TC+ABC+LPV/r (2ª Linha)'
+        when 6326 then 'AZT+3TC+ABC+LPV/r (2ª Linha)'
+        when 6327 then 'D4T+3TC+ABC+EFV (2ª Linha)'
+        when 6328 then 'AZT+3TC+ABC+EFV (2ª Linha)'
+        when 6109 then 'AZT+DDI+LPV/r (2ª Linha)'
+        when 6110 then 'D4T20+3TC+NVP'
+        when 1702 then 'AZT+3TC+NFV'
+        when 817  then 'AZT+3TC+ABC'
+        when 6104 then 'ABC+3TC+EFV'
+        when 6106 then 'ABC+3TC+LPV/r'
+        when 6244 then 'AZT+3TC+RTV'
+        when 1700 then 'AZT+DDl+NFV'
+        when 633  then 'EFV'
+        when 625  then 'D4T'
+        when 631  then 'NVP'
+        when 628  then '3TC'
+        when 635  then 'NFV'
+        when 797  then 'AZT'
+        when 814  then 'ABC'
+        when 6107 then 'TDF+AZT+3TC+LPV/r'
+        when 6236 then 'D4T+DDI+RTV-IP'
+        when 1701 then 'ABC+DDI+NFV'
+        when 1311 then 'ABC+3TC+LPV/r (2ª Linha)'
+        when 1313 then 'ABC+3TC+EFV (2ª Linha)'
+        when 1314 then 'AZT+3TC+LPV (2ª Linha)'
+        when 1315 then 'TDF+3TC+EFV (2ª Linha)'
+        when 6114 then '3DFC'
+        when 6115 then '2DFC+EFV'
+        when 6233 then 'AZT+3TC+DDI+LPV'
+        when 6234 then 'ABC+TDF+LPV'
+        when 6242 then 'D4T+DDI+NVP'
+        when 6118 then 'DDI50+ABC+LPV'
+        else null end,
+        encounter_datetime
+  from  cvgaac_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.person_id=e.patient_id
+  where   encounter_type=18 and o.concept_id=1088  and e.voided=0 
+  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime  and o.obs_datetime between startDate AND endDate;
+
+/*PROXIMO LEVANTAMENTO*/
+update gaac_art_pick_up,obs 
+set  gaac_art_pick_up.next_art_date=obs.value_datetime
+where   gaac_art_pick_up.patient_id=obs.person_id and
+    gaac_art_pick_up.art_date=obs.obs_datetime and 
+    obs.concept_id=5096 and 
+    obs.voided=0;
+
+    /*CD4*/
+insert into gaac_cd4(patient_id,cd4,cd4_date)
+Select distinct p.patient_id,o.value_numeric, o.obs_datetime
+from  cvgaac_patient p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=5497   and o.obs_datetime between startDate AND endDate;
+
+/*CARGA VIRAL*/
+insert into gaac_cv(patient_id,cv,cv_date)
+Select distinct	p.patient_id,
+		o.value_numeric,
+		o.obs_datetime
+from 	cvgaac_patient p 
+		inner join encounter e on p.patient_id=e.patient_id	
+		inner join obs o on o.encounter_id=e.encounter_id
+where 	e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=856 and o.obs_datetime between startDate AND endDate;
+
+
+update cvgaac_patient set cvgaac_patient.its_in_gaac='YES' where cvgaac_patient.patient_id in (select member_id from gaac_member);
+
+/*GAAC START DATE*/
+update cvgaac_patient,gaac_member set cvgaac_patient.gaac_start_date=gaac_member.start_date where gaac_member.member_id=cvgaac_patient.patient_id ;
+
+/*GAAC END DATE*/
+update cvgaac_patient,gaac_member set cvgaac_patient.gaac_end_date=gaac_member.end_date where gaac_member.member_id=cvgaac_patient.patient_id; 
+
+
+update cvgaac_patient,(
+Select 	p.patient_id,min(o.obs_datetime) datainh,case o.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end as code
+		from 	cvgaac_patient p
+				inner join encounter e on p.patient_id=e.patient_id
+				inner join obs o on e.encounter_id=o.encounter_id
+		where     e.voided=0 and o.voided=0 and e.encounter_type in (13,6,9) and  o.concept_id=6122 
+		group by p.patient_id ) seg  
+set cvgaac_patient.prophylaxis_isoniazide=seg.code, cvgaac_patient.prophylaxis_isoniazide_date=seg.datainh
+where seg.patient_id=cvgaac_patient.patient_id;
+
+
+ /*ESTADO ACTUAL TARV*/
+update cvgaac_patient,
+    (select   pg.patient_id,ps.start_date,
+        case ps.state
+          when 7 then 'TRASFERRED OUT'
+          when 8 then 'SUSPENDED'
+          when 9 then 'ART LTFU'
+          when 10 then 'DEAD'
+        else null end as codeestado
+    from  cvgaac_patient p 
+        inner join patient_program pg on p.patient_id=pg.patient_id
+        inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+    where   pg.voided=0 and ps.voided=0 and  
+        pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null 
+    ) out_state
+set   cvgaac_patient.patient_status=out_state.codeestado, cvgaac_patient.patient_status_date=out_state.start_date
+where cvgaac_patient.patient_id=out_state.patient_id;
+
 
 end
 ;;
