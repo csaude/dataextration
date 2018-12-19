@@ -48,6 +48,7 @@ CREATE TABLE `cvgaac_patient` (
   `its_in_gaac` varchar(100) DEFAULT NULL,
   `gaac_start_date`datetime DEFAULT NULL,
   `gaac_end_date` datetime DEFAULT NULL,
+  `gaac_identifier` varchar(225) DEFAULT NULL,
   `id` int(11) NOT NULL AUTO_INCREMENT,
    PRIMARY KEY (`id`)
   ) ENGINE=InnoDB AUTO_INCREMENT=32768 DEFAULT CHARSET=utf8;
@@ -96,7 +97,7 @@ CREATE TABLE IF NOT EXISTS `gaac_visit` (
 -- ----------------------------
 DROP PROCEDURE IF EXISTS `FillTCVGAACTable`;
 DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` PROCEDURE `FillTCVGAACTable`(startDate date,endDate date,district varchar(100)) 
+CREATE DEFINER=`root`@`localhost` PROCEDURE `FillTCVGAACTable`(startDate date,endDate date,dataAvaliacao date, district varchar(100)) 
 
 READS SQL DATA
 begin
@@ -105,6 +106,8 @@ truncate table cvgaac_patient;
 truncate table gaac_cd4;
 truncate table gaac_art_pick_up;
 truncate table gaac_visit;
+truncate table gaac_cv;
+
 
 insert into cvgaac_patient(patient_id, sex, birth_date, age_enrollment,art_initiation_date, location_id)
 select elegiveiscv.patient_id, elegiveiscv.gender, elegiveiscv.birthdate, elegiveiscv.idade, elegiveiscv.data_inicio, elegiveiscv.location from
@@ -687,7 +690,7 @@ update cvgaac_patient,
     from  cvgaac_patient p 
         inner join encounter e on e.patient_id=p.patient_id
         inner join obs o on o.encounter_id=e.encounter_id
-    where   o.voided=0 and o.concept_id=6120 and e.encounter_type in (6,9) and e.voided=0 AND o.obs_datetime  between startDate AND endDate
+    where   o.voided=0 and o.concept_id=6120 and e.encounter_type in (6,9) and e.voided=0 AND o.obs_datetime  < dataAvaliacao
     ) tb
 set cvgaac_patient.date_of_TB_medication_completion= tb.value_datetime
 where tb.patient_id=cvgaac_patient.patient_id;
@@ -697,8 +700,7 @@ insert into gaac_visit(patient_id,visit_date)
 Select distinct p.patient_id,e.encounter_datetime 
 from  cvgaac_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
-where   e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime  between startDate AND endDate ;
-
+where   e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime  < dataAvaliacao;
 
 /* PROXIMA VISITAS*/
 update gaac_visit,obs 
@@ -764,7 +766,7 @@ insert into gaac_art_pick_up(patient_id,regime,art_date)
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
   where   encounter_type=18 and o.concept_id=1088  and e.voided=0 
-  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime  and o.obs_datetime between startDate AND endDate;
+  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime  and o.obs_datetime  < dataAvaliacao;
 
 /*PROXIMO LEVANTAMENTO*/
 update gaac_art_pick_up,obs 
@@ -780,7 +782,7 @@ Select distinct p.patient_id,o.value_numeric, o.obs_datetime
 from  cvgaac_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=5497   and o.obs_datetime between startDate AND endDate;
+where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=5497   and o.obs_datetime  < dataAvaliacao;
 
 /*CARGA VIRAL*/
 insert into gaac_cv(patient_id,cv,cv_date)
@@ -790,7 +792,7 @@ Select distinct	p.patient_id,
 from 	cvgaac_patient p 
 		inner join encounter e on p.patient_id=e.patient_id	
 		inner join obs o on o.encounter_id=e.encounter_id
-where 	e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=856 and o.obs_datetime between startDate AND endDate;
+where 	e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=856 and o.obs_datetime  < dataAvaliacao;
 
 
 update cvgaac_patient set cvgaac_patient.its_in_gaac='YES' where cvgaac_patient.patient_id in (select member_id from gaac_member);
@@ -800,6 +802,9 @@ update cvgaac_patient,gaac_member set cvgaac_patient.gaac_start_date=gaac_member
 
 /*GAAC END DATE*/
 update cvgaac_patient,gaac_member set cvgaac_patient.gaac_end_date=gaac_member.end_date where gaac_member.member_id=cvgaac_patient.patient_id; 
+
+	/*GAAC END DATE*/
+update cvgaac_patient,gaac_member, gaac set cvgaac_patient.gaac_identifier=gaac.gaac_identifier where gaac_member.member_id=cvgaac_patient.patient_id and gaac_member.gaac_id=gaac.gaac_id; 
 
 
 update cvgaac_patient,(
@@ -841,7 +846,7 @@ update cvgaac_patient,
 			max(encounter_datetime) encounter_datetime
 	from 	cvgaac_patient p
 			inner join encounter e on p.patient_id=e.patient_id
-	where 	e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime between startDate and endDate
+	where 	e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime  < dataAvaliacao
 	group by p.patient_id
 )seguimento
 set cvgaac_patient.last_clinic_visit=seguimento.encounter_datetime
@@ -899,7 +904,7 @@ update cvgaac_patient,
 			max(encounter_datetime) encounter_datetime
 	from 	cvgaac_patient p
 			inner join encounter e on p.patient_id=e.patient_id
-	where 	e.voided=0 and e.encounter_type=18 and e.encounter_datetime between  startDate and endDate
+	where 	e.voided=0 and e.encounter_type=18 and e.encounter_datetime  < dataAvaliacao
 	group by p.patient_id
 )levantamento
 set cvgaac_patient.last_artpickup=levantamento.encounter_datetime
