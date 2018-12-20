@@ -114,6 +114,7 @@ CREATE TABLE IF NOT EXISTS `ccr_patient` (
   `NID_mother` varchar(255) DEFAULT NULL,
   `age_enrollment` int(11) DEFAULT NULL,
   `weight` int(11) DEFAULT NULL,
+  `date_of_register_at_CCR` datetime DEFAULT NULL,
   `cotrimoxazole_prophylaxis` varchar(255) DEFAULT NULL,
   `prophylaxis_isoniazide` varchar(100) DEFAULT NULL,
   `prophylaxis_isoniazide_date` datetime DEFAULT NULL,
@@ -1029,8 +1030,8 @@ set   art_mother_patient.patient_status=out_state.codeestado, art_mother_patient
 where art_mother_patient.patient_id=out_state.patient_id;
 
 
-INSERT INTO ccr_patient (patient_id)
-SELECT  distinct e.patient_id FROM   patient p
+INSERT INTO ccr_patient (patient_id,date_of_register_at_CCR)
+SELECT  distinct e.patient_id, e.encounter_datetime FROM   patient p
        INNER JOIN encounter e
                ON e.patient_id = p.patient_id
        INNER JOIN person pe
@@ -1071,6 +1072,32 @@ Select ccr.patient_id, ccr.data_ccr, ccr.code
 )ccrWeight
 set ccr_patient.weight=ccrWeight.code
 where ccr_patient.patient_id=ccrWeight.patient_id;
+
+
+
+/*LOCAL DO PARTO FIRST ANC VISIT*/
+update ccr_patient,
+(
+Select ccr.patient_id, ccr.data_ccr as data, case ccr.coded 
+when 1818  then 'FACILITY BASED DELIVERY'  
+when 1817 then 'HOME DELIVERY' 
+when 5622 then 'OTHER NON-CODED' 
+when 1831 then 'IN TRANSIT' 
+else null end as cod
+  from
+  ( Select  p.patient_id,min(o.obs_datetime) data_ccr,o.value_coded as coded
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+        inner join obs o on e.encounter_id=o.encounter_id
+    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type=10 and 
+        o.concept_id=1581 and o.value_coded is not null
+    group by p.patient_id
+  ) ccr
+  inner join obs on obs.person_id=ccr.patient_id and obs.obs_datetime=ccr.data_ccr
+  where   obs.voided=0 and obs.concept_id=1581 
+)updatePlace
+set ccr_patient.ART_regimen_mother=updatePlace.cod
+where ccr_patient.patient_id=updatePlace.patient_id;
 
 
 /*REGIME FIRST ANC VISIT*/
