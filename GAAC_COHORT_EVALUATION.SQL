@@ -972,7 +972,7 @@ update cvgaac_patient,
     (
         select  p.patient_id,
                 max(e.encounter_datetime) datafila
-        from    healers_patient p 
+        from    cvgaac_patient p 
                 inner join encounter e on p.patient_id=e.patient_id
         where   e.encounter_type=18 and e.voided=0  and e.encounter_datetime between startDate AND endDate
                 GROUP by e.patient_id

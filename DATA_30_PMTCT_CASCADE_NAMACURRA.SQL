@@ -3,6 +3,8 @@ DROP TABLE IF EXISTS `pmtct_patient`;
 CREATE TABLE `pmtct_patient` (
   `patient_id` int(11) DEFAULT NULL,
   `health_facility` varchar(100) DEFAULT NULL,
+  `name` varchar(100) DEFAULT NULL,
+  `surname` varchar(100) DEFAULT NULL,
   `location_id` int(11) DEFAULT NULL,
   `urban` varchar(1) DEFAULT NULL,
   `main` varchar(1) DEFAULT NULL,
@@ -49,6 +51,8 @@ CREATE TABLE `art_mother_patient` (
   `patient_id` int(11) DEFAULT NULL,
   `NID_mother_ART` varchar(255) DEFAULT NULL,
   `NID_partner` varchar(255) DEFAULT NULL,
+  `name` varchar(100) DEFAULT NULL,
+  `surname` varchar(100) DEFAULT NULL,
   `birth_date_mother` datetime DEFAULT NULL,
   `age_enrollment` int(11) DEFAULT NULL,
   `marital_status` varchar(100) DEFAULT NULL,
@@ -112,6 +116,9 @@ CREATE TABLE IF NOT EXISTS `ccr_patient` (
   `birth_date` datetime DEFAULT NULL,
   `NID_child_CCR` varchar(255) DEFAULT NULL,
   `NID_mother` varchar(255) DEFAULT NULL,
+  `companion` varchar(255) DEFAULT NULL,
+  `name` varchar(255) DEFAULT NULL,
+  `surname` varchar(255) DEFAULT NULL,
   `age_enrollment` int(11) DEFAULT NULL,
   `weight` int(11) DEFAULT NULL,
   `date_of_register_at_CCR` datetime DEFAULT NULL,
@@ -122,6 +129,8 @@ CREATE TABLE IF NOT EXISTS `ccr_patient` (
   `prematurity` varchar(225) DEFAULT NULL,
   `date_of_weaning` datetime DEFAULT NULL,
   `ART_regimen_mother` varchar(255) DEFAULT NULL,
+  `place_of_birth` varchar(255) DEFAULT NULL,
+  `birth_type` varchar(255) DEFAULT NULL,
   `date_ART_regime` datetime DEFAULT NULL,
   `pmtct_ART_regime` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -193,6 +202,8 @@ CREATE TABLE IF NOT EXISTS `ccr_visits` (
 
 CREATE TABLE `art_child_patient` (
   `patient_id` int(11) DEFAULT NULL,
+  `name` varchar(100) DEFAULT NULL,
+  `surname` varchar(100) DEFAULT NULL,
   `child_status` varchar(255) DEFAULT NULL,
   `NID_child_CCR` varchar(255) DEFAULT NULL,
   `NID_child_ART` varchar(255) DEFAULT NULL,
@@ -284,6 +295,9 @@ UPDATE pmtct_patient, person SET pmtct_patient.birth_date=person.birthdate WHERE
 /*SEXO*/
 update pmtct_patient,person set pmtct_patient.sex=.person.gender where  person_id=pmtct_patient.patient_id;
 
+update pmtct_patient,person_name set pmtct_patient.name=.person_name.given_name, pmtct_patient.surname=person_name.family_name where  person_id=pmtct_patient.patient_id;
+
+
 
 /*GESTATIONAL AGE FIRST ANC VISIT*/
 update pmtct_patient,
@@ -303,6 +317,8 @@ Select cpn.patient_id, cpn.data_cpn, cpn.code
 )updateGest
 set pmtct_patient.gestational_age=updateGest.code
 where pmtct_patient.patient_id=updateGest.patient_id;
+
+
 
 
 /*HIV STATUS AT FIRST ANC VISIT*/
@@ -646,6 +662,9 @@ WHERE art_mother_patient.patient_id=patient_identifier.patient_id;
 
 /*DATA AICIMENTO DO PACIENTE*/
 UPDATE art_mother_patient, person SET art_mother_patient.birth_date_mother=person.birthdate WHERE art_mother_patient.patient_id=person.person_id;
+
+
+update art_mother_patient,person_name set art_mother_patient.name=.person_name.given_name, art_mother_patient.surname=person_name.family_name where  person_id=art_mother_patient.patient_id;
 
 /*UPDATE CODPROVENIENCIA*/
 update art_mother_patient,
@@ -1073,6 +1092,85 @@ Select ccr.patient_id, ccr.data_ccr, ccr.code
 set ccr_patient.weight=ccrWeight.code
 where ccr_patient.patient_id=ccrWeight.patient_id;
 
+/*DATE REGISTER CCR*/
+update ccr_patient,
+(
+Select ccr.patient_id, ccr.data_ccr, ccr.code
+  from
+  ( Select distinct p.patient_id, o.obs_datetime as data_ccr, o.value_numeric as code
+      from  patient p 
+          inner join encounter e on p.patient_id=e.patient_id 
+          inner join obs o on o.person_id=e.patient_id 
+      where   e.voided=0 and e.encounter_type =10 and o.concept_id=5916
+  ) ccr
+  inner join obs on obs.person_id=ccr.patient_id and obs.obs_datetime=ccr.data_ccr
+  where   obs.voided=0 and obs.concept_id=5916 
+)ccrWeight
+set ccr_patient.weight=ccrWeight.code
+where ccr_patient.patient_id=ccrWeight.patient_id;
+
+/*LOCAL DO PARTO FIRST ANC VISIT*/
+update ccr_patient,
+(
+Select ccr.patient_id, ccr.data_ccr as data, case ccr.coded 
+when 970 then 'MOTHER'  
+when 971 then 'FATHER' 
+when 972 then 'BROTHER' 
+when 973 then 'GRANDPARENT' 
+when 975 then 'AUNT' 
+when 5620 then 'OTHER FAMILY MEMBER' 
+else null end as cod
+  from
+  ( Select  p.patient_id,min(o.obs_datetime) data_ccr,o.value_coded as coded
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+        inner join obs o on e.encounter_id=o.encounter_id
+    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type=10 and 
+        o.concept_id=969 and o.value_coded is not null
+    group by p.patient_id
+  ) ccr
+  inner join obs on obs.person_id=ccr.patient_id and obs.obs_datetime=ccr.data_ccr
+  where   obs.voided=0 and obs.concept_id=969 
+)updateComp
+set ccr_patient.companion=updateComp.cod
+where ccr_patient.patient_id=updateComp.patient_id;
+
+
+/*SURNAME*/
+update ccr_patient,
+(
+Select ccr.patient_id, ccr.data_ccr, ccr.code
+  from
+  ( Select distinct p.patient_id, o.obs_datetime as data_ccr, o.value_text as code
+      from  patient p 
+          inner join encounter e on p.patient_id=e.patient_id 
+          inner join obs o on o.person_id=e.patient_id 
+      where   e.voided=0 and e.encounter_type =10 and o.concept_id=1442
+  ) ccr
+  inner join obs on obs.person_id=ccr.patient_id and obs.obs_datetime=ccr.data_ccr
+  where   obs.voided=0 and obs.concept_id=1442 
+)ccrName
+set ccr_patient.name=ccrName.code
+where ccr_patient.patient_id=ccrName.patient_id;
+
+/*NAME*/
+update ccr_patient,
+(
+Select ccr.patient_id, ccr.data_ccr, ccr.code
+  from
+  ( Select distinct p.patient_id, o.obs_datetime as data_ccr, o.value_text as code
+      from  patient p 
+          inner join encounter e on p.patient_id=e.patient_id 
+          inner join obs o on o.person_id=e.patient_id 
+      where   e.voided=0 and e.encounter_type =10 and o.concept_id=1441
+  ) ccr
+  inner join obs on obs.person_id=ccr.patient_id and obs.obs_datetime=ccr.data_ccr
+  where   obs.voided=0 and obs.concept_id=1441 
+)ccrName
+set ccr_patient.surname=ccrName.code
+where ccr_patient.patient_id=ccrName.patient_id;
+
+
 
 
 /*LOCAL DO PARTO FIRST ANC VISIT*/
@@ -1096,9 +1194,35 @@ else null end as cod
   inner join obs on obs.person_id=ccr.patient_id and obs.obs_datetime=ccr.data_ccr
   where   obs.voided=0 and obs.concept_id=1581 
 )updatePlace
-set ccr_patient.ART_regimen_mother=updatePlace.cod
+set ccr_patient.place_of_birth=updatePlace.cod
 where ccr_patient.patient_id=updatePlace.patient_id;
 
+/*TIPO DO PARTO FIRST ANC VISIT*/
+update ccr_patient,
+(
+Select ccr.patient_id, ccr.data_ccr as data, case ccr.coded 
+when 1170 then 'SPONTANEOUS VAGINAL DELIVERY'  
+when 1172 then 'BREECH DELIVERY' 
+when 1171 then 'CESAREAN SECTION' 
+when 5622 then 'OTHER NON-CODED' 
+when 1826 then 'STILLBORN' 
+when 1115 then 'NORMAL' 
+
+else null end as cod
+  from
+  ( Select  p.patient_id,min(o.obs_datetime) data_ccr,o.value_coded as coded
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+        inner join obs o on e.encounter_id=o.encounter_id
+    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type=10 and 
+        o.concept_id=5630 and o.value_coded is not null
+    group by p.patient_id
+  ) ccr
+  inner join obs on obs.person_id=ccr.patient_id and obs.obs_datetime=ccr.data_ccr
+  where   obs.voided=0 and obs.concept_id=5630 
+)updatePlace
+set ccr_patient.birth_type=updatePlace.cod
+where ccr_patient.patient_id=updatePlace.patient_id;
 
 /*REGIME FIRST ANC VISIT*/
 update ccr_patient,
@@ -1324,6 +1448,9 @@ WHERE art_child_patient.patient_id=patient_identifier.patient_id;
 
 UPDATE art_child_patient, patient_identifier SET art_child_patient.NID_child_CCR = patient_identifier.identifier 
 WHERE art_child_patient.patient_id=patient_identifier.patient_id and patient_identifier.identifier_type=2;
+
+
+update art_child_patient,person_name set art_child_patient.name=.person_name.given_name, art_child_patient.surname=person_name.family_name where  person_id=art_child_patient.patient_id;
 
 
 /*INICIO TARV*/
