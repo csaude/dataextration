@@ -400,16 +400,12 @@ left join
 left join person_attribute pat on pat.person_id=coorte12meses_final.patient_id and pat.person_attribute_type_id=9 and pat.value is not null and pat.value<>'' and pat.voided=0
 
 -- Verificação qual é o estado final
-where 	estado_final=6  and 
-		datediff(endDate,coorte12meses_final.data_inicio)/30 > 6 and 
-		( primeirocd4.valor_cd4> 200 or primeiracv.value_numeric<1000) and 
-		regime.value_coded not in (6108,6100,6329,6330,6325,6326,6327,6328,6109,6329) and 
-		ultimoestadio.valor_estadio in (1204,1205) and 
-		round(datediff(endDate,pe.birthdate)/360)>=15		
+where datediff(endDate,coorte12meses_final.data_inicio)/30 > 6 and round(datediff(endDate,pe.birthdate)/360)>=15		
 ) elegiveiscv
-where (valor_carga is not null and valor_carga<1000) or (valor_carga is null and valor_cd4 is not null and valor_cd4>200)
 group by patient_id;
 
+
+delete from cvgaac_patient where art_initiation_date < startDate;
 
 /*INSCRICAO*/
 UPDATE cvgaac_patient,
