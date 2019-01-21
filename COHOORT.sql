@@ -50,18 +50,7 @@ CREATE TABLE `cvgaac_patient` (
   `gaac_end_date` datetime DEFAULT NULL,
   `gaac_identifier` varchar(225) DEFAULT NULL,
   `id` int(11) NOT NULL AUTO_INCREMENT,
-   PRIMARY KEY (`id`),
-   KEY `cvgaac_patient_patient_id` (`patient_id`),
-   KEY `cvgaac_patient_enrollment_date` (`enrollment_date`),
-   KEY `cvgaac_patient_art_initiation_date` (`art_initiation_date`),
-   KEY `cvgaac_patient_enrolled_gaac_start_date` (`gaac_start_date`),
-   KEY `cvgaac_patient_enrolled_gaac_end_date` (`gaac_end_date`), 
-   KEY `cvgaac_patient_enrolled_pmtct_start_date` (`pmtct_entry_date`),
-   KEY `cvgaac_patient_enrolled_pmtct_end_date` (`pmtct_exit_date`),
-   KEY `cvgaac_patient_enrolled_last_clinic_visit` (`last_clinic_visit`),  
-   KEY `cvgaac_patient_enrolled_scheduled_clinic_visit` (`scheduled_clinic_visit`), 
-   KEY `cvgaac_patient_enrolled_last_artpickup` (`last_artpickup`),  
-   KEY `cvgaac_patient_enrolled_scheduled_artpickp` (`scheduled_artpickp`)   
+   PRIMARY KEY (`id`)
   ) ENGINE=InnoDB AUTO_INCREMENT=32768 DEFAULT CHARSET=utf8;
 
 -- ----------------------------
@@ -76,12 +65,15 @@ CREATE TABLE `gaac_cv` (
   KEY `cv_date` (`cv_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+
+-- ----------------------------
+-- Table structure for cd4
+-- ----------------------------
 CREATE TABLE IF NOT EXISTS `gaac_cd4` (
   `patient_id` int(11) DEFAULT NULL,
   `cd4` double DEFAULT NULL,
   `cd4_date` datetime DEFAULT NULL,
-   KEY `patient_id` (`patient_id`),
-   KEY `cd4_date` (`cd4_date`)
+  `uuid` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -89,18 +81,14 @@ CREATE TABLE IF NOT EXISTS `gaac_art_pick_up` (
   `patient_id` int(11) DEFAULT NULL,
   `regime` varchar(255) DEFAULT NULL,
   `art_date` datetime DEFAULT NULL,
-  `next_art_date` datetime DEFAULT NULL,
-   KEY `patient_id` (`patient_id`),
-   KEY `art_date` (`art_date`)
+  `next_art_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 
 CREATE TABLE IF NOT EXISTS `gaac_visit` (
   `patient_id` int(11) DEFAULT NULL,
   `visit_date`   datetime DEFAULT NULL,
-  `next_visit_date`   datetime DEFAULT NULL,
-   KEY `patient_id` (`patient_id`),
-   KEY `visit_date` (`visit_date`),
-   KEY `next_visit_date` (`next_visit_date`)
+  `next_visit_date`   datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -413,9 +401,12 @@ left join person_attribute pat on pat.person_id=coorte12meses_final.patient_id a
 
 -- Verificação qual é o estado final
 where datediff(endDate,coorte12meses_final.data_inicio)/30 > 6 and round(datediff(endDate,pe.birthdate)/360)>=15		
+		-- ( primeirocd4.valor_cd4> 200 or primeiracv.value_numeric<1000) and 
+		-- regime.value_coded not in (6108,6100,6329,6330,6325,6326,6327,6328,6109,6329) and 
+		-- ultimoestadio.valor_estadio in (1204,1205) and 
 ) elegiveiscv
+-- where (valor_carga is not null and valor_carga<1000) or (valor_carga is null and valor_cd4 is not null and valor_cd4>200)
 group by patient_id;
-
 
 delete from cvgaac_patient where art_initiation_date < startDate;
 
