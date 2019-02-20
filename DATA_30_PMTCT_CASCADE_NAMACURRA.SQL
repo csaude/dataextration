@@ -10,6 +10,7 @@ CREATE TABLE `pmtct_patient` (
   `main` varchar(1) DEFAULT NULL,
   `sex` varchar(255) DEFAULT NULL,
   `birth_date` datetime DEFAULT NULL,
+  `age_enrollment` int(11) DEFAULT NULL,
   `date_of_first_consultation` datetime DEFAULT NULL,
   `marital_status` varchar(100) DEFAULT NULL,
   `education` varchar(100) DEFAULT NULL,
@@ -30,7 +31,6 @@ CREATE TABLE `pmtct_patient` (
   `syphilis` varchar(255) DEFAULT NULL,
   `syphilis_test_date` datetime DEFAULT NULL,
   `cotrimoxazole_prophylaxis` varchar(255) DEFAULT NULL,
-  `cotrimoxazole_prophylaxis_in_entry_ANC` varchar(255) DEFAULT NULL,
   `ART_regimen` varchar(255) DEFAULT NULL,
   `TB_treatment` varchar(255) DEFAULT NULL,
   `NID_mother_ANC` varchar(255) DEFAULT NULL,
@@ -266,8 +266,8 @@ begin
 
 truncate table pmtct_patient;
 
-INSERT INTO pmtct_patient (patient_id, location_id)
-SELECT DISTINCT e.patient_id, e.location_id FROM   patient p
+INSERT INTO pmtct_patient (patient_id,date_of_first_consultation,location_id)
+SELECT DISTINCT e.patient_id, e.encounter_datetime,location_id FROM   patient p
        INNER JOIN encounter e
                ON e.patient_id = p.patient_id
        INNER JOIN person pe
@@ -297,6 +297,10 @@ end if;
 
 /*DATA DE NAICIMENTO*/
 UPDATE pmtct_patient, person SET pmtct_patient.birth_date=person.birthdate WHERE pmtct_patient.patient_id=person.person_id;
+
+/*IDADE*/
+update pmtct_patient,person set pmtct_patient.age_enrollment=round(datediff(pmtct_patient.date_of_first_consultation,person.birthdate)/365)
+where  person_id=pmtct_patient.patient_id;
 
 /*SEXO*/
 update pmtct_patient,person set pmtct_patient.sex=.person.gender where  person_id=pmtct_patient.patient_id;
@@ -834,7 +838,7 @@ SET art_mother_patient.art_initiation_date=inicio_real.data_inicio
 WHERE art_mother_patient.patient_id=inicio_real.patient_id;
 
 /*DATA DE NAICIMENTO*/
-update art_mother_patient,person set art_mother_patient.age_enrollment=round(datediff(art_mother_patient.art_initiation_date,person.birthdate)/365)
+update art_mother_patient,person set art_mother_patient.age_enrollment=round(datediff(art_mother_patient.enrollment_date,person.birthdate)/365)
 where  person_id=art_mother_patient.patient_id;
 
 
@@ -1110,6 +1114,9 @@ where  person_id=ccr_patient.patient_id;
 /*IDENTIFICACAO DO PACIENTE*/
 UPDATE ccr_patient,patient_identifier SET ccr_patient.NID_child_CCR = patient_identifier.identifier 
 WHERE ccr_patient.patient_id=patient_identifier.patient_id;
+
+/*NOME E SOBRENOME DO PACIENTE*/
+update ccr_patient,person_name set ccr_patient.name=.person_name.given_name, pmtct_patient.surname=person_name.family_name where  person_id=ccr_patient.patient_id;
 
 
 /*WEIGHT AO  NAICIMENTO*/
