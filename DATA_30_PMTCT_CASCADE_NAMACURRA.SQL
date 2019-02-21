@@ -837,10 +837,6 @@ UPDATE art_mother_patient,
 SET art_mother_patient.art_initiation_date=inicio_real.data_inicio
 WHERE art_mother_patient.patient_id=inicio_real.patient_id;
 
-/*DATA DE NAICIMENTO*/
-update art_mother_patient,person set art_mother_patient.age_enrollment=round(datediff(art_mother_patient.enrollment_date,person.birthdate)/365)
-where  person_id=art_mother_patient.patient_id;
-
 
 /*INSCRICAO*/
 UPDATE art_mother_patient,
@@ -859,6 +855,9 @@ UPDATE art_mother_patient,
 SET art_mother_patient.enrollment_date=enrollment.data_abertura
 WHERE art_mother_patient.patient_id=enrollment.patient_id;
 
+/*DATA DE NAICIMENTO*/
+update art_mother_patient,person set art_mother_patient.age_enrollment=round(datediff(art_mother_patient.enrollment_date,person.birthdate)/365)
+where  person_id=art_mother_patient.patient_id;
 
   /*REGIME*/   
 update art_mother_patient,
@@ -1116,7 +1115,7 @@ UPDATE ccr_patient,patient_identifier SET ccr_patient.NID_child_CCR = patient_id
 WHERE ccr_patient.patient_id=patient_identifier.patient_id;
 
 /*NOME E SOBRENOME DO PACIENTE*/
-update ccr_patient,person_name set ccr_patient.name=.person_name.given_name, pmtct_patient.surname=person_name.family_name where  person_id=ccr_patient.patient_id;
+update ccr_patient,person_name set ccr_patient.name=.person_name.given_name, ccr_patient.surname=person_name.family_name where  person_id=ccr_patient.patient_id;
 
 
 /*WEIGHT AO  NAICIMENTO*/
