@@ -76,7 +76,14 @@ CREATE TABLE `immune_cv` (
 -- ----------------------------
 -- Table structure for cd4
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `immune_cd4` (
+CREATE TABLE IF NOT EXISTS `immune_cd4_absulute` (
+  `patient_id` int(11) DEFAULT NULL,
+  `cd4` double DEFAULT NULL,
+  `cd4_date` datetime DEFAULT NULL,
+  `uuid` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `immune_cd4_percentage` (
   `patient_id` int(11) DEFAULT NULL,
   `cd4` double DEFAULT NULL,
   `cd4_date` datetime DEFAULT NULL,
@@ -101,14 +108,15 @@ CREATE TABLE IF NOT EXISTS `immune_visit` (
 
 DROP PROCEDURE IF EXISTS `FillTCVGAACTable`;
 DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` PROCEDURE `FillTCVGAACTable`(startDate date,endDate date,dataAvaliacao date, district varchar(100)) 
+CREATE DEFINER=`root`@`localhost` PROCEDURE `FillTIMMUNETable`(startDate date,endDate date,dataAvaliacao date, district varchar(100)) 
 
 READS SQL DATA
 begin
 
 truncate table immune_patient;
 truncate table immune_cv;
-truncate table immune_cd4;
+truncate table immune_cd4_absulute;
+truncate table immune_cd4_percentage;
 truncate table immune_art_pick_up;
 truncate table immune_visit;
 
@@ -227,8 +235,6 @@ where proveniencia.patient_id=immune_patient.patient_id;
 update immune_patient,person set immune_patient.age_enrollment=round(datediff(immune_patient.enrollment_date,person.birthdate)/365)
 where  person_id=immune_patient.patient_id;
 
-delete from immune_patient where age_enrollment < 15;
-
 
 /*ESTADO CIVIL*/
 update immune_patient,obs
@@ -345,56 +351,70 @@ and obs.concept_id=5090;
 
 /*INICIO TARV*/
 UPDATE immune_patient,
+(SELECT patient_id, data_inicio FROM (SELECT patient_id, MIN(data_inicio) data_inicio
+FROM (SELECT
+  p.patient_id,
+  MIN(e.encounter_datetime) data_inicio
+FROM patient p
+INNER JOIN encounter e
+  ON p.patient_id = e.patient_id
+INNER JOIN obs o
+  ON o.encounter_id = e.encounter_id
+WHERE e.voided = 0
+AND o.voided = 0
+AND p.voided = 0
+AND e.encounter_type IN (18, 6, 9)
+AND o.concept_id = 1255
+AND o.value_coded = 1256
+AND e.encounter_datetime <= dataAvaliacao
+GROUP BY p.patient_id
 
-  (SELECT patient_id,
-          min(data_inicio) data_inicio
-   FROM
-     (SELECT p.patient_id,
-             min(e.encounter_datetime) data_inicio
-      FROM patient p
-      INNER JOIN encounter e ON p.patient_id=e.patient_id
-      INNER JOIN obs o ON o.encounter_id=e.encounter_id
-      WHERE e.voided=0
-        AND o.voided=0
-        AND p.voided=0
-        AND e.encounter_type IN (18,
-                                 6,
-                                 9)
-        AND o.concept_id=1255
-        AND o.value_coded=1256
-      GROUP BY p.patient_id
-      UNION SELECT p.patient_id,
-                   min(value_datetime) data_inicio
-      FROM patient p
-      INNER JOIN encounter e ON p.patient_id=e.patient_id
-      INNER JOIN obs o ON e.encounter_id=o.encounter_id
-      WHERE p.voided=0
-        AND e.voided=0
-        AND o.voided=0
-        AND e.encounter_type IN (18,
-                                 6,
-                                 9)
-        AND o.concept_id=1190
-        AND o.value_datetime IS NOT NULL
-      GROUP BY p.patient_id
-      UNION SELECT pg.patient_id,
-                   date_enrolled data_inicio
-      FROM patient p
-      INNER JOIN patient_program pg ON p.patient_id=pg.patient_id
-      WHERE pg.voided=0
-        AND p.voided=0
-        AND program_id=2
-      UNION SELECT e.patient_id,
-                   MIN(e.encounter_datetime) AS data_inicio
-      FROM patient p
-      INNER JOIN encounter e ON p.patient_id=e.patient_id
-      WHERE p.voided=0
-        AND e.encounter_type=18
-        AND e.voided=0
-      GROUP BY p.patient_id) inicio
-   GROUP BY patient_id)inicio_real
-SET immune_patient.date_of_ART_initiation=inicio_real.data_inicio
-WHERE immune_patient.patient_id=inicio_real.patient_id;
+UNION
+
+SELECT p.patient_id, MIN(value_datetime) data_inicio
+FROM patient p
+INNER JOIN encounter e
+  ON p.patient_id = e.patient_id
+INNER JOIN obs o
+  ON e.encounter_id = o.encounter_id
+WHERE p.voided = 0
+AND e.voided = 0
+AND o.voided = 0
+AND e.encounter_type IN (18, 6, 9)
+AND o.concept_id = 1190
+AND o.value_datetime IS NOT NULL
+AND o.value_datetime <= dataAvaliacao
+GROUP BY p.patient_id
+
+UNION
+
+SELECT pg.patient_id, date_enrolled data_inicio
+FROM patient p
+INNER JOIN patient_program pg
+  ON p.patient_id = pg.patient_id
+WHERE pg.voided = 0
+AND p.voided = 0
+AND program_id = 2
+AND date_enrolled <= dataAvaliacao
+
+UNION
+
+SELECT e.patient_id, MIN(e.encounter_datetime) AS data_inicio
+FROM patient p
+INNER JOIN encounter e
+  ON p.patient_id = e.patient_id
+WHERE p.voided = 0
+AND e.encounter_type = 18
+AND e.voided = 0
+AND e.encounter_datetime <= dataAvaliacao
+GROUP BY p.patient_id) inicio
+GROUP BY patient_id
+) inicio1
+)ua
+set immune_patient.date_of_ART_initiation=ua.data_inicio
+WHERE   data_inicio BETWEEN startDate AND endDate and ua.patient_id=immune_patient.patient_id;
+
+
 
 update immune_patient, patient_program
   set immune_patient.pmtct_entry_date=date_enrolled
@@ -460,7 +480,7 @@ insert into immune_visit(patient_id,visit_date)
 Select distinct p.patient_id,e.encounter_datetime 
 from  immune_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
-where   e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime  < dataAvaliacao;
+where   e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime <  dataAvaliacao;
 
 /* PROXIMA VISITAS*/
 update immune_visit,obs 
@@ -537,12 +557,20 @@ where   immune_art_pick_up.patient_id=obs.person_id and
     obs.voided=0;
 
     /*CD4*/
-insert into immune_cd4(patient_id,cd4,cd4_date)
+insert into immune_cd4_absulute(patient_id,cd4,cd4_date)
 Select distinct p.patient_id,o.value_numeric, o.obs_datetime
 from  immune_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=5497   and o.obs_datetime  < dataAvaliacao;
+
+    /*CD4*/
+insert into immune_cd4_percentage(patient_id,cd4,cd4_date)
+Select distinct p.patient_id,o.value_numeric, o.obs_datetime
+from  immune_patient p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=730   and o.obs_datetime  < dataAvaliacao;
 
 /*CARGA VIRAL*/
 insert into immune_cv(patient_id,cv,cv_date)

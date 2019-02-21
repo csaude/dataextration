@@ -3,15 +3,22 @@ DROP TABLE IF EXISTS `pmtct_patient`;
 CREATE TABLE `pmtct_patient` (
   `patient_id` int(11) DEFAULT NULL,
   `health_facility` varchar(100) DEFAULT NULL,
+  `name` varchar(100) DEFAULT NULL,
+  `surname` varchar(100) DEFAULT NULL,
   `location_id` int(11) DEFAULT NULL,
   `urban` varchar(1) DEFAULT NULL,
   `main` varchar(1) DEFAULT NULL,
   `sex` varchar(255) DEFAULT NULL,
   `birth_date` datetime DEFAULT NULL,
+  `age_enrollment` int(11) DEFAULT NULL,
+  `date_of_first_consultation` datetime DEFAULT NULL,
+  `marital_status` varchar(100) DEFAULT NULL,
+  `education` varchar(100) DEFAULT NULL,
+  `occupation` varchar(100) DEFAULT NULL,
   `gestational_age` int(11) DEFAULT NULL,
   `hiv_status_at_first_ANC_visit` varchar(255) DEFAULT NULL,
-  `date_test_hiv` datetime DEFAULT NULL,
   `result_test_hiv` varchar(255) DEFAULT NULL,
+  `date_test_hiv` datetime DEFAULT NULL,
   `partner_present` varchar(255) DEFAULT NULL,
   `test_hiv_partner` varchar(255) DEFAULT NULL,
   `test_hiv_partner_date` datetime DEFAULT NULL,
@@ -27,6 +34,7 @@ CREATE TABLE `pmtct_patient` (
   `ART_regimen` varchar(255) DEFAULT NULL,
   `TB_treatment` varchar(255) DEFAULT NULL,
   `NID_mother_ANC` varchar(255) DEFAULT NULL,
+  `NID_mother_ART` varchar(255) DEFAULT NULL,
   `NID_partner` varchar(255) DEFAULT NULL
 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -49,6 +57,8 @@ CREATE TABLE `art_mother_patient` (
   `patient_id` int(11) DEFAULT NULL,
   `NID_mother_ART` varchar(255) DEFAULT NULL,
   `NID_partner` varchar(255) DEFAULT NULL,
+  `name` varchar(100) DEFAULT NULL,
+  `surname` varchar(100) DEFAULT NULL,
   `birth_date_mother` datetime DEFAULT NULL,
   `age_enrollment` int(11) DEFAULT NULL,
   `marital_status` varchar(100) DEFAULT NULL,
@@ -108,13 +118,16 @@ CREATE TABLE IF NOT EXISTS `art_mother_visit` (
 
 CREATE TABLE IF NOT EXISTS `ccr_patient` (
   `patient_id` int(11) DEFAULT NULL,
+  `date_of_register_at_CCR` datetime DEFAULT NULL,
   `sex` varchar(255) DEFAULT NULL,
   `birth_date` datetime DEFAULT NULL,
   `NID_child_CCR` varchar(255) DEFAULT NULL,
   `NID_mother` varchar(255) DEFAULT NULL,
+  `companion` varchar(255) DEFAULT NULL,
+  `name` varchar(255) DEFAULT NULL,
+  `surname` varchar(255) DEFAULT NULL,
   `age_enrollment` int(11) DEFAULT NULL,
-  `weight` int(11) DEFAULT NULL,
-  `date_of_register_at_CCR` datetime DEFAULT NULL,
+  `birth_weight` int(11) DEFAULT NULL,
   `cotrimoxazole_prophylaxis` varchar(255) DEFAULT NULL,
   `prophylaxis_isoniazide` varchar(100) DEFAULT NULL,
   `prophylaxis_isoniazide_date` datetime DEFAULT NULL,
@@ -122,8 +135,9 @@ CREATE TABLE IF NOT EXISTS `ccr_patient` (
   `prematurity` varchar(225) DEFAULT NULL,
   `date_of_weaning` datetime DEFAULT NULL,
   `ART_regimen_mother` varchar(255) DEFAULT NULL,
-  `date_ART_regime` datetime DEFAULT NULL,
-  `pmtct_ART_regime` datetime DEFAULT NULL
+  `place_of_birth` varchar(255) DEFAULT NULL,
+  `birth_type` varchar(255) DEFAULT NULL,
+  `date_ART_regime` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -193,6 +207,8 @@ CREATE TABLE IF NOT EXISTS `ccr_visits` (
 
 CREATE TABLE `art_child_patient` (
   `patient_id` int(11) DEFAULT NULL,
+  `name` varchar(100) DEFAULT NULL,
+  `surname` varchar(100) DEFAULT NULL,
   `child_status` varchar(255) DEFAULT NULL,
   `NID_child_CCR` varchar(255) DEFAULT NULL,
   `NID_child_ART` varchar(255) DEFAULT NULL,
@@ -250,8 +266,8 @@ begin
 
 truncate table pmtct_patient;
 
-INSERT INTO pmtct_patient (patient_id, location_id)
-SELECT  e.patient_id, e.location_id FROM   patient p
+INSERT INTO pmtct_patient (patient_id,date_of_first_consultation,location_id)
+SELECT DISTINCT e.patient_id, e.encounter_datetime,location_id FROM   patient p
        INNER JOIN encounter e
                ON e.patient_id = p.patient_id
        INNER JOIN person pe
@@ -261,7 +277,8 @@ WHERE  p.voided = 0
        AND e.voided = 0
        AND pe.voided = 0
        AND e.encounter_datetime BETWEEN startdate AND enddate
-GROUP  BY p.patient_id;
+GROUP  BY p.patient_id
+HAVING MIN(e.encounter_datetime) = MIN(e.encounter_datetime);
 
 
 update pmtct_patient,location
@@ -281,45 +298,79 @@ end if;
 /*DATA DE NAICIMENTO*/
 UPDATE pmtct_patient, person SET pmtct_patient.birth_date=person.birthdate WHERE pmtct_patient.patient_id=person.person_id;
 
+/*IDADE*/
+update pmtct_patient,person set pmtct_patient.age_enrollment=round(datediff(pmtct_patient.date_of_first_consultation,person.birthdate)/365)
+where  person_id=pmtct_patient.patient_id;
+
 /*SEXO*/
 update pmtct_patient,person set pmtct_patient.sex=.person.gender where  person_id=pmtct_patient.patient_id;
 
+update pmtct_patient,person_name set pmtct_patient.name=.person_name.given_name, pmtct_patient.surname=person_name.family_name where  person_id=pmtct_patient.patient_id;
+
+
+/*ESTADO CIVIL*/
+update pmtct_patient,obs
+set pmtct_patient.marital_status= case obs.value_coded
+             when 1057 then 'SINGLE'
+             when 5555 then 'MARRIED'
+             when 1059 then 'WIDOWED'
+             when 1060 then 'LIVING WITH PARTNER'
+             when 1056 then 'SEPARATED'
+             when 1058 then 'DIVORCED'
+             else null end
+where obs.person_id=pmtct_patient.patient_id and obs.concept_id=1054 and obs.voided=0; 
+
+/*ESCOLARIDADE*/
+update pmtct_patient,obs
+set pmtct_patient.education= case obs.value_coded 
+             when 1445 then 'NONE'
+             when 1446 then 'PRIMARY SCHOOL'
+             when 1447 then 'SECONDARY SCHOOL'
+             when 6124 then 'TECHNICAL SCHOOL'
+             when 1444 then 'SECONDARY SCHOOL'
+             when 6125 then 'TECHNICAL SCHOOL'
+             when 1448 then 'UNIVERSITY'
+          else null end
+where obs.person_id=pmtct_patient.patient_id and obs.concept_id=1443 and voided=0;
+
+/*PROFISSAO*/
+update pmtct_patient,obs
+set pmtct_patient.occupation= obs.value_text
+where obs.person_id=pmtct_patient.patient_id and obs.concept_id=1459 and voided=0;
 
 /*GESTATIONAL AGE FIRST ANC VISIT*/
 update pmtct_patient,
 (
-Select cpn.patient_id, cpn.data_cpn, cpn.code
+Select cpn.patient_id, cpn.data_cpn, obs.value_numeric as code
   from
-  ( Select  p.patient_id,min(o.obs_datetime) data_cpn, o.value_numeric as code
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
     from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type in(11) and 
-        o.concept_id=1279 and o.value_numeric is not null
+    where   p.voided=0 and e.voided=0 and e.encounter_type in(11)
     group by p.patient_id
   ) cpn
   inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
   where   obs.voided=0 and obs.concept_id=1279 
 )updateGest
-set pmtct_patient.gestational_age=updateGest.code
+set pmtct_patient.gestational_age=updateGest.code, pmtct_patient.date_of_first_consultation=updateGest.data_cpn
 where pmtct_patient.patient_id=updateGest.patient_id;
+
+
 
 
 /*HIV STATUS AT FIRST ANC VISIT*/
 update pmtct_patient,
 (
-Select cpn.patient_id, cpn.data_cpn, case cpn.coded 
-when 664 then 'NEGATIVE' 
-when 1067 then 'UNKNOWN' 
-when 703 then 'POSITIVE'  
+Select cpn.patient_id, cpn.data_cpn,  case obs.value_coded  
+when 664 then   'NEGATIVE' 
+when 1067 then  'UNKNOWN' 
+when 703 then   'POSITIVE'  
 else null end as cod
   from
-  ( Select  p.patient_id,min(o.obs_datetime) data_cpn,o.value_coded as coded
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
     from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type in (11) and 
-        o.concept_id=6385 and o.value_coded is not null
+    where   p.voided=0 and e.voided=0 and e.encounter_type in (11) 
     group by p.patient_id
   ) cpn
   inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
@@ -332,19 +383,17 @@ where pmtct_patient.patient_id=updateState.patient_id;
 /*HIV TEST RESULT FIRST VISIT*/
 update pmtct_patient,
 (
-Select cpn.patient_id, cpn.data_cpn as data, case cpn.coded 
+Select cpn.patient_id, cpn.data_cpn as data, case obs.value_coded 
 when 664 then 'NEGATIVE' 
 when 1138 then 'INDETERMINATE' 
 when 703 then 'POSITIVE' 
 when 1118 then 'NOT DONE' 
 else null end as cod
   from
-  ( Select  p.patient_id,min(o.obs_datetime) data_cpn,o.value_coded as coded
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
     from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type in (11) and 
-        o.concept_id=2079 and o.value_coded is not null
+    where   p.voided=0 and e.voided=0 and  e.encounter_type in (11)    
     group by p.patient_id
   ) cpn
   inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
@@ -355,35 +404,48 @@ where pmtct_patient.patient_id=updateState.patient_id;
 
 
 /*PARTNER PRESENT*/
-update pmtct_patient, obs
-set pmtct_patient.partner_present= case obs.value_coded
-             when 1065 then 'YES'
-             when 1066 then 'NO'
-             else null end
-where obs.person_id=pmtct_patient.patient_id and obs.concept_id=6368 and voided=0;
+update pmtct_patient,
+(
+Select cpn.patient_id, cpn.data_cpn as data, case obs.value_coded 
+        when 1065 then 'YES'
+        when 1066 then 'NO'
+else null end as cod
+  from
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+    where   p.voided=0 and e.voided=0 and  e.encounter_type in (11)    
+    group by p.patient_id
+  ) cpn
+  inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
+  where   obs.voided=0 and obs.concept_id=6368 
+)updateState
+set pmtct_patient.partner_present=updateState.cod
+where pmtct_patient.patient_id=updateState.patient_id;
+
+
 
 /*HIV PARTNER TEST RESULT FIRST VISIT AND DATE RESULT*/
 update pmtct_patient,
 (
-Select cpn.patient_id, cpn.data_cpn as data, case cpn.coded 
+Select cpn.patient_id, cpn.data_cpn as data, case obs.value_coded
 when 664 then 'NEGATIVE' 
 when 1138 then 'INDETERMINATE' 
 when 703 then 'POSITIVE' 
 when 1118 then 'NOT DONE' 
 else null end as cod
   from
-  ( Select  p.patient_id,min(o.obs_datetime) data_cpn,o.value_coded as coded
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
     from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type in (11) and 
-        o.concept_id=2074 and o.value_coded is not null
+    where   p.voided=0 and e.voided=0 and  e.encounter_type in (11) 
     group by p.patient_id
   ) cpn
   inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
   where   obs.voided=0 and obs.concept_id=2074 
 )updatePartnerResult
-set pmtct_patient.test_hiv_partner=updatePartnerResult.cod, pmtct_patient.test_hiv_partner_date=updatePartnerResult.data
+set pmtct_patient.test_hiv_partner=updatePartnerResult.cod, 
+pmtct_patient.test_hiv_partner_date=updatePartnerResult.data
 where pmtct_patient.patient_id=updatePartnerResult.patient_id;
 
 
@@ -393,14 +455,12 @@ update pmtct_patient, obs set pmtct_patient.estimated_delivery_date=obs.value_da
 /*WEIGHT*/
 update pmtct_patient,
 (
-Select cpn.patient_id, cpn.data_cpn, cpn.code
+Select cpn.patient_id, cpn.data_cpn, obs.value_numeric as code
   from
-  ( Select  p.patient_id,min(o.obs_datetime) data_cpn, o.value_numeric as code
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
     from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type in(11) and 
-        o.concept_id=5089 and o.value_numeric is not null
+    where   p.voided=0 and e.voided=0 and e.encounter_type in(11) 
     group by p.patient_id
   ) cpn
   inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
@@ -412,18 +472,16 @@ where pmtct_patient.patient_id=updateWeight.patient_id;
 /*ARM CIRCUMFERENCE*/
 update pmtct_patient,
 (
-Select cpn.patient_id, cpn.data_cpn as data, case cpn.coded 
+select cpn.patient_id, cpn.data_cpn as data, case obs.value_coded
 when 6370 then 'MUAC < 21 CM' 
 when 6371 then 'MUAC >= 21 CM AND < 23 CM' 
 when 6372 then 'MUAC >= 23 CM'  
 else null end as code
   from
-  ( Select  p.patient_id,min(o.obs_datetime) data_cpn,o.value_coded as coded
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
     from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type in (11) and 
-        o.concept_id=6373 and o.value_coded is not null
+    where   p.voided=0 and e.voided=0  and e.encounter_type in (11) 
     group by p.patient_id
   ) cpn
   inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
@@ -435,18 +493,16 @@ where pmtct_patient.patient_id=updatePB.patient_id;
 /*BLOOD PRESSURE AT FIRST ANC VISIT*/
 update pmtct_patient,
 (
-Select cpn.patient_id, cpn.data_cpn, case cpn.coded 
+Select cpn.patient_id, cpn.data_cpn, case obs.value_coded 
 when 1065 then 'YES'
 when 1066 then 'NO' 
 when 1118 then 'NOT DONE'  
 else null end as cod
   from
-  ( Select  p.patient_id,min(o.obs_datetime) data_cpn,o.value_coded as coded
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
     from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type in (11) and 
-        o.concept_id=6379 and o.value_coded is not null
+    where   p.voided=0 and e.voided=0 and e.encounter_type in (11)
     group by p.patient_id
   ) cpn
   inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
@@ -459,22 +515,20 @@ where pmtct_patient.patient_id=updateBP.patient_id;
 /*MEMOGLOBIN AT FIRST ANC VISIT*/
 update pmtct_patient,
 (
-Select cpn.patient_id, cpn.data_cpn, case cpn.coded 
+Select cpn.patient_id, cpn.data_cpn, case obs.value_coded
 when 1065 then 'YES' 
 when 1066 then 'NO' 
 when 1118 then 'NOT DONE'  
 else null end as cod
   from
-  ( Select  p.patient_id,min(o.obs_datetime) data_cpn,o.value_coded as coded
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
     from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type in (11) and 
-        o.concept_id=6380 and o.value_coded is not null
+    where   p.voided=0 and e.voided=0  and e.encounter_type in (11) 
     group by p.patient_id
   ) cpn
   inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
-  where   obs.voided=0 and obs.concept_id=6380 
+  where   obs.voided=0 and obs.concept_id=6380
 )updateHG
 set pmtct_patient.hemoglobin=updateHG.cod
 where pmtct_patient.patient_id=updateHG.patient_id;
@@ -483,21 +537,19 @@ where pmtct_patient.patient_id=updateHG.patient_id;
 /*ITS TRATMENT AT FIRST ANC VISIT*/
 update pmtct_patient,
 (
-Select cpn.patient_id, cpn.data_cpn, case cpn.coded 
+Select cpn.patient_id, cpn.data_cpn, case obs.value_coded 
 when 1065 then 'YES' 
 when 1066 then 'NO' 
 else null end as cod
   from
-  ( Select  p.patient_id,min(o.obs_datetime) data_cpn,o.value_coded as coded
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
     from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type in (11) and 
-        o.concept_id=1975 and o.value_coded is not null
+    where   p.voided=0 and e.voided=0 and  e.encounter_type in (11)
     group by p.patient_id
   ) cpn
   inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
-  where   obs.voided=0 and obs.concept_id=1975 
+  where   obs.voided=0 and obs.concept_id=1975
 )updateITS
 set pmtct_patient.its_tratment=updateITS.cod
 where pmtct_patient.patient_id=updateITS.patient_id;
@@ -506,18 +558,16 @@ where pmtct_patient.patient_id=updateITS.patient_id;
 /*SIFLIS TRATMENT AT FIRST ANC VISIT*/
 update pmtct_patient,
 (
-Select cpn.patient_id, cpn.data_cpn as data, case cpn.coded 
+Select cpn.patient_id, cpn.data_cpn as data, case obs.value_coded 
 when 1229 then 'NEGATIVE' 
 when 1228 then 'POSITIVE'
 when 1118 then 'NOT DONE'
  else null end as cod
   from
-  ( Select  p.patient_id,min(o.obs_datetime) data_cpn,o.value_coded as coded
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
     from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type in (11) and 
-        o.concept_id=299 and o.value_coded is not null
+    where   p.voided=0 and e.voided=0  and e.encounter_type in (11) 
     group by p.patient_id
   ) cpn
   inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
@@ -530,18 +580,15 @@ where pmtct_patient.patient_id=updateSIFLIS.patient_id;
 /*CTZ TRATMENT AT FIRST ANC VISIT*/
 update pmtct_patient,
 (
-Select cpn.patient_id, cpn.data_cpn as data, case cpn.coded 
-when 6386 then 'PROFILAXIA COM COTRIMOXAZOL A ENTRATDA NA CPN' 
+Select distinct cpn.patient_id, cpn.data_cpn as data, case  obs.value_coded
 when 1256 then 'START DRUGS' 
 when 1257 then 'CONTINUE REGIMEN' 
 else null end as cod
   from
-  ( Select  p.patient_id,min(o.obs_datetime) data_cpn,o.value_coded as coded
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
     from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type in (11) and 
-        o.concept_id=6121 and o.value_coded is not null
+    where   p.voided=0 and e.voided=0  and e.encounter_type in (11)
     group by p.patient_id
   ) cpn
   inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
@@ -551,21 +598,24 @@ set pmtct_patient.cotrimoxazole_prophylaxis=updateCTZ.cod
 where pmtct_patient.patient_id=updateCTZ.patient_id;
 
 
+
 /*TB TRATMENT AT FIRST ANC VISIT*/
 update pmtct_patient,
 (
-Select cpn.patient_id, cpn.data_cpn as data, case cpn.coded  when 1256 then 'START DRUGS' when 1257 then 'CONTINUE REGIMEN' else null end as cod
+Select cpn.patient_id, cpn.data_cpn, case  obs.value_coded
+when 1256 then 'START DRUGS' 
+when 1257 then 'CONTINUE REGIMEN' 
+else null end as cod
   from
-  ( Select  p.patient_id,min(o.obs_datetime) data_cpn,o.value_coded as coded
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
     from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type in (11) and 
-        o.concept_id=1268 and o.value_coded is not null
+    where   p.voided=0 and e.voided=0  and e.encounter_type in (11)
     group by p.patient_id
   ) cpn
   inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
   where   obs.voided=0 and obs.concept_id=1268 
+
 )updateTB
 set pmtct_patient.TB_treatment=updateTB.cod
 where pmtct_patient.patient_id=updateTB.patient_id;
@@ -575,15 +625,18 @@ where pmtct_patient.patient_id=updateTB.patient_id;
 /*ARV TRATMENT AT FIRST ANC VISIT*/
 update pmtct_patient,
 (
-Select cpn.patient_id, cpn.data_cpn as data, case cpn.coded when 6388 then 'ON ARV TREATMENT AT ANC ENTRANCE' 
-when 631 then 'NEVIRAPINE' when 1801 then 'ZIDOVUDINE + NEVIRAPINE' when 1256 then 'START DRUGS' when 1257 then 'CONTINUE REGIMEN' else null end as cod
+Select cpn.patient_id, cpn.data_cpn,  case obs.value_coded
+when 6388 then 'ON ARV TREATMENT AT ANC ENTRANCE' 
+when 631  then 'NEVIRAPINE' 
+when 1801 then 'ZIDOVUDINE + NEVIRAPINE' 
+when 1256 then 'START DRUGS' 
+when 1257 then 'CONTINUE REGIMEN' 
+else null end as cod
   from
-  ( Select  p.patient_id,min(o.obs_datetime) data_cpn,o.value_coded as coded
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
     from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type in (11) and 
-        o.concept_id=1504 and o.value_coded is not null
+    where   p.voided=0 and e.voided=0  and e.encounter_type in (11) 
     group by p.patient_id
   ) cpn
   inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
@@ -597,13 +650,16 @@ UPDATE pmtct_patient, patient_identifier SET pmtct_patient.NID_mother_ANC = pati
 WHERE pmtct_patient.patient_id=patient_identifier.patient_id;
 
 
+UPDATE pmtct_patient, patient_identifier SET pmtct_patient.NID_mother_ART = patient_identifier.identifier 
+WHERE pmtct_patient.patient_id=patient_identifier.patient_id and patient_identifier.identifier_type=2 ;
+
+
 /*VISITAS */
 insert into pmtct_hiv_test_result_each_visit(patient_id,visit_date)
-select distinct p.patient_id, e.encounter_datetime
-from  pmtct_patient p 
-    inner join encounter e on p.patient_id=e.patient_id 
-    inner join obs o on o.person_id=e.patient_id and o.concept_id=2079 and o.value_coded is not null 
-where   e.voided=0 and e.encounter_type =11 ; 
+  select  p.patient_id, e.encounter_datetime
+  from  patient p 
+    inner join encounter e on p.patient_id=e.patient_id
+where   e.voided=0 and e.encounter_type =11;
 
 /*STATUS VISIT DATE*/
 update pmtct_hiv_test_result_each_visit,obs
@@ -616,7 +672,6 @@ insert into pmtct_hiv_partner_result_each_visit(patient_id,visit_date)
 Select distinct p.patient_id, e.encounter_datetime
 from  pmtct_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
-    inner join obs o on o.person_id=e.patient_id and o.concept_id=2074 and o.value_coded is not null
 where   e.voided=0 and e.encounter_type =11;
 
 /*STATUS VISIT DATE PATNER*/
@@ -646,6 +701,9 @@ WHERE art_mother_patient.patient_id=patient_identifier.patient_id;
 
 /*DATA AICIMENTO DO PACIENTE*/
 UPDATE art_mother_patient, person SET art_mother_patient.birth_date_mother=person.birthdate WHERE art_mother_patient.patient_id=person.person_id;
+
+
+update art_mother_patient,person_name set art_mother_patient.name=.person_name.given_name, art_mother_patient.surname=person_name.family_name where  person_id=art_mother_patient.patient_id;
 
 /*UPDATE CODPROVENIENCIA*/
 update art_mother_patient,
@@ -779,10 +837,6 @@ UPDATE art_mother_patient,
 SET art_mother_patient.art_initiation_date=inicio_real.data_inicio
 WHERE art_mother_patient.patient_id=inicio_real.patient_id;
 
-/*DATA DE NAICIMENTO*/
-update art_mother_patient,person set art_mother_patient.age_enrollment=round(datediff(art_mother_patient.art_initiation_date,person.birthdate)/365)
-where  person_id=art_mother_patient.patient_id;
-
 
 /*INSCRICAO*/
 UPDATE art_mother_patient,
@@ -801,6 +855,9 @@ UPDATE art_mother_patient,
 SET art_mother_patient.enrollment_date=enrollment.data_abertura
 WHERE art_mother_patient.patient_id=enrollment.patient_id;
 
+/*DATA DE NAICIMENTO*/
+update art_mother_patient,person set art_mother_patient.age_enrollment=round(datediff(art_mother_patient.enrollment_date,person.birthdate)/365)
+where  person_id=art_mother_patient.patient_id;
 
   /*REGIME*/   
 update art_mother_patient,
@@ -1024,25 +1081,24 @@ update art_mother_patient,
         inner join patient_program pg on p.patient_id=pg.patient_id
         inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
     where   pg.voided=0 and ps.voided=0 and  
-        pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null 
+        pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and ps.start_date < dataAvaliacao
     ) out_state
 set   art_mother_patient.patient_status=out_state.codeestado, art_mother_patient.patient_status_date=out_state.start_date
 where art_mother_patient.patient_id=out_state.patient_id;
 
 
-INSERT INTO ccr_patient (patient_id,date_of_register_at_CCR)
+INSERT INTO ccr_patient(patient_id, date_of_register_at_CCR)
 SELECT  distinct e.patient_id, e.encounter_datetime FROM   patient p
-       INNER JOIN encounter e
-               ON e.patient_id = p.patient_id
-       INNER JOIN person pe
-               ON pe.person_id = p.patient_id
-WHERE  p.voided = 0
+       INNER JOIN encounter e ON e.patient_id = p.patient_id
+WHERE  p.voided = 0 and e.voided=0
        AND e.encounter_type=10
        AND e.voided = 0
-       AND pe.voided = 0
-       AND e.encounter_datetime BETWEEN startDate AND endDate;
+       AND e.encounter_datetime BETWEEN startDate AND endDate
+group by p.patient_id
+HAVING MIN(e.encounter_datetime) = MIN(e.encounter_datetime);
 
-         /*Sexo*/
+
+ /*Sexo*/
 update ccr_patient,person set ccr_patient.sex=person.gender
 where  person.person_id=ccr_patient.patient_id;
 
@@ -1050,67 +1106,115 @@ where  person.person_id=ccr_patient.patient_id;
 update ccr_patient, person set ccr_patient.birth_date=person.birthdate
 where  person_id=ccr_patient.patient_id;
 
+/*IDADE*/
+update ccr_patient,person set ccr_patient.age_enrollment=round(datediff(ccr_patient.date_of_register_at_CCR,person.birthdate)/365)
+where  person_id=ccr_patient.patient_id;
 
 /*IDENTIFICACAO DO PACIENTE*/
 UPDATE ccr_patient,patient_identifier SET ccr_patient.NID_child_CCR = patient_identifier.identifier 
 WHERE ccr_patient.patient_id=patient_identifier.patient_id;
 
+/*NOME E SOBRENOME DO PACIENTE*/
+update ccr_patient,person_name set ccr_patient.name=.person_name.given_name, ccr_patient.surname=person_name.family_name where  person_id=ccr_patient.patient_id;
 
-/*WEIGHT aO  NAICIMENTO*/
+
+/*WEIGHT AO  NAICIMENTO*/
 update ccr_patient,
 (
-Select ccr.patient_id, ccr.data_ccr, ccr.code
+select cpn.patient_id, cpn.encounter_id, cpn.data_cpn, obs.value_numeric as code
   from
-  ( Select distinct p.patient_id, o.obs_datetime as data_ccr, o.value_numeric as code
-      from  patient p 
-          inner join encounter e on p.patient_id=e.patient_id 
-          inner join obs o on o.person_id=e.patient_id 
-      where   e.voided=0 and e.encounter_type =10 and o.concept_id=5916
-  ) ccr
-  inner join obs on obs.person_id=ccr.patient_id and obs.obs_datetime=ccr.data_ccr
+  ( select  p.patient_id, e.encounter_id, min(e.encounter_datetime) data_cpn
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+    where   p.voided=0 and e.voided=0 and e.encounter_type in(10)
+    group by p.patient_id
+  ) cpn
+  inner join obs on obs.person_id=cpn.patient_id  and cpn.encounter_id=obs.encounter_id
   where   obs.voided=0 and obs.concept_id=5916 
 )ccrWeight
-set ccr_patient.weight=ccrWeight.code
+set ccr_patient.birth_weight=ccrWeight.code
 where ccr_patient.patient_id=ccrWeight.patient_id;
 
 
+/*TIPO DE ACOMPAHANTE*/
+update ccr_patient,
+(
+Select ccr.patient_id, ccr.data_ccr as data, case obs.value_coded
+when 970 then 'MOTHER'  
+when 971 then 'FATHER' 
+when 972 then 'BROTHER' 
+when 973 then 'GRANDPARENT' 
+when 975 then 'AUNT' 
+when 5620 then 'OTHER FAMILY MEMBER' 
+else null end as cod
+  from
+  ( Select  p.patient_id,min(e.encounter_datetime) data_ccr
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+    where   p.voided=0 and e.voided=0  and e.encounter_type=10
+    group by p.patient_id
+  ) ccr
+  inner join obs on obs.person_id=ccr.patient_id and obs.obs_datetime=ccr.data_ccr
+  where   obs.voided=0 and obs.concept_id=969 
+)updateComp
+set ccr_patient.companion=updateComp.cod
+where ccr_patient.patient_id=updateComp.patient_id;
 
 /*LOCAL DO PARTO FIRST ANC VISIT*/
 update ccr_patient,
 (
-Select ccr.patient_id, ccr.data_ccr as data, case ccr.coded 
-when 1818  then 'FACILITY BASED DELIVERY'  
+Select ccr.patient_id, ccr.data_ccr as data, case obs.value_coded 
+when 1818 then 'FACILITY BASED DELIVERY'  
 when 1817 then 'HOME DELIVERY' 
 when 5622 then 'OTHER NON-CODED' 
 when 1831 then 'IN TRANSIT' 
 else null end as cod
   from
-  ( Select  p.patient_id,min(o.obs_datetime) data_ccr,o.value_coded as coded
+  ( Select  p.patient_id,min(e.encounter_datetime) data_ccr
     from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type=10 and 
-        o.concept_id=1581 and o.value_coded is not null
+    where   p.voided=0 and e.voided=0 and e.encounter_type=10
     group by p.patient_id
   ) ccr
   inner join obs on obs.person_id=ccr.patient_id and obs.obs_datetime=ccr.data_ccr
   where   obs.voided=0 and obs.concept_id=1581 
 )updatePlace
-set ccr_patient.ART_regimen_mother=updatePlace.cod
+set ccr_patient.place_of_birth=updatePlace.cod
 where ccr_patient.patient_id=updatePlace.patient_id;
 
+/*TIPO DO PARTO FIRST ANC VISIT*/
+update ccr_patient,
+(
+Select ccr.patient_id, ccr.data_ccr as data, case obs.value_coded
+when 1170 then 'SPONTANEOUS VAGINAL DELIVERY'  
+when 1172 then 'BREECH DELIVERY' 
+when 1171 then 'CESAREAN SECTION' 
+when 5622 then 'OTHER NON-CODED' 
+when 1826 then 'STILLBORN' 
+when 1115 then 'NORMAL' 
+else null end as cod
+  from
+  ( Select  p.patient_id,min(e.encounter_datetime) data_ccr
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+    where   p.voided=0 and e.voided=0  and e.encounter_type=10
+    group by p.patient_id
+  ) ccr
+  inner join obs on obs.person_id=ccr.patient_id and obs.obs_datetime=ccr.data_ccr
+  where   obs.voided=0 and obs.concept_id=5630 
+)updatePlace
+set ccr_patient.birth_type=updatePlace.cod
+where ccr_patient.patient_id=updatePlace.patient_id;
 
 /*REGIME FIRST ANC VISIT*/
 update ccr_patient,
 (
-Select ccr.patient_id, ccr.data_ccr as data, case ccr.coded when 1107  then 'NONE'  when 6276 then 'ART' else null end as cod
+Select ccr.patient_id, ccr.data_ccr as data, case obs.value_coded  when 1107  then 'NONE'  when 6276 then 'ART' else null end as cod
   from
-  ( Select  p.patient_id,min(o.obs_datetime) data_ccr,o.value_coded as coded
+  ( Select  p.patient_id,min(e.encounter_datetime) data_ccr
     from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type=10 and 
-        o.concept_id=6394 and o.value_coded is not null
+    where   p.voided=0 and e.voided=0  and e.encounter_type=10
     group by p.patient_id
   ) ccr
   inner join obs on obs.person_id=ccr.patient_id and obs.obs_datetime=ccr.data_ccr
@@ -1119,24 +1223,20 @@ Select ccr.patient_id, ccr.data_ccr as data, case ccr.coded when 1107  then 'NON
 set ccr_patient.ART_regimen_mother=updateReg.cod, ccr_patient.date_ART_regime=updateReg.data
 where ccr_patient.patient_id=updateReg.patient_id;
 
-
-
 /*CTZ TRATMENT AT FIRST ANC VISIT*/
 update ccr_patient,
 (
-Select ccr.patient_id, ccr.data_cpn as data, case ccr.coded 
+Select ccr.patient_id, ccr.data_cpn as data, case obs.value_coded
 when 1257 then 'CONTINUE REGIMEN'  
 when 6387 then 'NO COTRIMOXAZOL AT HEALTH UNIT'
 when 6411 then 'STARTS COTRIMOXAZOL USE UP TO 8 WEEKS' 
 when 6412 then 'TARTS COTRIMOXAZOL USE AFTER 8 WEEKS
 ' else null end as cod
   from
-  ( Select  p.patient_id,min(o.obs_datetime) data_cpn,o.value_coded as coded
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
     from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type in (10) and 
-        o.concept_id=6121 and o.value_coded is not null
+    where   p.voided=0 and e.voided=0 and e.encounter_type in (10)
     group by p.patient_id
   ) ccr
   inner join obs on obs.person_id=ccr.patient_id and obs.obs_datetime=ccr.data_cpn
@@ -1146,35 +1246,39 @@ set ccr_patient.cotrimoxazole_prophylaxis=updateCTZ.cod
 where ccr_patient.patient_id=updateCTZ.patient_id;
 
 /*IZODEAZIDA TRATMENT AT FIRST ANC VISIT*/
-update ccr_patient,(
-Select  p.patient_id,min(o.obs_datetime) datainh,case o.value_coded
+update ccr_patient,
+(
+select cpn.patient_id, cpn.encounter_id, cpn.data_cpn, case obs.value_coded
              when 1257 then 'CONTINUE REGIMEN'
              when 1267 then 'COMPLETED'
-             else null end as code
-    from  ccr_patient p
+            else null end as cod
+  from
+  ( select  p.patient_id, e.encounter_id, min(e.encounter_datetime) data_cpn
+    from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where     e.voided=0 and o.voided=0 and e.encounter_type in (10) and  o.concept_id=6122
-    group by p.patient_id ) seg  
-set ccr_patient.prophylaxis_isoniazide=seg.code, ccr_patient.prophylaxis_isoniazide_date=seg.datainh
+    where   p.voided=0 and e.voided=0 and e.encounter_type in(10)
+    group by p.patient_id
+  ) cpn
+  inner join obs on obs.person_id=cpn.patient_id  and cpn.encounter_id=obs.encounter_id
+  where   obs.voided=0 and obs.concept_id=6122 
+) seg  
+set ccr_patient.prophylaxis_isoniazide=seg.cod, ccr_patient.prophylaxis_isoniazide_date=seg.data_cpn
 where seg.patient_id=ccr_patient.patient_id;
-
 
 
 /*INFANT TRATMENT AT FIRST ANC VISIT*/
 update ccr_patient,
 (
-Select ccr.patient_id, ccr.data_cpn as data, case ccr.coded 
+Select ccr.patient_id, ccr.data_cpn as data, case obs.value_coded
 when 5526 then 'BREASTFED EXCLUSIVELY'  
 when 5254 then 'INFANT FORMULA'  
-when 6046 then 'MIXED FEEDING' else null end as cod
+when 6046 then 'MIXED FEEDING' 
+else null end as cod
   from
-  ( Select  p.patient_id,min(o.obs_datetime) data_cpn,o.value_coded as coded
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
     from  patient p
         inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type=10 and 
-        o.concept_id=1151 and o.value_coded is not null
+    where   p.voided=0 and e.voided=0 and e.encounter_type=10
     group by p.patient_id
   ) ccr
   inner join obs on obs.person_id=ccr.patient_id and obs.obs_datetime=ccr.data_cpn
@@ -1184,29 +1288,11 @@ set ccr_patient.infant_feeding_type=updateINF.cod
 where ccr_patient.patient_id=updateINF.patient_id;
 
 
-/*INFANT TRATMENT AT FIRST ANC VISIT*/
-update ccr_patient,
-(
-Select ccr.patient_id, ccr.data_cpn as data, case ccr.coded when 1242  then 'YES'  else 'NO' end as cod
-  from
-  ( Select  p.patient_id,min(o.obs_datetime) data_cpn,o.value_coded as coded
-    from  patient p
-        inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type=10 and 
-        o.concept_id=1874 and o.value_coded is not null
-    group by p.patient_id
-  ) ccr
-  inner join obs on obs.person_id=ccr.patient_id and obs.obs_datetime=ccr.data_cpn
-  where   obs.voided=0 and obs.concept_id=1874 
-)updatePremature
-set ccr_patient.prematurity=updatePremature.cod
-where ccr_patient.patient_id=updatePremature.patient_id;
 
 /*WEIGTH VISITAS */
 insert into ccr_weigh_each_visit(patient_id,visit_date, weight)
 Select distinct p.patient_id, o.obs_datetime, o.value_numeric
-from  patient p 
+from  ccr_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.person_id=e.patient_id 
 where   e.voided=0 and e.encounter_type =10 and o.concept_id=5089 and o.obs_datetime  < dataAvaliacao;
@@ -1301,11 +1387,9 @@ group by p.patient_id;
 /* VISITAS */
 insert into ccr_visits(patient_id,visit_date)
 Select distinct p.patient_id, e.encounter_datetime
-from  patient p 
+from  ccr_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
 where   e.voided=0 and e.encounter_type =10 and  e.encounter_datetime < dataAvaliacao;
-
-
 
 
 insert into art_child_patient(patient_id,child_status)
@@ -1319,11 +1403,14 @@ select   patient_id, test_result  from ccr_result_definitive_test where  test_re
 
 
 UPDATE art_child_patient, patient_identifier SET art_child_patient.NID_child_ART = patient_identifier.identifier 
-WHERE art_child_patient.patient_id=patient_identifier.patient_id;
+WHERE art_child_patient.patient_id=patient_identifier.patient_id and patient_identifier.identifier_type=2;
 
 
 UPDATE art_child_patient, patient_identifier SET art_child_patient.NID_child_CCR = patient_identifier.identifier 
-WHERE art_child_patient.patient_id=patient_identifier.patient_id and patient_identifier.identifier_type=2;
+WHERE art_child_patient.patient_id=patient_identifier.patient_id;
+
+
+update art_child_patient,person_name set art_child_patient.name=person_name.given_name, art_child_patient.surname=person_name.family_name where  person_id=art_child_patient.patient_id;
 
 
 /*INICIO TARV*/
