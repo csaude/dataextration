@@ -1,0 +1,112 @@
+SELECT startART.patient_id, MIN(startART.start_date) start_date
+FROM
+  (
+/*Sao paciente que tiveram no seu primeiro fila ou seguimento(18,6,9) o conceito 1255 (Gestao TARV) e a resposta eh 1256 (Iniciar) 
+*/ 
+SELECT p.patient_id, MIN(e.encounter_datetime) start_date
+      FROM patient p
+      INNER JOIN encounter e ON p.patient_id=e.patient_id
+      INNER JOIN obs o ON o.encounter_id=e.encounter_id
+      WHERE e.voided=0
+        AND o.voided=0
+        AND p.voided=0
+        AND e.encounter_type IN (18,6,9)
+        AND o.concept_id=1255
+        AND o.value_coded=1256
+      GROUP BY p.patient_id
+      
+      UNION 
+/*Sao paciente que tiveram no seu primeiro fila ou seguimento(18,6,9) o conceito 1190 (DATA DE INICIO DO TARV)
+*/ 
+SELECT p.patient_id, MIN(value_datetime) start_date
+      FROM patient p
+      INNER JOIN encounter e ON p.patient_id=e.patient_id
+      INNER JOIN obs o ON e.encounter_id=o.encounter_id
+      WHERE p.voided=0
+        AND e.voided=0
+        AND o.voided=0
+        AND e.encounter_type IN (18,6,9)
+        AND o.concept_id=1190
+        AND o.value_datetime IS NOT NULL
+      GROUP BY p.patient_id
+     
+      UNION 
+/*Sao paciente inscritos no programa 2 (SERVICO TARV - TRATAMENTO)
+*/
+SELECT pg.patient_id, date_enrolled start_date
+      FROM patient p
+      INNER JOIN patient_program pg ON p.patient_id=pg.patient_id
+      WHERE pg.voided=0
+        AND p.voided=0
+        AND program_id=2
+      
+      UNION 
+/*Sao paciente que na primeira consulta tiveram levantaram de medicamento (FILA)
+*/
+SELECT e.patient_id, MIN(e.encounter_datetime) AS start_date
+      FROM patient p
+      INNER JOIN encounter e ON p.patient_id=e.patient_id
+      WHERE p.voided=0
+        AND e.encounter_type=18
+        AND e.voided=0
+      GROUP BY p.patient_id
+  ) startART
+GROUP BY startART.patient_id
+
+
+
+SELECT tb.patient_id FROM
+(
+/*Sao paciente com rastreio de TB no formulario de seguimento  com conceito 6257 e tem como resposta 1065(SIM) e 1066(NAO) 
+*/
+  SELECT p.patient_id
+      FROM patient p 
+      INNER JOIN encounter e ON e.patient_id=p.patient_id
+      INNER JOIN obs o ON o.encounter_id=e.encounter_id
+      WHERE p.voided=0
+        AND e.voided=0
+        AND o.voided=0
+        AND e.encounter_type in(6,9)
+        AND o.concept_id=6257
+        AND (o.value_coded = 1065 OR o.value_coded = 1066)
+    GROUP BY p.patient_id
+      
+      UNION
+/*Sao paciente com rastreio de TB no formulario de seguimento  com conceito 6727( RESULTADO DA INVESTIGACAO PARA TB DE BK E/OU RX) e tem como resposta 703(POSITIVO)
+*/
+SELECT p.patient_id
+     FROM patient p 
+      INNER JOIN encounter e ON e.patient_id=p.patient_id
+      INNER JOIN obs o ON o.encounter_id=e.encounter_id
+      WHERE p.voided=0
+        AND e.voided=0
+        AND o.voided=0
+        AND e.encounter_type in(6,9)
+        AND o.concept_id = 6277
+        AND o.value_coded = 703
+    GROUP BY p.patient_id
+
+    UNION
+/*Sao paciente com rastreio de TB no formulario de seguimento  com conceito 1113( DATA DE INICIO DO TRATAMENTO TB)*/
+SELECT p.patient_id
+     FROM patient p 
+      INNER JOIN encounter e ON e.patient_id=p.patient_id
+      INNER JOIN obs o ON o.encounter_id=e.encounter_id
+      WHERE p.voided=0
+        AND e.voided=0
+        AND o.voided=0
+        AND e.encounter_type in(6,9)
+        AND o.concept_id = 1113
+    GROUP BY p.patient_id
+
+    UNION 
+/*Sao paciente  inscritos no programa de  5 (TUBERCOLOSE)*/
+    SELECT p.patient_id
+      FROM patient p
+      INNER JOIN patient_program pg ON p.patient_id=pg.patient_id
+      WHERE pg.voided=0
+        AND p.voided=0
+        AND program_id=5    
+        GROUP BY p.patient_id
+
+) tb
