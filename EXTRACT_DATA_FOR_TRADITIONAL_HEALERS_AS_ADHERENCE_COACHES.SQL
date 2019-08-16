@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS `healers_patient` (
   `partner_known_to_be_diagnosed_with_hiv` varchar(255) DEFAULT NULL,
   `partner_enrolled_on_ART` varchar(255) DEFAULT NULL,
   `date_of_diagnosis` datetime DEFAULT NULL,
+  `enrollment_date` datetime DEFAULT NULL,
   `date_of_ART_initiation` datetime DEFAULT NULL,
   `current_treatment_regimen` varchar(255) DEFAULT NULL,
   `tb_co_infection` varchar(255) DEFAULT NULL,
@@ -53,9 +54,23 @@ CREATE TABLE IF NOT EXISTS `healers_patient` (
   `date_of_TB_medication_initiation`  datetime DEFAULT NULL,
   `date_of_TB_medication_completion`  datetime DEFAULT NULL,
   `TB_medication_completed` varchar(255) DEFAULT NULL,
+  `weight` double DEFAULT NULL,
+  `weight_date` datetime DEFAULT NULL,
+  `height` double DEFAULT NULL,
+  `height_date` datetime DEFAULT NULL,
+  `imc`    double DEFAULT NULL,
+  `imc_date` datetime DEFAULT NULL,
+  `hemoglobin` int(11)  DEFAULT NULL,
+  `hemoglobin_date` datetime DEFAULT NULL,
   `known_to_have_died` varchar(255) DEFAULT NULL,
   `patient_id` int(11) DEFAULT NULL,
   `death` varchar(255) DEFAULT NULL,
+  `patient_status_6_months` varchar(225) DEFAULT NULL,
+  `patient_status_6_months_date_` datetime DEFAULT NULL,
+  `patient_status_12_months` varchar(225) DEFAULT NULL,
+  `patient_status_12_months_date_` datetime DEFAULT NULL,
+  `patient_status_18_months` varchar(225) DEFAULT NULL,
+  `patient_status_18_months_date_` datetime DEFAULT NULL,
   `date_of_death`  datetime DEFAULT NULL
 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -110,6 +125,12 @@ CREATE TABLE `healers_home_visitq31` (
   `patient_id` int(11) DEFAULT NULL,
   `reason_for_the_visit` varchar(100) DEFAULT NULL,
   `visit_date` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `healers_visit` (
+  `patient_id` int(11) DEFAULT NULL,
+  `visit_date`   datetime DEFAULT NULL,
+  `next_visit_date`   datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -170,10 +191,43 @@ update healers_patient,person_address
 where person_address.person_id=healers_patient.patient_id;
 
 
+/*FIRST NAME*/
+UPDATE healers_patient,
+       person_name
+SET healers_patient.first_name=person_name.given_name
+WHERE healers_patient.patient_id=person_name.person_id;
+
+
+/*FAMILY NAME*/
+UPDATE healers_patient,
+       person_name
+SET healers_patient.family_name=person_name.family_name
+WHERE healers_patient.patient_id=person_name.person_id;
+
+
+
 /*LOCALIDADE*/
 update healers_patient,person_address 
   set healers_patient.community_localidade=person_address.address6
 where  person_address.person_id=healers_patient.patient_id;
+
+/*INSCRICAO*/
+UPDATE healers_patient,
+
+  (SELECT e.patient_id,
+          min(encounter_datetime) data_abertura
+   FROM patient p
+   INNER JOIN encounter e ON e.patient_id=p.patient_id
+   INNER JOIN person pe ON pe.person_id=p.patient_id
+   WHERE p.voided=0
+     AND e.encounter_type IN (5,
+                              7)
+     AND e.voided=0
+     AND pe.voided=0
+   GROUP BY p.patient_id) enrollment
+SET healers_patient.enrollment_date=enrollment.data_abertura
+WHERE healers_patient.patient_id=enrollment.patient_id;
+
 
 /*ESTADO CIVIL*/
 update healers_patient,obs
@@ -527,7 +581,7 @@ select  p.patient_id,
   from  healers_patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
-  where e.encounter_datetime  between '2018-04-01'AND '2018-08-01' and 
+  where e.encounter_datetime   between startDate AND endDate and 
   e.encounter_type=21 and o.voided=0 and e.voided=0 and o.concept_id=2157;
 
 
@@ -588,6 +642,166 @@ update healers_patient,person
 set healers_patient.date_of_death= person.death_date 
 where healers_patient.death='YES' 
 AND healers_patient.patient_id=person.person_id;
+
+
+
+/*Peso*/
+update healers_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime
+  from  patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=1 
+  and o.obs_datetime=e.encounter_datetime and o.concept_id=5089  and e.encounter_datetime between startDate and endDate
+  group by p.patient_id
+)peso,obs
+set healers_patient.weight=obs.value_numeric, healers_patient.weight_date=peso.encounter_datetime
+where healers_patient.patient_id=obs.person_id 
+and healers_patient.patient_id=peso.patient_id 
+and obs.voided=0 and obs.obs_datetime=peso.encounter_datetime
+and obs.concept_id=5089;
+
+/*Altura*/
+update healers_patient,
+( select  p.patient_id as patient_id,
+      min(encounter_datetime) encounter_datetime
+      from  patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=1 and o.obs_datetime=e.encounter_datetime and o.concept_id=5090  and e.encounter_datetime between startDate and endDate
+  group by p.patient_id
+)altura,obs
+set healers_patient.height=obs.value_numeric, healers_patient.height_date=altura.encounter_datetime
+where healers_patient.patient_id=obs.person_id 
+and healers_patient.patient_id=altura.patient_id 
+and obs.voided=0 and obs.obs_datetime=altura.encounter_datetime
+and obs.concept_id=5090;
+
+
+update healers_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime
+  from  patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=1 and o.obs_datetime=e.encounter_datetime and o.concept_id=1342 and e.encounter_datetime between startDate and endDate
+  group by p.patient_id
+)imc,obs
+set healers_patient.imc=obs.value_numeric, healers_patient.imc_date=imc.encounter_datetime
+where healers_patient.patient_id=obs.person_id 
+and healers_patient.patient_id=imc.patient_id 
+and obs.voided=0 and obs.obs_datetime=imc.encounter_datetime;
+
+
+/*HEMOGLOBINA SEGUIMENTO */
+update healers_patient,
+(   select  p.patient_id,
+      min(encounter_datetime) encounter_datetime      
+  from    patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type in(6,9) and o.obs_datetime=e.encounter_datetime  and e.encounter_datetime between startDate and endDate
+      and o.concept_id=1692 
+  group by p.patient_id
+)hemoglobin,obs 
+set  healers_patient.hemoglobin=obs.value_numeric, healers_patient.hemoglobin_date=hemoglobin.encounter_datetime
+where healers_patient.patient_id=obs.person_id 
+and healers_patient.patient_id=hemoglobin.patient_id 
+and obs.voided=0 and obs.obs_datetime=hemoglobin.encounter_datetime
+ and obs.concept_id=1692;
+
+
+/*HEMOGLOBINA LAB */
+update healers_patient,
+(   select  p.patient_id,
+      min(encounter_datetime) encounter_datetime      
+  from    patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=13 and o.obs_datetime=e.encounter_datetime and e.encounter_datetime between startDate and endDate 
+      and o.concept_id=21
+  group by p.patient_id
+)hemoglobin,
+obs 
+set  healers_patient.hemoglobin=obs.value_numeric, healers_patient.hemoglobin_date=hemoglobin.encounter_datetime
+where healers_patient.patient_id=obs.person_id 
+and healers_patient.patient_id=hemoglobin.patient_id 
+and obs.voided=0 and obs.obs_datetime=hemoglobin.encounter_datetime
+and obs.concept_id=21 and healers_patient.hemoglobin is null;
+
+
+/*VISITAS*/
+insert into healers_visit(patient_id,visit_date)
+Select distinct p.patient_id,e.encounter_datetime 
+from  healers_patient p 
+    inner join encounter e on p.patient_id=e.patient_id 
+where   e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime  < endDate;
+
+
+/* PROXIMA VISITAS*/
+update healers_visit,obs 
+set  healers_visit.next_visit_date=obs.value_datetime
+where   healers_visit.patient_id=obs.person_id and
+    healers_visit.visit_date=obs.obs_datetime and 
+    obs.concept_id=1410 and 
+    obs.voided=0;
+
+
+     /*ESTADO ACTUAL TARV 6 MESES*/
+update healers_patient,
+    (select   pg.patient_id,ps.start_date,
+        case ps.state
+          when 7 then 'TRASFERRED OUT'
+          when 8 then 'SUSPENDED'
+          when 9 then 'ART LTFU'
+          when 10 then 'DEAD'
+        else null end as codeestado
+    from  healers_patient p 
+        inner join patient_program pg on p.patient_id=pg.patient_id
+        inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+    where   pg.voided=0 and ps.voided=0 and  
+        pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and  ps.start_date between enrollment_date and DATE_ADD(enrollment_date, INTERVAL 6 MONTH)
+    ) out_state
+set   healers_patient.patient_status_6_months=out_state.codeestado, healers_patient.patient_status_6_months_date_=out_state.start_date
+where healers_patient.patient_id=out_state.patient_id;
+
+ /*ESTADO ACTUAL TARV 12 MESES*/
+update healers_patient,
+    (select   pg.patient_id,ps.start_date,
+        case ps.state
+          when 7 then 'TRASFERRED OUT'
+          when 8 then 'SUSPENDED'
+          when 9 then 'ART LTFU'
+          when 10 then 'DEAD'
+        else null end as codeestado
+    from  healers_patient p 
+        inner join patient_program pg on p.patient_id=pg.patient_id
+        inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+    where   pg.voided=0 and ps.voided=0 and  
+        pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and  ps.start_date between enrollment_date and DATE_ADD(enrollment_date, INTERVAL 12 MONTH)
+    ) out_state
+set   healers_patient.patient_status_12_months=out_state.codeestado, healers_patient.patient_status_12_months_date_=out_state.start_date
+where healers_patient.patient_id=out_state.patient_id;
+
+
+ /*ESTADO ACTUAL TARV 18 MESES*/
+update healers_patient,
+    (select   pg.patient_id,ps.start_date,
+        case ps.state
+          when 7 then 'TRASFERRED OUT'
+          when 8 then 'SUSPENDED'
+          when 9 then 'ART LTFU'
+          when 10 then 'DEAD'
+        else null end as codeestado
+    from  healers_patient p 
+        inner join patient_program pg on p.patient_id=pg.patient_id
+        inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+    where   pg.voided=0 and ps.voided=0 and  
+        pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and  ps.start_date between enrollment_date and DATE_ADD(enrollment_date, INTERVAL 18 MONTH)
+    ) out_state
+set   healers_patient.patient_status_18_months=out_state.codeestado, healers_patient.patient_status_18_months_date_=out_state.start_date
+where healers_patient.patient_id=out_state.patient_id;
 
 end
 ;;
