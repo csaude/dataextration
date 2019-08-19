@@ -1000,7 +1000,7 @@ insert into art_mother_art_pick_up(patient_id,regime,art_date)
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
   where   encounter_type=18 and o.concept_id=1088  and e.voided=0 
-  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime < dataAvaliacao;
+  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and o.obs_datetime  < dataAvaliacao;
 
   /*VISITAS*/
 insert into art_mother_visit(patient_id,visit_date)
@@ -1541,7 +1541,7 @@ insert into art_child_art_pick_up(patient_id,regime,art_date)
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
   where   encounter_type=18 and o.concept_id=1088  and e.voided=0 
-  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime < dataAvaliacao;
+  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and o.obs_datetime  < dataAvaliacao;
 
 /*PROXIMO LEVANTAMENTO*/
 update art_child_art_pick_up,obs 

@@ -1,17 +1,15 @@
 SET FOREIGN_KEY_CHECKS=0;
 
 CREATE TABLE IF NOT EXISTS `hops` (
-  `id` int(11) DEFAULT NULL,
+  `id` int(11) DEFAULT NULL AUTO_INCREMENT,
   `district`varchar(100) DEFAULT NULL,
   `health_facility`varchar(100) DEFAULT NULL,
   `study_code`varchar(100) DEFAULT NULL,
-  `old_nid`varchar(100) DEFAULT NULL,
-  `new_nid`varchar(100) DEFAULT NULL,
+  `nid`varchar(100) DEFAULT NULL,
+  `study_first_name`varchar(100) DEFAULT NULL,
+  `study_second_name`varchar(100) DEFAULT NULL,
   `family_name`varchar(100) DEFAULT NULL,
   `first_name`varchar(100) DEFAULT NULL,
-  `study_birth_date` datetime DEFAULT NULL,
-  `study_age` int(11) DEFAULT NULL,
-  `study_gender`varchar(1) DEFAULT NULL,
   `location_id` int(11) DEFAULT NULL,
   `patient_id` int(11) DEFAULT NULL,
   `openmrs_birth_date` datetime DEFAULT NULL,
@@ -19,6 +17,10 @@ CREATE TABLE IF NOT EXISTS `hops` (
   `openmrs_gender` varchar(1) DEFAULT NULL,
   `enrollment_date` datetime DEFAULT NULL,
   `art_initiation_date` datetime DEFAULT NULL,
+  `last_clinic_visit` datetime DEFAULT NULL,
+  `scheduled_clinic_visit` datetime DEFAULT NULL,
+  `last_artpickup` datetime DEFAULT NULL,
+  `scheduled_artpickp` datetime DEFAULT NULL,  
   `first_viral_load_result` int(11)  DEFAULT NULL,
   `first_viral_load_result_date` datetime DEFAULT NULL,
   `weight` double DEFAULT NULL,
@@ -29,10 +31,13 @@ CREATE TABLE IF NOT EXISTS `hops` (
   `imc_date` datetime DEFAULT NULL,
   `hemoglobin` int(11)  DEFAULT NULL,
   `hemoglobin_date` datetime DEFAULT NULL,
-  `patient_status` varchar(225) DEFAULT NULL,
-  `patient_status_date` datetime DEFAULT NULL,
+  `patient_status_6_months` varchar(225) DEFAULT NULL,
+  `patient_status_6_months_date_` datetime DEFAULT NULL,
+  `patient_status_12_months` varchar(225) DEFAULT NULL,
+  `patient_status_12_months_date_` datetime DEFAULT NULL,
   `urban` varchar(1) DEFAULT NULL,
-  `main` varchar(1) DEFAULT NULL
+  `main` varchar(1) DEFAULT NULL,
+   PRIMARY KEY (id)
   ) ENGINE=InnoDB AUTO_INCREMENT=32768 DEFAULT CHARSET=utf8;
 
 -- ----------------------------
@@ -43,6 +48,15 @@ CREATE TABLE IF NOT EXISTS `hops_cd4` (
   `cd4` double DEFAULT NULL,
   `cd4_date` datetime DEFAULT NULL,
   `uuid` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `hops_cv`;
+CREATE TABLE `hops_cv` (
+  `patient_id` int(11) DEFAULT NULL,
+  `cv` decimal(12,2) DEFAULT NULL,
+  `cv_date` datetime DEFAULT NULL,
+  KEY `patient_id` (`patient_id`),
+  KEY `cv_date` (`cv_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -87,18 +101,40 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `FillHOPS`(startDate date,endDate da
     READS SQL DATA
 begin
 
+truncate table hops_cd4;
+truncate table hops_visit;
+truncate table hops_tb_investigation;
+truncate table hops_start_tb_tretment;
+truncate table hops_end_tb_tretment;
+
+
+/*BUSCAR ID DO PACIENTE E LOCATION*/
 /*BUSCAR ID DO PACIENTE E LOCATION*/
 UPDATE hops,
        patient_identifier
-SET hops.patient_id = patient_identifier.patient_id, hops.location_id=patient_identifier.location_id
-WHERE patient_identifier.identifier_type=2
-  AND patient_identifier.identifier=hops.new_nid;
+SET hops.patient_id=patient_identifier.patient_id, hops.location_id=patient_identifier.location_id
+WHERE  patient_identifier.identifier=hops.nid;
+
 
 /*DATA DE NAICIMENTO*/
 UPDATE hops,
        person
 SET hops.openmrs_birth_date=person.birthdate
 WHERE hops.patient_id=person.person_id;
+
+/*FIRST NAME*/
+UPDATE hops,
+       person_name
+SET hops.first_name=person_name.given_name
+WHERE hops.patient_id=person_name.person_id;
+
+
+/*FAMILY NAME*/
+UPDATE hops,
+       person_name
+SET hops.family_name=person_name.family_name
+WHERE hops.patient_id=person_name.person_id;
+
 
 /*SEXO*/
 UPDATE hops,
@@ -291,7 +327,7 @@ and obs.voided=0 and obs.obs_datetime=hemoglobin.encounter_datetime
 and obs.concept_id=21 and hops.hemoglobin is null;
 
 
- /*ESTADO ACTUAL TARV*/
+ /*ESTADO ACTUAL TARV 6 MESES*/
 update hops,
     (select   pg.patient_id,ps.start_date,
         case ps.state
@@ -306,8 +342,27 @@ update hops,
     where   pg.voided=0 and ps.voided=0 and  
         pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and  ps.start_date between enrollment_date and DATE_ADD(enrollment_date, INTERVAL 6 MONTH)
     ) out_state
-set   hops.patient_status=out_state.codeestado, hops.patient_status_date=out_state.start_date
+set   hops.patient_status_6_months=out_state.codeestado, hops.patient_status_6_months_date_=out_state.start_date
 where hops.patient_id=out_state.patient_id;
+
+ /*ESTADO ACTUAL TARV 12 MESES*/
+update hops,
+    (select   pg.patient_id,ps.start_date,
+        case ps.state
+          when 7 then 'TRASFERRED OUT'
+          when 8 then 'SUSPENDED'
+          when 9 then 'ART LTFU'
+          when 10 then 'DEAD'
+        else null end as codeestado
+    from  hops p 
+        inner join patient_program pg on p.patient_id=pg.patient_id
+        inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+    where   pg.voided=0 and ps.voided=0 and  
+        pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and  ps.start_date between enrollment_date and DATE_ADD(enrollment_date, INTERVAL 12 MONTH)
+    ) out_state
+set   hops.patient_status_12_months=out_state.codeestado, hops.patient_status_12_months_date_=out_state.start_date
+where hops.patient_id=out_state.patient_id;
+
 
 /*CD4*/
 insert into hops_cd4(patient_id,cd4,cd4_date)
@@ -315,7 +370,56 @@ Select distinct p.patient_id,o.value_numeric, o.obs_datetime
 from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type in (6,9,13) and o.concept_id=5497 ;
+where   e.voided=0 and o.voided=0 and e.encounter_type in (6,9,13) and o.concept_id=5497 and e.encounter_datetime  < endDate ;
+
+/*LAST CLINIC VISIT*/
+update hops,
+( select  p.patient_id,
+      max(encounter_datetime) encounter_datetime
+  from  hops p
+      inner join encounter e on p.patient_id=e.patient_id
+  where   e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime 
+  group by p.patient_id
+)seguimento
+set hops.last_clinic_visit=seguimento.encounter_datetime
+where hops.patient_id=seguimento.patient_id;
+
+/*CARGA VIRAL*/
+insert into hops_cv(patient_id,cv,cv_date)
+Select distinct p.patient_id,
+    o.value_numeric,
+    o.obs_datetime
+from  hops p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=856 and e.encounter_datetime  < endDate;
+
+
+
+/*NEXT CLINIC VISIT*/
+update  hops,obs
+set   scheduled_clinic_visit=value_datetime
+where   patient_id=person_id and 
+    obs_datetime=last_clinic_visit and 
+    concept_id=5096 and voided=0;
+
+    /*LAST ART PICKUP*/
+update hops,
+( select  p.patient_id,
+      max(encounter_datetime) encounter_datetime
+  from  hops p
+      inner join encounter e on p.patient_id=e.patient_id
+  where   e.voided=0 and e.encounter_type=18 and e.encounter_datetime 
+  group by p.patient_id
+)levantamento
+set hops.last_artpickup=levantamento.encounter_datetime
+where hops.patient_id=levantamento.patient_id;
+
+update  hops,obs
+set   scheduled_artpickp=value_datetime
+where   patient_id=person_id and 
+    obs_datetime=last_artpickup and 
+    concept_id=5096 and voided=0;
 
 /*TB*/
 insert into hops_tb_investigation(patient_id,tb,tb_date)
@@ -328,7 +432,7 @@ Select distinct p.patient_id,
 from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type in (6,9,13) and o.concept_id=6277;
+where   e.voided=0 and o.voided=0 and e.encounter_type in (6,9,13) and o.concept_id=6277 and e.encounter_datetime  < endDate;
 
 /*LEVANTAMENTO ARV*/
 insert into hops_art_pick_up(patient_id,regime,art_date)
@@ -386,7 +490,7 @@ insert into hops_art_pick_up(patient_id,regime,art_date)
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
   where   encounter_type=18 and o.concept_id=1088  and e.voided=0 
-  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime;
+  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and e.encounter_datetime  < endDate;
 
 /*PROXIMO LEVANTAMENTO*/
 update hops_art_pick_up,obs 
@@ -401,7 +505,7 @@ insert into hops_visit(patient_id,visit_date)
 Select distinct p.patient_id,e.encounter_datetime 
 from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
-where   e.voided=0 and e.encounter_type in (6,9) ;
+where   e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime  < endDate;
 
 
 /*TB start Date*/
@@ -410,7 +514,7 @@ Select distinct p.patient_id, min(encounter_datetime) encounter_datetime
 from  hops p 
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
-  where   e.voided=0 and e.encounter_type in (6,9) and o.concept_id=1113 and o.voided=0
+  where   e.voided=0 and e.encounter_type in (6,9) and o.concept_id=1113 and o.voided=0 and e.encounter_datetime  < endDate
   group by p.patient_id;
 
 
@@ -420,7 +524,7 @@ Select distinct p.patient_id, max(encounter_datetime) encounter_datetime
 from  hops p 
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
-  where   e.voided=0 and e.encounter_type in (6,9) and o.concept_id=6120
+  where   e.voided=0 and e.encounter_type in (6,9) and o.concept_id=6120 and e.encounter_datetime  < endDate
   group by p.patient_id;
 
 

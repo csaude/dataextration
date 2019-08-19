@@ -436,7 +436,7 @@ UPDATE cvgaac_patient,
 SET cvgaac_patient.enrollment_date=enrollment.data_abertura
 WHERE cvgaac_patient.patient_id=enrollment.patient_id;
 
-delete from cvgaac_patient where enrollment_date < startDate;
+-- delete from cvgaac_patient where enrollment_date < startDate;
 
 
 update cvgaac_patient,location
@@ -842,7 +842,7 @@ update cvgaac_patient,
         inner join patient_program pg on p.patient_id=pg.patient_id
         inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
     where   pg.voided=0 and ps.voided=0 and  
-        pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null 
+        pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and ps.start_date < dataAvaliacao
     ) out_state
 set   cvgaac_patient.patient_status=out_state.codeestado, cvgaac_patient.patient_status_date=out_state.start_date
 where cvgaac_patient.patient_id=out_state.patient_id;
