@@ -1,10 +1,14 @@
 SET FOREIGN_KEY_CHECKS=0;
 
 CREATE TABLE IF NOT EXISTS `b_prevention` (
-  `id` int(11) DEFAULT NULL,
+  `id` int(11) DEFAULT NULL AUTO_INCREMENT,
   `patient_id` int(11) DEFAULT NULL,
+  `location_id` int(11) DEFAULT NULL,
   `district`varchar(100) DEFAULT NULL,
   `health_facility`varchar(100) DEFAULT NULL,
+  `study_code`varchar(100) DEFAULT NULL,
+  `family_name`varchar(100) DEFAULT NULL,
+  `first_name`varchar(100) DEFAULT NULL,
   `urban` varchar(1) DEFAULT NULL,
   `main` varchar(1) DEFAULT NULL,
   `nid`varchar(100) DEFAULT NULL,
@@ -21,13 +25,15 @@ CREATE TABLE IF NOT EXISTS `b_prevention` (
   `height_date` datetime DEFAULT NULL,
   `disclosure_of_serostatus` varchar(100) DEFAULT NULL,
   `serostatus_partner` varchar(100) DEFAULT NULL,
-  `serostatus_child` varchar(100) DEFAULT NULL
+  `who_stage_of_patient` varchar(100) DEFAULT NULL,
+  `serostatus_child` varchar(100) DEFAULT NULL,
+   PRIMARY KEY (id)
   ) ENGINE=InnoDB AUTO_INCREMENT=32768 DEFAULT CHARSET=utf8;
 
 
 CREATE TABLE IF NOT EXISTS `b_prevention_psychosocial_factors` (
   `patient_id` int(11) DEFAULT NULL,
-  `factor` double DEFAULT NULL,
+  `factor` varchar(100) DEFAULT NULL,
   `factor_date` datetime DEFAULT NULL,
    KEY `patient_id` (`patient_id`),
    KEY `factor_date` (`factor_date`)
@@ -36,7 +42,7 @@ CREATE TABLE IF NOT EXISTS `b_prevention_psychosocial_factors` (
 
 CREATE TABLE IF NOT EXISTS `b_prevention_sessions` (
   `patient_id` int(11) DEFAULT NULL,
-  `session` double DEFAULT NULL,
+  `session` varchar(100) DEFAULT NULL,
   `session_date` datetime DEFAULT NULL,
    KEY `patient_id` (`patient_id`),
    KEY `session_date` (`session_date`)
@@ -45,7 +51,7 @@ CREATE TABLE IF NOT EXISTS `b_prevention_sessions` (
 
 CREATE TABLE IF NOT EXISTS `b_prevention_adherence` (
   `patient_id` int(11) DEFAULT NULL,
-  `adherence` double DEFAULT NULL,
+  `adherence` varchar(100) DEFAULT NULL,
   `adherence_date` datetime DEFAULT NULL,
    KEY `patient_id` (`patient_id`),
    KEY `adherence_date` (`adherence_date`)
@@ -102,21 +108,43 @@ CREATE TABLE IF NOT EXISTS `b_prevention_cd4` (
    KEY `cd4_date` (`cd4_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
--- ----------------------------
--- Procedure structure for FillTBTable
--- ----------------------------
+
 DROP PROCEDURE IF EXISTS `FillTBTable`;
 DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` PROCEDURE `FillTBTable`(startDate date,endDate date,dataAvaliacao date, district varchar(100)) 
+CREATE DEFINER=`root`@`localhost` PROCEDURE `FillTBTable`(dataAvaliacao date, district varchar(100)) 
 
 READS SQL DATA
 begin
 
+
+/*BUSCAR ID DO PACIENTE E LOCATION*/
+UPDATE b_prevention,
+       patient_identifier
+SET b_prevention.patient_id = patient_identifier.patient_id, b_prevention.location_id=patient_identifier.location_id
+WHERE patient_identifier.identifier_type=2
+  AND patient_identifier.identifier=b_prevention.nid;
+
+UPDATE b_prevention, location SET b_prevention.health_facility=location.name where location.location_id=b_prevention.location_id;
+
+  /*FIRST NAME*/
+UPDATE b_prevention,
+       person_name
+SET b_prevention.first_name=person_name.given_name
+WHERE b_prevention.patient_id=person_name.person_id;
+
+
+/*FAMILY NAME*/
+UPDATE b_prevention,
+       person_name
+SET b_prevention.family_name=person_name.family_name
+WHERE b_prevention.patient_id=person_name.person_id;
+
+
 /*INSCRICAO*/
 UPDATE b_prevention,
 
-  (SELECT e.patient_id,
-          min(encounter_datetime) data_abertura
+  (
+    SELECT e.patient_id, min(encounter_datetime) data_abertura
    FROM patient p
    INNER JOIN encounter e ON e.patient_id=p.patient_id
    INNER JOIN person pe ON pe.person_id=p.patient_id
@@ -124,8 +152,8 @@ UPDATE b_prevention,
      AND e.encounter_type IN (5,7)
      AND e.voided=0
      AND pe.voided=0
-   GROUP BY p.patient_id) enrollment
-
+   GROUP BY p.patient_id
+   ) enrollment
 SET b_prevention.enrollment_date=enrollment.data_abertura
 WHERE b_prevention.patient_id=enrollment.patient_id;
 
@@ -133,24 +161,20 @@ WHERE b_prevention.patient_id=enrollment.patient_id;
 update b_prevention,person set b_prevention.age_enrollment=round(datediff(b_prevention.enrollment_date,person.birthdate)/365)
 where  person_id=b_prevention.patient_id;
 
-update b_prevention,location
-set b_prevention.health_facility=location.name
-where b_prevention.location_id=location.location_id;
-
 update b_prevention set urban='N';
 
 update b_prevention set main='N';
 
 if district='Quelimane' then
-  update cvgaac_patient set urban='Y'; 
+  update b_prevention set urban='Y'; 
 end if;
 
 if district='Namacurra' then
-  update cvgaac_patient set main='Y' where location_id=5; 
+  update b_prevention set main='Y' where location_id=5; 
 end if;
 
 if district='Maganja' then
-  update cvgaac_patient set main='Y' where location_id=15; 
+  update b_prevention set main='Y' where location_id=15; 
 end if;
 
 if district='Pebane' then
@@ -158,27 +182,27 @@ if district='Pebane' then
 end if;
 
 if district='Gile' then
-  update cvgaac_patient set main='Y' where location_id=6; 
+  update b_prevention set main='Y' where location_id=6; 
 end if;
 
 if district='Molocue' then
-  update cvgaac_patient set main='Y' where location_id=3; 
+  update b_prevention set main='Y' where location_id=3; 
 end if;
 
 if district='Mocubela' then
-  update cvgaac_patient set main='Y' where location_id=62; 
+  update b_prevention set main='Y' where location_id=62; 
 end if;
 
 if district='Inhassunge' then
-  update cvgaac_patient set main='Y' where location_id=7; 
+  update b_prevention set main='Y' where location_id=7; 
 end if;
 
 if district='Ile' then
-  update cvgaac_patient set main='Y' where location_id in (4,55); 
+  update b_prevention set main='Y' where location_id in (4,55); 
 end if;
 
 if district='Namarroi' then
-  update cvgaac_patient set main='Y' where location_id in (252);
+  update b_prevention set main='Y' where location_id in (252);
 end if;
 
 
@@ -212,6 +236,18 @@ update b_prevention,obs
 set b_prevention.occupation= obs.value_text
 where obs.person_id=b_prevention.patient_id and obs.concept_id=1459 and voided=0; 
 
+
+
+UPDATE b_prevention,
+(
+  SELECT DISTINCT e.patient_id, min(e.encounter_datetime) data_inicio FROM patient p
+         INNER JOIN encounter e ON e.patient_id = p.patient_id
+  WHERE  p.voided = 0 AND e.encounter_type=11 AND e.voided = 0
+  GROUP  BY p.patient_id
+
+)cpn 
+SET b_prevention.date_of_first_ANC_visit=cpn.data_inicio
+where b_prevention.patient_id=cpn.patient_id;
 
 /*INICIO TARV*/
 UPDATE b_prevention,
@@ -261,8 +297,11 @@ UPDATE b_prevention,
       WHERE p.voided=0
         AND e.encounter_type=18
         AND e.voided=0
-      GROUP BY p.patient_id) inicio
-   GROUP BY patient_id)inicio_real
+      GROUP BY p.patient_id
+
+  ) inicio
+   GROUP BY patient_id
+   )inicio_real
 SET b_prevention.art_initiation_date=inicio_real.data_inicio
 WHERE b_prevention.patient_id=inicio_real.patient_id;
 
@@ -282,6 +321,24 @@ where b_prevention.patient_id=obs.person_id
 and b_prevention.patient_id=peso.patient_id 
 and obs.voided=0 and obs.obs_datetime=peso.encounter_datetime
 and obs.concept_id=5089;
+
+
+/*ESTADIO OMS */
+update b_prevention,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime
+  from patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=6 and o.obs_datetime=e.encounter_datetime and o.concept_id=5356
+  group by p.patient_id
+)stage, obs
+set b_prevention.who_stage_of_patient=if(obs.value_coded=1204,'I',if(obs.value_coded=1205,'II',if(obs.value_coded=1206,'III','IV')))
+where b_prevention.patient_id=obs.person_id 
+and b_prevention.patient_id=stage.patient_id 
+and obs.voided=0 and obs.obs_datetime=stage.encounter_datetime
+and obs.concept_id=5356;
+
 
 /*ALTURA AT TIME OF ART ENROLLMENT*/
 update b_prevention,
@@ -305,16 +362,16 @@ update b_prevention,
        case   o.value_coded
               when 1065 then 'YES'
               when 1066 then 'NO'
-             else null end    
+             else null end as code  
   from  patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
   where   e.voided=0 and e.encounter_type=34
   and o.obs_datetime=e.encounter_datetime and o.concept_id=1048
   group by p.patient_id
-)seroestado
-set b_prevention.disclosure_of_serostatus=seroestado.value_coded
-where b_prevention.patient_id=seroestado.patient_id;
+)sr
+set b_prevention.disclosure_of_serostatus=sr.code
+where b_prevention.patient_id=sr.patient_id;
 
 
 update b_prevention,
@@ -323,16 +380,16 @@ update b_prevention,
               when 1457 then 'NO INFORMATION'
               when 703  then 'POSITIVE'
               when 664  then 'NEGATIVE'
-             else null end    
+             else null end as code 
   from  patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
   where   e.voided=0 and e.encounter_type=34
   and o.obs_datetime=e.encounter_datetime and o.concept_id=2074
   group by p.patient_id
-)seroestado
-set b_prevention.serostatus_partner=seroestado.value_coded
-where b_prevention.patient_id=seroestado.patient_id ;
+)sr
+set b_prevention.serostatus_partner=sr.code
+where b_prevention.patient_id=sr.patient_id ;
 
 
 update b_prevention,
@@ -341,16 +398,16 @@ update b_prevention,
               when 6337  then 'REVEALED'
               when 6338  then 'PARTIALLY REVEALED'
               when 6339  then 'NOT REVEALED'
-             else null end    
+             else null end as code  
   from  patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
   where   e.voided=0 and e.encounter_type=34
   and o.obs_datetime=e.encounter_datetime and o.concept_id=6340
   group by p.patient_id
-)seroestado
-set b_prevention.serostatus_child=seroestado.value_coded
-where b_prevention.patient_id=seroestado.patient_id;
+)sr
+set b_prevention.serostatus_child=sr.code
+where b_prevention.patient_id=sr.patient_id;
 
 
    /*PSICOPATASOCIAL FACTOR*/   
@@ -542,6 +599,93 @@ set  b_prevention_consent_contact.answer=case obs.value_coded
 where b_prevention_consent_contact.patient_id=obs.person_id and
     b_prevention_consent_contact.visit_date=obs.obs_datetime and 
     obs.concept_id=6306 and obs.voided=0;
+
+
+    /*CD4*/
+insert into b_prevention_cd4(patient_id,cd4,cd4_date)
+Select distinct p.patient_id,o.value_numeric, o.obs_datetime
+from  b_prevention p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=5497   and o.obs_datetime  < dataAvaliacao;
+
+
+/*CARGA VIRAL*/
+insert into b_prevention_cv(patient_id,cv,cv_date)
+Select distinct p.patient_id,o.value_numeric,o.obs_datetime
+from  b_prevention p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=856 and o.obs_datetime  < dataAvaliacao;
+
+
+
+/*LEVANTAMENTO ARV*/
+insert into b_prevention_art_pick_up(patient_id,regime,art_date)
+  select distinct p.patient_id,
+  case   o.value_coded     
+        when 1651 then 'AZT+3TC+NVP'
+        when 6324 then 'TDF+3TC+EFV'
+        when 1703 then 'AZT+3TC+EFV'
+        when 6243 then 'TDF+3TC+NVP'
+        when 6103 then 'D4T+3TC+LPV/r'
+        when 792  then 'D4T+3TC+NVP'
+        when 1827 then 'D4T+3TC+EFV'
+        when 6102 then 'D4T+3TC+ABC'
+        when 6116 then 'AZT+3TC+ABC'
+        when 6108 then 'TDF+3TC+LPV/r(2ª Linha)'
+        when 6100 then 'AZT+3TC+LPV/r(2ª Linha)'
+        when 6329 then 'TDF+3TC+RAL+DRV/r (3ª Linha)'
+        when 6330 then 'AZT+3TC+RAL+DRV/r (3ª Linha)'
+        when 6105 then 'ABC+3TC+NVP'
+        when 6325 then 'D4T+3TC+ABC+LPV/r (2ª Linha)'
+        when 6326 then 'AZT+3TC+ABC+LPV/r (2ª Linha)'
+        when 6327 then 'D4T+3TC+ABC+EFV (2ª Linha)'
+        when 6328 then 'AZT+3TC+ABC+EFV (2ª Linha)'
+        when 6109 then 'AZT+DDI+LPV/r (2ª Linha)'
+        when 6110 then 'D4T20+3TC+NVP'
+        when 1702 then 'AZT+3TC+NFV'
+        when 817  then 'AZT+3TC+ABC'
+        when 6104 then 'ABC+3TC+EFV'
+        when 6106 then 'ABC+3TC+LPV/r'
+        when 6244 then 'AZT+3TC+RTV'
+        when 1700 then 'AZT+DDl+NFV'
+        when 633  then 'EFV'
+        when 625  then 'D4T'
+        when 631  then 'NVP'
+        when 628  then '3TC'
+        when 635  then 'NFV'
+        when 797  then 'AZT'
+        when 814  then 'ABC'
+        when 6107 then 'TDF+AZT+3TC+LPV/r'
+        when 6236 then 'D4T+DDI+RTV-IP'
+        when 1701 then 'ABC+DDI+NFV'
+        when 1311 then 'ABC+3TC+LPV/r (2ª Linha)'
+        when 1313 then 'ABC+3TC+EFV (2ª Linha)'
+        when 1314 then 'AZT+3TC+LPV (2ª Linha)'
+        when 1315 then 'TDF+3TC+EFV (2ª Linha)'
+        when 6114 then '3DFC'
+        when 6115 then '2DFC+EFV'
+        when 6233 then 'AZT+3TC+DDI+LPV'
+        when 6234 then 'ABC+TDF+LPV'
+        when 6242 then 'D4T+DDI+NVP'
+        when 6118 then 'DDI50+ABC+LPV'
+        else null end,
+        encounter_datetime
+  from  b_prevention p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.person_id=e.patient_id
+  where   encounter_type=18 and o.concept_id=1088  and e.voided=0 
+  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and o.obs_datetime  < dataAvaliacao;
+
+
+/*PROXIMO LEVANTAMENTO*/
+update b_prevention_art_pick_up,obs 
+set  b_prevention_art_pick_up.next_art_date=obs.value_datetime
+where   b_prevention_art_pick_up.patient_id=obs.person_id and
+    b_prevention_art_pick_up.art_date=obs.obs_datetime and 
+    obs.concept_id=5096 and 
+    obs.voided=0;
 
 
 end
