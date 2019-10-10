@@ -1,6 +1,6 @@
 SET FOREIGN_KEY_CHECKS=0;
 
-
+DROP TABLE IF EXISTS `icap_harmonization_logs`;
 CREATE TABLE `icap_harmonization_logs` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `table_name`  varchar(100) DEFAULT NULL,
@@ -27,7 +27,7 @@ begin
 
 /*DISPENSA TRIMESTRAL 6337*/
 
-insert into icap_harmonization_logs(table_name, original_reference, original_value,reference_uuid,new_reference,new_value) 
+insert into icap_harmonization_logs(table_name, original_reference,original_value,reference_uuid,new_reference,new_value) 
 select 'program_workflow',program_workflow_id,concept_id,uuid,program_workflow_id, 23730 from program_workflow where program_workflow.concept_id=6337 and program_workflow.program_workflow_id=6;
 
 update program_workflow set program_workflow.concept_id=23730 where program_workflow.concept_id=6337 and program_workflow.program_workflow_id=6;
@@ -35,7 +35,7 @@ update program_workflow set program_workflow.concept_id=23730 where program_work
 
 /*CARGA VIRAL - MOTIVO DE VISITA 6341*/
 
-insert into icap_harmonization_logs(table_name, original_reference, original_value,reference_uuid, new_reference,new_value) 
+insert into icap_harmonization_logs(table_name,original_reference,original_value,reference_uuid,new_reference,new_value) 
 	select 'obs',concept_id,value_coded,uuid,concept_id,23912 from obs where obs.concept_id=2172 and obs.value_coded=6341;
 
 update obs set obs.value_coded=23912 where obs.concept_id=2172 and obs.value_coded=6341;
@@ -44,7 +44,7 @@ update obs set obs.value_coded=23912 where obs.concept_id=2172 and obs.value_cod
 
 /*ACOMPANHAMENTO FÍSICO ATÉ A RESIDÊNCIA NO DIA DA INSCRIÇÃO 6366*/
 
-insert into icap_harmonization_logs(table_name, original_reference, reference_uuid,new_reference) 
+insert into icap_harmonization_logs(table_name,original_reference,reference_uuid,new_reference) 
 	select 'obs',concept_id,uuid,23917 from obs where concept_id=6366;
 
 update obs set obs.concept_id=23917 where obs.concept_id=6366;
@@ -53,7 +53,7 @@ update obs set obs.concept_id=23917 where obs.concept_id=6366;
 
 /*AZT+3TC+ATV/r 6360*/
 
-insert into icap_harmonization_logs(table_name,original_reference, original_value,reference_uuid,new_reference,new_value) 
+insert into icap_harmonization_logs(table_name,original_reference,original_value,reference_uuid,new_reference,new_value) 
 	select 'obs',concept_id,value_coded,uuid,concept_id,23793 from obs  where obs.value_coded=6360 and concept_id in (1088,1087);
 
 update obs set obs.value_coded=23793 where obs.value_coded=6360 and concept_id in (1088,1087);
@@ -62,7 +62,7 @@ update obs set obs.value_coded=23793 where obs.value_coded=6360 and concept_id i
 
 /*TDF+3TC+ATV/r 6359*/
 
-insert into icap_harmonization_logs(table_name, original_reference, original_value,reference_uuid,new_reference,new_value) 
+insert into icap_harmonization_logs(table_name,original_reference,original_value,reference_uuid,new_reference,new_value) 
 	select 'obs',concept_id,value_coded,uuid,concept_id,23791 from obs  where obs.value_coded=6359 and concept_id in (1088,1087);
 
 update obs set obs.value_coded=23791 where obs.value_coded=6359 and concept_id in (1088,1087);
@@ -241,7 +241,7 @@ update program_workflow_state set program_workflow_state.concept_id=23929 where 
 
 /*FALTOSO AS CONSULTAS 6340*/
 
-insert into icap_harmonization_logs(table_name, original_reference, original_value,reference_uuid,new_reference,new_value) 
+insert into icap_harmonization_logs(table_name,original_reference, original_value,reference_uuid,new_reference,new_value) 
 	select 'obs',concept_id,value_coded,uuid,concept_id,23911 from obs where obs.value_coded=6340 and obs.concept_id=2172;
 
 update obs set obs.value_coded=23911 where obs.value_coded=6340 and obs.concept_id=2172;
@@ -249,7 +249,7 @@ update obs set obs.value_coded=23911 where obs.value_coded=6340 and obs.concept_
 
 /*ALCUNHA DO CONFIDENTE 6342*/
 
-insert into icap_harmonization_logs(table_name, original_reference,value,reference_uuid,new_reference) 
+insert into icap_harmonization_logs(table_name,original_reference,reference_uuid,new_reference) 
 	select 'obs',concept_id,uuid,23930 from obs where  obs.concept_id=6342;
 
 update obs set obs.concept_id=23930 where obs.concept_id=6342;
