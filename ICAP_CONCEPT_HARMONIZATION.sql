@@ -41,7 +41,6 @@ insert into icap_harmonization_logs(table_name,original_reference,original_value
 update obs set obs.value_coded=23912 where obs.concept_id=2172 and obs.value_coded=6341;
 
 
-
 /*ACOMPANHAMENTO FÍSICO ATÉ A RESIDÊNCIA NO DIA DA INSCRIÇÃO 6366*/
 
 insert into icap_harmonization_logs(table_name,original_reference,reference_uuid,new_reference) 
