@@ -18,8 +18,14 @@ CREATE TABLE `immune_pediatric_patient` (
   `age_enrollment` int(11) DEFAULT NULL,
   `source_of_referral`varchar(100) DEFAULT NULL,
   `art_initiation_date` datetime DEFAULT NULL,
-  `cd4_first_visit` decimal(10,0) DEFAULT NULL,
-  `cd4_first_visit_date` datetime DEFAULT NULL,
+  `absulute_cd4_first_visit` decimal(10,0) DEFAULT NULL,
+  `absulute_cd4_first_visit_date` datetime DEFAULT NULL,
+  `wbc` decimal(10,0) DEFAULT NULL,
+  `lym` decimal(10,0) DEFAULT NULL,
+  `percentege_cd4_first_visit` decimal(10,0) DEFAULT NULL,
+  `percentege_cd4_first_visit_date` datetime DEFAULT NULL,
+  `first_viral_load_result` int(11)  DEFAULT NULL,
+  `first_viral_load_result_date` datetime DEFAULT NULL,
   `WHO_clinical_stage_at_enrollment` varchar(1) DEFAULT NULL,
   `weight_enrollment` double DEFAULT NULL,
   `weight_date` datetime DEFAULT NULL,
@@ -35,12 +41,45 @@ CREATE TABLE `immune_pediatric_patient` (
   `fother_alive`varchar(100) DEFAULT NULL,
   `mother_profession`varchar(100) DEFAULT NULL,
   `fother_profession`varchar(100) DEFAULT NULL,
-  `perinatal_antiretroviral_exposure_from_mother `varchar(100) DEFAULT NULL,
+  `perinatal_antiretroviral_exposure_from_mother`varchar(100) DEFAULT NULL,
   `perinatal_antiretroviral_exposure_from_child`varchar(100) DEFAULT NULL,
   `child_history_of_breastfeeding`varchar(100) DEFAULT NULL,
   `child_age_of_weaning_from_breastfeeding` int(11) DEFAULT NULL,
-   PRIMARY KEY (`id`)
+   PRIMARY KEY (`id`),
+   KEY `immune_pediatric_patient_patient_id` (`patient_id`),
+   KEY `immune_pediatric_patient_birth_date` (`birth_date`),
+   KEY `immune_pediatric_patient_enrollment_date` (`enrollment_date`),
+   KEY `immune_pediatric_patient_art_initiation_date` (`art_initiation_date`),
+   KEY `immune_pediatric_patient_absulute_cd4_first_visit_date` (`absulute_cd4_first_visit_date`), 
+   KEY `immune_pediatric_patient_percentege_cd4_first_visit_date` (`percentege_cd4_first_visit_date`),
+   KEY `immune_pediatric_patient_first_viral_load_result_date` (`first_viral_load_result_date`),
+   KEY `immune_pediatric_patient_weight_date` (`weight_date`),  
+   KEY `immune_pediatric_patient_height_date` (`height_date`)
   ) ENGINE=InnoDB AUTO_INCREMENT=32768 DEFAULT CHARSET=utf8;
+-- ----------------------------
+-- Table structure for cd4
+-- ----------------------------
+DROP TABLE IF EXISTS `immune_pediatric_cd4`;
+CREATE TABLE `immune_pediatric_cd4` (
+  `patient_id` int(11) DEFAULT NULL,
+  `absulute_cd4` double DEFAULT NULL,
+  `percentage_cd4` double DEFAULT NULL,
+  `cd4_date` datetime DEFAULT NULL,
+  `source`varchar(100) DEFAULT NULL,
+   KEY `patient_id` (`patient_id`),
+   KEY `cd4_date` (`cd4_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `immune_pediatric_cv`;
+CREATE TABLE `immune_pediatric_cv` (
+  `patient_id` int(11) DEFAULT NULL,
+  `copies_cv` decimal(12,2) DEFAULT NULL,
+  `logs_cv` decimal(12,2) DEFAULT NULL,
+  `source`varchar(100) DEFAULT NULL,
+  `cv_date` datetime DEFAULT NULL,
+  KEY `patient_id` (`patient_id`),
+  KEY `cv_date` (`cv_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 DROP PROCEDURE IF EXISTS `FillTIMMUNEPEDIATRICTable`;
@@ -53,7 +92,7 @@ begin
 truncate table immune_pediatric_patient;
 
 /*INSCRICAO*/
-insert into immune_pediatric_patient(patient_id, enrollment_date, location_id)
+insert into immune_pediatric_patient(patient_id, enrollment_date,location_id)
 SELECT e.patient_id,min(encounter_datetime) data_abertura, e.location_id
    FROM patient p
    INNER JOIN encounter e ON e.patient_id=p.patient_id
@@ -255,7 +294,7 @@ and obs.concept_id=1486;
 /*RESULTADO DO TESTE DE HIV DA MAE*/
 update immune_pediatric_patient,
 (select  p.patient_id as patient_id,min(encounter_datetime) encounter_datetime,
-      case o.value_coded
+      case  o.value_coded
             when 664  then  'NEGATIVE' 
             when 1138 then  'INDETERMINATE' 
             when 703  then  'POSITIVE' 
@@ -268,7 +307,7 @@ update immune_pediatric_patient,
   where   e.voided=0 and e.encounter_type=7 and o.obs_datetime=e.encounter_datetime and o.concept_id=1483 
   group by p.patient_id
 )resultadoHivMae,obs
-set immune_pediatric_patient.mother_hiv_test_result=obs.value_coded
+set immune_pediatric_patient.mother_hiv_test_result=resultadoHivMae.cod
 where immune_pediatric_patient.patient_id=obs.person_id 
 and immune_pediatric_patient.patient_id=resultadoHivMae.patient_id 
 and obs.voided=0 and obs.obs_datetime=resultadoHivMae.encounter_datetime
@@ -290,7 +329,7 @@ update immune_pediatric_patient,
   where   e.voided=0 and e.encounter_type=7 and o.obs_datetime=e.encounter_datetime and o.concept_id=1491 
   group by p.patient_id
 )resultadoHivPai,obs
-set immune_pediatric_patient.mother_hiv_test_result=obs.value_coded
+set immune_pediatric_patient.mother_hiv_test_result=resultadoHivPai.cod
 where immune_pediatric_patient.patient_id=obs.person_id 
 and immune_pediatric_patient.patient_id=resultadoHivPai.patient_id 
 and obs.voided=0 and obs.obs_datetime=resultadoHivPai.encounter_datetime
@@ -311,7 +350,7 @@ update immune_pediatric_patient,
   where   e.voided=0 and e.encounter_type=7 and o.obs_datetime=e.encounter_datetime and o.concept_id=1484 
   group by p.patient_id
 )maeEmTratamentoARV,obs
-set immune_pediatric_patient.mother_hiv_tratment=obs.value_coded
+set immune_pediatric_patient.mother_hiv_tratment=maeEmTratamentoARV.cod
 where immune_pediatric_patient.patient_id=obs.person_id 
 and immune_pediatric_patient.patient_id=maeEmTratamentoARV.patient_id 
 and obs.voided=0 and obs.obs_datetime=maeEmTratamentoARV.encounter_datetime
@@ -330,11 +369,11 @@ update immune_pediatric_patient,
       inner join obs o on o.encounter_id=e.encounter_id
   where   e.voided=0 and e.encounter_type=7 and o.obs_datetime=e.encounter_datetime and o.concept_id=1492 
   group by p.patient_id
-)maeEmTratamentoARV,obs
-set immune_pediatric_patient.mother_hiv_tratment=obs.value_coded
+)paiEmTratamentoARV,obs
+set immune_pediatric_patient.fother_hiv_tratment=paiEmTratamentoARV.cod
 where immune_pediatric_patient.patient_id=obs.person_id 
-and immune_pediatric_patient.patient_id=maeEmTratamentoARV.patient_id 
-and obs.voided=0 and obs.obs_datetime=maeEmTratamentoARV.encounter_datetime
+and immune_pediatric_patient.patient_id=paiEmTratamentoARV.patient_id 
+and obs.voided=0 and obs.obs_datetime=paiEmTratamentoARV.encounter_datetime
 and obs.concept_id=1492;
 
 /*MAE VIVA*/
@@ -351,7 +390,7 @@ update immune_pediatric_patient,
   where   e.voided=0 and e.encounter_type=7 and o.obs_datetime=e.encounter_datetime and o.concept_id=1479 
   group by p.patient_id
 )maeViva,obs
-set immune_pediatric_patient.mother_alive=obs.value_coded
+set immune_pediatric_patient.mother_alive=maeViva.cod
 where immune_pediatric_patient.patient_id=obs.person_id 
 and immune_pediatric_patient.patient_id=maeViva.patient_id 
 and obs.voided=0 and obs.obs_datetime=maeViva.encounter_datetime
@@ -371,7 +410,7 @@ update immune_pediatric_patient,
   where   e.voided=0 and e.encounter_type=7 and o.obs_datetime=e.encounter_datetime and o.concept_id=1487
   group by p.patient_id
 )paiVivo,obs
-set immune_pediatric_patient.fother_alive=obs.value_coded
+set immune_pediatric_patient.fother_alive=paiVivo.cod
 where immune_pediatric_patient.patient_id=obs.person_id 
 and immune_pediatric_patient.patient_id=paiVivo.patient_id 
 and obs.voided=0 and obs.obs_datetime=paiVivo.encounter_datetime
@@ -423,7 +462,7 @@ update immune_pediatric_patient,
   where   e.voided=0 and e.encounter_type=7 and o.obs_datetime=e.encounter_datetime and o.concept_id=1501
   group by p.patient_id
 )perinitalMother,obs
-set immune_pediatric_patient.perinatal_antiretroviral_exposure_from_mother=obs.value_coded
+set immune_pediatric_patient.perinatal_antiretroviral_exposure_from_mother=perinitalMother.cod
 where immune_pediatric_patient.patient_id=obs.person_id 
 and immune_pediatric_patient.patient_id=perinitalMother.patient_id 
 and obs.voided=0 and obs.obs_datetime=perinitalMother.encounter_datetime
@@ -443,7 +482,7 @@ update immune_pediatric_patient,
   where   e.voided=0 and e.encounter_type=7 and o.obs_datetime=e.encounter_datetime and o.concept_id=1502
   group by p.patient_id
 )perinitalChild,obs
-set immune_pediatric_patient.perinatal_antiretroviral_exposure_from_child=obs.value_coded
+set immune_pediatric_patient.perinatal_antiretroviral_exposure_from_child=perinitalChild.cod
 where immune_pediatric_patient.patient_id=obs.person_id 
 and immune_pediatric_patient.patient_id=perinitalChild.patient_id 
 and obs.voided=0 and obs.obs_datetime=perinitalChild.encounter_datetime
@@ -462,7 +501,7 @@ update immune_pediatric_patient,
   where   e.voided=0 and e.encounter_type=7 and o.obs_datetime=e.encounter_datetime and o.concept_id=6061
   group by p.patient_id
 )childBreastfeeding,obs
-set immune_pediatric_patient.child_history_of_breastfeeding=obs.value_coded
+set immune_pediatric_patient.child_history_of_breastfeeding=childBreastfeeding.cod
 where immune_pediatric_patient.patient_id=obs.person_id 
 and immune_pediatric_patient.patient_id=childBreastfeeding.patient_id 
 and obs.voided=0 and obs.obs_datetime=childBreastfeeding.encounter_datetime
@@ -485,25 +524,130 @@ and obs.voided=0 and obs.obs_datetime=idadeAleitamento.encounter_datetime
 and obs.concept_id=1515;
 
 
-/*PRIMEIRO CD4*/
+/*PRIMEIRO CD4 ABSULUTO*/
 update immune_pediatric_patient,
 ( select  e.patient_id,
       min(encounter_datetime) encounter_datetime
   from  patient p
-      inner join openmrs.encounter e on p.id=e.patient_id
-      inner join openmrs.obs o on o.encounter_id=e.encounter_id
-  where   e.voided=0 and e.encounter_type=13 and 
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where e.voided=0 and e.encounter_type=13 and 
       e.encounter_datetime between startDate and endDate and o.concept_id=5497
-  group by p.id
+  group by p.patient_id
 )seguimento
-set immune_pediatric_patient.cd4_first_visit=seguimento.encounter_datetime
-where immune_pediatric_patient.patient=seguimento.patient_id;
+set immune_pediatric_patient.absulute_cd4_first_visit_date=seguimento.encounter_datetime
+where immune_pediatric_patient.patient_id=seguimento.patient_id;
 
 update  immune_pediatric_patient,obs 
-set   immune_pediatric_patient.cd4_first_visit=obs.value_numeric
-where   immune_pediatric_patient.patient_id=obs.person_id and obs.obs_datetime=immune_pediatric_patient.cd4_first_visit and obs.concept_id=5497 and obs.voided=0;
+set   immune_pediatric_patient.absulute_cd4_first_visit=obs.value_numeric
+where   immune_pediatric_patient.patient_id=obs.person_id 
+and obs.obs_datetime=immune_pediatric_patient.absulute_cd4_first_visit_date and obs.concept_id=5497 and obs.voided=0;
+
+/*GLOBOLOS BRANCOS*/
+update  immune_pediatric_patient,obs 
+set   immune_pediatric_patient.wbc=obs.value_numeric
+where   immune_pediatric_patient.patient_id=obs.person_id 
+and obs.obs_datetime=immune_pediatric_patient.absulute_cd4_first_visit_date and obs.concept_id=678 and obs.voided=0;
+
+/*LINFOCITOS (LYM)*/
+update  immune_pediatric_patient,obs 
+set   immune_pediatric_patient.lym=obs.value_numeric
+where   immune_pediatric_patient.patient_id=obs.person_id 
+and obs.obs_datetime=immune_pediatric_patient.absulute_cd4_first_visit_date and obs.concept_id=1021 and obs.voided=0;
 
 
+/*PRIMEIRO CD4 PERCENTUAL*/
+update immune_pediatric_patient,
+( select  e.patient_id,
+      min(encounter_datetime) encounter_datetime
+  from  patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where e.voided=0 and e.encounter_type=13 and 
+      e.encounter_datetime between startDate and endDate and o.concept_id=730
+  group by p.patient_id
+)seguimento
+set immune_pediatric_patient.percentege_cd4_first_visit_date=seguimento.encounter_datetime
+where immune_pediatric_patient.patient_id=seguimento.patient_id;
+
+update  immune_pediatric_patient,obs 
+set   immune_pediatric_patient.percentege_cd4_first_visit=obs.value_numeric
+where   immune_pediatric_patient.patient_id=obs.person_id 
+and obs.obs_datetime=immune_pediatric_patient.percentege_cd4_first_visit_date and obs.concept_id=730 and obs.voided=0;
+
+/*PRIMEIRA CARGA VIRAL*/
+UPDATE immune_pediatric_patient,
+  (SELECT p.patient_id,
+          min(e.encounter_datetime) encounter_datetime
+   FROM patient p
+   INNER JOIN encounter e ON p.patient_id=e.patient_id
+   INNER JOIN obs o ON o.encounter_id=e.encounter_id
+   WHERE e.voided=0
+     AND o.voided=0
+     AND e.encounter_type=13
+     AND o.concept_id=856
+     AND e.encounter_datetime between startDate and endDate 
+   GROUP BY p.patient_id 
+
+) viral_load1, obs
+SET immune_pediatric_patient.first_viral_load_result=obs.value_numeric,immune_pediatric_patient.first_viral_load_result_date=viral_load1.encounter_datetime
+WHERE immune_pediatric_patient.patient_id=obs.person_id
+  AND immune_pediatric_patient.patient_id=viral_load1.patient_id
+  AND obs.voided=0
+  AND obs.obs_datetime=viral_load1.encounter_datetime
+  AND obs.concept_id=856;
+
+/*CD4 LABORATORIO*/
+insert into immune_pediatric_cd4(patient_id,absulute_cd4,cd4_date,source)
+Select distinct p.patient_id,o.value_numeric, o.obs_datetime,"LABORATORY"
+from  immune_pediatric_patient p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where e.voided=0 and o.voided=0 and e.encounter_type=13
+and   o.concept_id=5497 and e.encounter_datetime  between startDate and dataAvaliacao;
+
+/*CD4 SUEGUIMENTO*/
+insert into immune_pediatric_cd4(patient_id,absulute_cd4,cd4_date,source)
+Select distinct p.patient_id,o.value_numeric, o.obs_datetime,"FOLLOW_UP"
+from  immune_pediatric_patient p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where e.voided=0 and o.voided=0 and e.encounter_type=9
+and   o.concept_id=1695 and e.encounter_datetime  between startDate and dataAvaliacao;
+
+/*CD4 PERCENTUAL*/
+update immune_pediatric_cd4,obs 
+set  immune_pediatric_cd4.percentage_cd4=obs.value_numeric
+where  immune_pediatric_cd4.patient_id=obs.person_id and
+    immune_pediatric_cd4.cd4_date=obs.obs_datetime and 
+    obs.concept_id=730 and 
+    obs.voided=0;
+
+/*CARGA VIRAL LABORATORIO*/
+insert into immune_pediatric_cv(patient_id,copies_cv,cv_date,source)
+Select distinct p.patient_id,o.value_numeric,o.obs_datetime,"LABORATORY"
+from  immune_pediatric_patient p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_type=13 
+and o.concept_id=856 and e.encounter_datetime  between startDate and dataAvaliacao;
+
+/*CARGA VIRAL SEGUIMENTO*/
+insert into immune_pediatric_cv(patient_id,copies_cv,cv_date,source)
+Select distinct p.patient_id,o.value_numeric,o.obs_datetime,"FOLLOW_UP"
+from  immune_pediatric_patient p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_type=9
+and o.concept_id=1518 and e.encounter_datetime  between startDate and dataAvaliacao;
+
+/*CARGA VIRAL LOGS*/
+update immune_pediatric_cv,obs 
+set  immune_pediatric_cv.logs_cv=obs.value_numeric
+where  immune_pediatric_cv.patient_id=obs.person_id and
+    immune_pediatric_cv.cv_date=obs.obs_datetime and 
+    obs.concept_id=1518 and 
+    obs.voided=0;
 
 update immune_pediatric_patient set urban='N';
 
