@@ -18,13 +18,13 @@ CREATE TABLE `immune_pediatric_patient` (
   `age_enrollment` int(11) DEFAULT NULL,
   `source_of_referral`varchar(100) DEFAULT NULL,
   `art_initiation_date` datetime DEFAULT NULL,
-  `absulute_cd4_first_visit` decimal(10,0) DEFAULT NULL,
+  `absulute_cd4_first_visit`  double DEFAULT NULL,
   `absulute_cd4_first_visit_date` datetime DEFAULT NULL,
-  `wbc` decimal(10,0) DEFAULT NULL,
-  `lym` decimal(10,0) DEFAULT NULL,
-  `percentege_cd4_first_visit` decimal(10,0) DEFAULT NULL,
+  `wbc`  double DEFAULT NULL,
+  `lym`  double DEFAULT NULL,
+  `percentege_cd4_first_visit` double DEFAULT NULL,
   `percentege_cd4_first_visit_date` datetime DEFAULT NULL,
-  `first_viral_load_result` int(11)  DEFAULT NULL,
+  `first_viral_load_result` double DEFAULT NULL,
   `first_viral_load_result_date` datetime DEFAULT NULL,
   `WHO_clinical_stage_at_enrollment` varchar(1) DEFAULT NULL,
   `weight_enrollment` double DEFAULT NULL,
@@ -212,7 +212,13 @@ where proveniencia.patient_id=immune_pediatric_patient.patient_id;
 /*ESTADIO OMS */
 update immune_pediatric_patient,
 ( select  p.patient_id,
-      min(encounter_datetime) encounter_datetime
+      min(encounter_datetime) encounter_datetime,
+      case o.value_coded
+      when 1204 then 'I'
+      when 1205 then 'II'
+      when 1206 then 'III'
+      when 1207 then 'IV'
+      else null end as cod
   from patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
@@ -220,10 +226,10 @@ update immune_pediatric_patient,
   and o.concept_id=5356
   group by p.patient_id
 )stage, obs
-set immune_pediatric_patient.WHO_clinical_stage_at_enrollment=if(obs.value_coded=1204,'I',if(obs.value_coded=1205,'II',if(obs.value_coded=1206,'III','IV')))
-where immune_pediatric_patient.patient_id=obs.person_id 
+set immune_pediatric_patient.WHO_clinical_stage_at_enrollment=stage.cod
 and immune_pediatric_patient.patient_id=stage.patient_id 
 and obs.voided=0 and obs.obs_datetime=stage.encounter_datetime;
+
 
  /*PESO AT TIME OF ART ENROLLMENT*/
 update immune_pediatric_patient,
