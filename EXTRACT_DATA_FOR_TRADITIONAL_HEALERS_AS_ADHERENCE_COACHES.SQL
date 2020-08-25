@@ -454,7 +454,7 @@ update healers_patient,
                 max(e.encounter_datetime) datafila
         from    healers_patient p 
                 inner join encounter e on p.patient_id=e.patient_id
-        where   e.encounter_type=18 and e.voided=0  and e.encounter_datetime between startDate AND endDate
+        where   e.encounter_type=18 and e.voided=0  and e.encounter_datetime < endDate
                 GROUP by e.patient_id
     ) max_fila
     inner join obs o on o.person_id=max_fila.patient_id and o.obs_datetime=max_fila.datafila

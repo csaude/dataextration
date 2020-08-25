@@ -35,6 +35,22 @@ CREATE TABLE IF NOT EXISTS `hops` (
   `patient_status_6_months_date_` datetime DEFAULT NULL,
   `patient_status_12_months` varchar(225) DEFAULT NULL,
   `patient_status_12_months_date_` datetime DEFAULT NULL,
+  `patient_status_18_months` varchar(225) DEFAULT NULL,
+  `patient_status_18_months_date_` datetime DEFAULT NULL,
+  `enrolled_in_GAAC` varchar(100) DEFAULT NULL,
+  `gaac_start_date`datetime DEFAULT NULL,
+  `gaac_end_date` datetime DEFAULT NULL,
+  `gaac_identifier` varchar(225) DEFAULT NULL,
+  `elegibbly_dmc` varchar(100) DEFAULT NULL,
+  `date_elegibbly_dmc` datetime DEFAULT NULL,
+  `dmc_gaac` varchar(100) DEFAULT NULL,
+  `dmc_AF` varchar(100) DEFAULT NULL,
+  `dmc_CA` varchar(100) DEFAULT NULL,
+  `dmc_PU` varchar(100) DEFAULT NULL,
+  `dmc_FR` varchar(100) DEFAULT NULL,
+  `dmc_DT` varchar(100) DEFAULT NULL,
+  `dmc_DC` varchar(100) DEFAULT NULL,
+  `dmc_DS` varchar(100) DEFAULT NULL,
   `urban` varchar(1) DEFAULT NULL,
   `main` varchar(1) DEFAULT NULL,
    PRIMARY KEY (id)
@@ -210,7 +226,7 @@ UPDATE hops,
    INNER JOIN person pe ON pe.person_id=p.patient_id
    WHERE p.voided=0
      AND e.encounter_type IN (5,
-                              7)
+                              7,53)
      AND e.voided=0
      AND pe.voided=0
    GROUP BY p.patient_id) enrollment
@@ -363,6 +379,24 @@ update hops,
 set   hops.patient_status_12_months=out_state.codeestado, hops.patient_status_12_months_date_=out_state.start_date
 where hops.patient_id=out_state.patient_id;
 
+ /*ESTADO ACTUAL TARV 12 MESES*/
+update hops,
+    (select   pg.patient_id,ps.start_date,
+        case ps.state
+          when 7 then 'TRASFERRED OUT'
+          when 8 then 'SUSPENDED'
+          when 9 then 'ART LTFU'
+          when 10 then 'DEAD'
+        else null end as codeestado
+    from  hops p 
+        inner join patient_program pg on p.patient_id=pg.patient_id
+        inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+    where   pg.voided=0 and ps.voided=0 and  
+        pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and  ps.start_date between enrollment_date and DATE_ADD(enrollment_date, INTERVAL 18 MONTH)
+    ) out_state
+set   hops.patient_status_18_months=out_state.codeestado, hops.patient_status_18_months_date_=out_state.start_date
+where hops.patient_id=out_state.patient_id;
+
 
 /*CD4*/
 insert into hops_cd4(patient_id,cd4,cd4_date)
@@ -378,7 +412,7 @@ update hops,
       max(encounter_datetime) encounter_datetime
   from  hops p
       inner join encounter e on p.patient_id=e.patient_id
-  where   e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime 
+  where   e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime < endDate
   group by p.patient_id
 )seguimento
 set hops.last_clinic_visit=seguimento.encounter_datetime
@@ -409,7 +443,7 @@ update hops,
       max(encounter_datetime) encounter_datetime
   from  hops p
       inner join encounter e on p.patient_id=e.patient_id
-  where   e.voided=0 and e.encounter_type=18 and e.encounter_datetime 
+  where   e.voided=0 and e.encounter_type=18 and e.encounter_datetime < endDate
   group by p.patient_id
 )levantamento
 set hops.last_artpickup=levantamento.encounter_datetime
@@ -540,6 +574,142 @@ update hops,location
 set hops.health_facility=location.name
 where hops.location_id=location.location_id;
 
+
+update hops set hops.enrolled_in_GAAC='YES' where hops.patient_id in (select member_id from gaac_member);
+
+/*GAAC START DATE*/
+update hops,gaac_member set hops.gaac_start_date=gaac_member.start_date where gaac_member.member_id=hops.patient_id ;
+
+/*GAAC END DATE*/
+update hops,gaac_member set hops.gaac_end_date=gaac_member.end_date where gaac_member.member_id=hops.patient_id; 
+
+  /*GAAC END DATE*/
+update hops,gaac_member, gaac set hops.gaac_identifier=gaac.gaac_identifier where gaac_member.member_id=hops.patient_id and gaac_member.gaac_id=gaac.gaac_id; 
+
+update hops,(
+Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end as code
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+        inner join obs o on e.encounter_id=o.encounter_id
+    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23765 
+    group by p.patient_id ) firsDMC  
+set hops.elegibbly_dmc=firsDMC.code, hops.date_elegibbly_dmc=firsDMC.dataDMC
+where firsDMC.patient_id=hops.patient_id;
+
+update hops,(
+Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end as code
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+        inner join obs o on e.encounter_id=o.encounter_id
+    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23724 
+    group by p.patient_id ) firsDMC  
+set hops.dmc_gaac=firsDMC.code
+where firsDMC.patient_id=hops.patient_id;
+
+update hops,(
+Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end as code
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+        inner join obs o on e.encounter_id=o.encounter_id
+    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23725 
+    group by p.patient_id) firsDMC  
+set hops.dmc_AF=firsDMC.code
+where firsDMC.patient_id=hops.patient_id;
+
+update hops,(
+Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end as code
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+        inner join obs o on e.encounter_id=o.encounter_id
+    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23726 
+    group by p.patient_id) firsDMC  
+set hops.dmc_CA=firsDMC.code
+where firsDMC.patient_id=hops.patient_id;
+
+update hops,(
+Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end as code
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+        inner join obs o on e.encounter_id=o.encounter_id
+    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23727 
+    group by p.patient_id) firsDMC  
+set hops.dmc_PU=firsDMC.code
+where firsDMC.patient_id=hops.patient_id;
+
+update hops,(
+Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end as code
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+        inner join obs o on e.encounter_id=o.encounter_id
+    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23729 
+    group by p.patient_id) firsDMC  
+set hops.dmc_FR=firsDMC.code
+where firsDMC.patient_id=hops.patient_id;
+
+update hops,(
+Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end as code
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+        inner join obs o on e.encounter_id=o.encounter_id
+    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23730 
+    group by p.patient_id) firsDMC  
+set hops.dmc_DT=firsDMC.code
+where firsDMC.patient_id=hops.patient_id;
+
+update hops,(
+Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end as code
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+        inner join obs o on e.encounter_id=o.encounter_id
+    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23731 
+    group by p.patient_id) firsDMC  
+set hops.dmc_DC=firsDMC.code
+where firsDMC.patient_id=hops.patient_id;
+
+update hops,(
+Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end as code
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+        inner join obs o on e.encounter_id=o.encounter_id
+    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23888 
+    group by p.patient_id) firsDMC  
+set hops.dmc_DS=firsDMC.code
+where firsDMC.patient_id=hops.patient_id;
 
 update hops set urban='N';
 
