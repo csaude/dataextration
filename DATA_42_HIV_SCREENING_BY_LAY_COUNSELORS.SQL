@@ -30,16 +30,6 @@ CREATE TABLE  `lay_counsolers_patient` (
   `gaac_start_date`datetime DEFAULT NULL,
   `gaac_end_date` datetime DEFAULT NULL,
   `gaac_identifier` varchar(225) DEFAULT NULL,
-  `elegibbly_dmc` varchar(100) DEFAULT NULL,
-  `date_elegibbly_dmc` datetime DEFAULT NULL,
-  `dmc_gaac` varchar(100) DEFAULT NULL,
-  `dmc_AF` varchar(100) DEFAULT NULL,
-  `dmc_CA` varchar(100) DEFAULT NULL,
-  `dmc_PU` varchar(100) DEFAULT NULL,
-  `dmc_FR` varchar(100) DEFAULT NULL,
-  `dmc_DT` varchar(100) DEFAULT NULL,
-  `dmc_DC` varchar(100) DEFAULT NULL,
-  `dmc_DS` varchar(100) DEFAULT NULL,
   `urban` varchar(1) DEFAULT NULL,
   `main` varchar(1) DEFAULT NULL,
    PRIMARY KEY (id),
@@ -97,8 +87,8 @@ CREATE TABLE `lay_counsolers_visit` (
 DROP TABLE IF EXISTS `lay_counsolers_dmc_visit`;
 CREATE TABLE `lay_counsolers_dmc_visit` (
   `patient_id` int(11) DEFAULT NULL,
-  `visit_date` datetime DEFAULT NULL,
-  `next_visit_date` datetime DEFAULT NULL,
+  `elegibbly_dmc` varchar(100) DEFAULT NULL,
+  `date_elegibbly_dmc` datetime DEFAULT NULL,
   `type_dmc` varchar(100) DEFAULT NULL,
   `value_dmc` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -548,231 +538,136 @@ update lay_counsolers_patient,gaac_member set lay_counsolers_patient.gaac_end_da
   /*GAAC END DATE*/
 update lay_counsolers_patient,gaac_member, gaac set lay_counsolers_patient.gaac_identifier=gaac.gaac_identifier where gaac_member.member_id=lay_counsolers_patient.patient_id and gaac_member.gaac_id=gaac.gaac_id; 
 
-update lay_counsolers_patient,(
-Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
+/*DMC*/
+insert into lay_counsolers_dmc_visit(patient_id,date_elegibbly_dmc)
+Select distinct p.patient_id,e.encounter_datetime 
+from  lay_counsolers_patient p 
+    inner join encounter e on p.patient_id=e.patient_id 
+where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
+
+/*ELEGIBLE DMC*/
+update lay_counsolers_dmc_visit,obs,encounter 
+set lay_counsolers_dmc_visit.elegibbly_dmc=case obs.value_coded
              when 1065 then 'YES'
              when 1066 then 'NO'
-             else null end as code
-    from  patient p
-        inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23765 
-    group by p.patient_id ) firsDMC  
-set lay_counsolers_patient.elegibbly_dmc=firsDMC.code, lay_counsolers_patient.date_elegibbly_dmc=firsDMC.dataDMC
-where firsDMC.patient_id=lay_counsolers_patient.patient_id;
-
-update lay_counsolers_patient,(
-Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
-             when 1256 then 'START DRUGS'
-             when 1257 then 'CONTINUE REGIMEN'
-             when 1267 then 'COMPLETED'
-             else null end as code
-    from  patient p
-        inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23724 
-    group by p.patient_id ) firsDMC  
-set lay_counsolers_patient.dmc_gaac=firsDMC.code
-where firsDMC.patient_id=lay_counsolers_patient.patient_id;
-
-update lay_counsolers_patient,(
-Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
-             when 1256 then 'START DRUGS'
-             when 1257 then 'CONTINUE REGIMEN'
-             when 1267 then 'COMPLETED'
-             else null end as code
-    from  patient p
-        inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23725 
-    group by p.patient_id) firsDMC  
-set lay_counsolers_patient.dmc_AF=firsDMC.code
-where firsDMC.patient_id=lay_counsolers_patient.patient_id;
-
-update lay_counsolers_patient,(
-Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
-             when 1256 then 'START DRUGS'
-             when 1257 then 'CONTINUE REGIMEN'
-             when 1267 then 'COMPLETED'
-             else null end as code
-    from  patient p
-        inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23726 
-    group by p.patient_id) firsDMC  
-set lay_counsolers_patient.dmc_CA=firsDMC.code
-where firsDMC.patient_id=lay_counsolers_patient.patient_id;
-
-update lay_counsolers_patient,(
-Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
-             when 1256 then 'START DRUGS'
-             when 1257 then 'CONTINUE REGIMEN'
-             when 1267 then 'COMPLETED'
-             else null end as code
-    from  patient p
-        inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23727 
-    group by p.patient_id) firsDMC  
-set lay_counsolers_patient.dmc_PU=firsDMC.code
-where firsDMC.patient_id=lay_counsolers_patient.patient_id;
-
-update lay_counsolers_patient,(
-Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
-             when 1256 then 'START DRUGS'
-             when 1257 then 'CONTINUE REGIMEN'
-             when 1267 then 'COMPLETED'
-             else null end as code
-    from  patient p
-        inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23729 
-    group by p.patient_id) firsDMC  
-set lay_counsolers_patient.dmc_FR=firsDMC.code
-where firsDMC.patient_id=lay_counsolers_patient.patient_id;
-
-update lay_counsolers_patient,(
-Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
-             when 1256 then 'START DRUGS'
-             when 1257 then 'CONTINUE REGIMEN'
-             when 1267 then 'COMPLETED'
-             else null end as code
-    from  patient p
-        inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23730 
-    group by p.patient_id) firsDMC  
-set lay_counsolers_patient.dmc_DT=firsDMC.code
-where firsDMC.patient_id=lay_counsolers_patient.patient_id;
-
-update lay_counsolers_patient,(
-Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
-             when 1256 then 'START DRUGS'
-             when 1257 then 'CONTINUE REGIMEN'
-             when 1267 then 'COMPLETED'
-             else null end as code
-    from  patient p
-        inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23731 
-    group by p.patient_id) firsDMC  
-set lay_counsolers_patient.dmc_DC=firsDMC.code
-where firsDMC.patient_id=lay_counsolers_patient.patient_id;
-
-update lay_counsolers_patient,(
-Select  p.patient_id,min(o.obs_datetime) dataDMC,case o.value_coded
-             when 1256 then 'START DRUGS'
-             when 1257 then 'CONTINUE REGIMEN'
-             when 1267 then 'COMPLETED'
-             else null end as code
-    from  patient p
-        inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where     e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and  o.concept_id=23888 
-    group by p.patient_id) firsDMC  
-set lay_counsolers_patient.dmc_DS=firsDMC.code
-where firsDMC.patient_id=lay_counsolers_patient.patient_id;
-
-/*DMC*/
-insert into lay_counsolers_dmc_visit(patient_id,visit_date)
-select  p.patient_id,o.obs_datetime dataDMC
-    from  lay_counsolers_patient p
-        inner join encounter e on p.patient_id=e.patient_id
-        inner join obs o on e.encounter_id=o.encounter_id
-    where   e.voided=0 and o.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate and endDate
-    group by p.patient_id;
-
-
-/*PROXIMO LEVANTAMENTO*/
-update lay_counsolers_dmc_visit,obs 
-set  lay_counsolers_dmc_visit.next_visit_date=obs.value_datetime
-where   lay_counsolers_dmc_visit.patient_id=obs.person_id and
-    lay_counsolers_dmc_visit.visit_date=obs.obs_datetime and 
-    obs.concept_id=1410 and 
-    obs.voided=0;
-
+             else null end
+where  lay_counsolers_dmc_visit.patient_id=obs.person_id and obs.concept_id=23765 and obs.voided=0 and
+        obs.obs_datetime=lay_counsolers_dmc_visit.date_elegibbly_dmc
+        and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and lay_counsolers_dmc_visit.date_elegibbly_dmc=encounter.encounter_datetime;
 
 /*PROXIMO GAAC*/
-update lay_counsolers_dmc_visit,obs 
+update lay_counsolers_dmc_visit,obs,encounter 
 set  lay_counsolers_dmc_visit.type_dmc="GAAC", 
-lay_counsolers_dmc_visit.value_dmc=if(obs.value_coded=1256,'START DRUGS',if(obs.value_coded=1257,'CONTINUE REGIMEN',if(obs.value_coded=1267,'COMPLETED','OTHER')))
+lay_counsolers_dmc_visit.value_dmc= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
 where   lay_counsolers_dmc_visit.patient_id=obs.person_id and
-    lay_counsolers_dmc_visit.visit_date=obs.obs_datetime and 
+    lay_counsolers_dmc_visit.date_elegibbly_dmc=obs.obs_datetime and 
     obs.concept_id=23724 and 
-    obs.voided=0;
+    obs.voided=0 and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and lay_counsolers_dmc_visit.date_elegibbly_dmc=encounter.encounter_datetime;
 
     /*PROXIMO AF*/
-update lay_counsolers_dmc_visit,obs 
+update lay_counsolers_dmc_visit,obs,encounter 
 set  lay_counsolers_dmc_visit.type_dmc="AF",
-lay_counsolers_dmc_visit.value_dmc=if(obs.value_coded=1256,'START DRUGS',if(obs.value_coded=1257,'CONTINUE REGIMEN',if(obs.value_coded=1267,'COMPLETED','OTHER')))
+lay_counsolers_dmc_visit.value_dmc= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
 where   lay_counsolers_dmc_visit.patient_id=obs.person_id and
-    lay_counsolers_dmc_visit.visit_date=obs.obs_datetime and 
-    obs.concept_id=23725 and 
-    obs.voided=0;
+    lay_counsolers_dmc_visit.date_elegibbly_dmc=obs.obs_datetime and 
+    obs.concept_id=23725 and obs.voided=0
+            and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and lay_counsolers_dmc_visit.date_elegibbly_dmc=encounter.encounter_datetime;
 
         /*PROXIMO CA*/
-update lay_counsolers_dmc_visit,obs 
+update lay_counsolers_dmc_visit,obs,encounter 
 set  lay_counsolers_dmc_visit.type_dmc="CA",
-lay_counsolers_dmc_visit.value_dmc=if(obs.value_coded=1256,'START DRUGS',if(obs.value_coded=1257,'CONTINUE REGIMEN',if(obs.value_coded=1267,'COMPLETED','OTHER')))
+lay_counsolers_dmc_visit.value_dmc= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
 where   lay_counsolers_dmc_visit.patient_id=obs.person_id and
-    lay_counsolers_dmc_visit.visit_date=obs.obs_datetime and 
-    obs.concept_id=23726 and 
-    obs.voided=0;
+    lay_counsolers_dmc_visit.date_elegibbly_dmc=obs.obs_datetime and 
+    obs.concept_id=23726 and obs.voided=0
+        and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and lay_counsolers_dmc_visit.date_elegibbly_dmc=encounter.encounter_datetime;
 
             /*PROXIMO PU*/
-update lay_counsolers_dmc_visit,obs 
+update lay_counsolers_dmc_visit,obs,encounter 
 set  lay_counsolers_dmc_visit.type_dmc="PU",
-lay_counsolers_dmc_visit.value_dmc=if(obs.value_coded=1256,'START DRUGS',if(obs.value_coded=1257,'CONTINUE REGIMEN',if(obs.value_coded=1267,'COMPLETED','OTHER')))
-where   lay_counsolers_dmc_visit.patient_id=obs.person_id and
-    lay_counsolers_dmc_visit.visit_date=obs.obs_datetime and 
-    obs.concept_id=23727 and 
-    obs.voided=0;
+lay_counsolers_dmc_visit.value_dmc= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
+where lay_counsolers_dmc_visit.patient_id=obs.person_id and
+    lay_counsolers_dmc_visit.date_elegibbly_dmc=obs.obs_datetime and obs.concept_id=23727 and obs.voided=0 
+    and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and lay_counsolers_dmc_visit.date_elegibbly_dmc=encounter.encounter_datetime;
 
 
             /*PROXIMO FR*/
-update lay_counsolers_dmc_visit,obs 
+update lay_counsolers_dmc_visit,obs,encounter 
 set  lay_counsolers_dmc_visit.type_dmc="FR",
-lay_counsolers_dmc_visit.value_dmc=if(obs.value_coded=1256,'START DRUGS',if(obs.value_coded=1257,'CONTINUE REGIMEN',if(obs.value_coded=1267,'COMPLETED','OTHER')))
+lay_counsolers_dmc_visit.value_dmc= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
 where   lay_counsolers_dmc_visit.patient_id=obs.person_id and
-    lay_counsolers_dmc_visit.visit_date=obs.obs_datetime and 
-    obs.concept_id=23729 and 
-    obs.voided=0;
+    lay_counsolers_dmc_visit.date_elegibbly_dmc=obs.obs_datetime and 
+    obs.concept_id=23729 and obs.voided=0
+    and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and lay_counsolers_dmc_visit.date_elegibbly_dmc=encounter.encounter_datetime;
 
                 /*PROXIMO DT*/
-update lay_counsolers_dmc_visit,obs 
+update lay_counsolers_dmc_visit,obs,encounter 
 set  lay_counsolers_dmc_visit.type_dmc="DT",
-lay_counsolers_dmc_visit.value_dmc=if(obs.value_coded=1256,'START DRUGS',if(obs.value_coded=1257,'CONTINUE REGIMEN',if(obs.value_coded=1267,'COMPLETED','OTHER')))
+lay_counsolers_dmc_visit.value_dmc= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
 where   lay_counsolers_dmc_visit.patient_id=obs.person_id and
-    lay_counsolers_dmc_visit.visit_date=obs.obs_datetime and 
-    obs.concept_id=23730 and 
-    obs.voided=0;
+    lay_counsolers_dmc_visit.date_elegibbly_dmc=obs.obs_datetime and 
+    obs.concept_id=23730 and obs.voided=0
+            and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and lay_counsolers_dmc_visit.date_elegibbly_dmc=encounter.encounter_datetime;
 
                     /*PROXIMO DT*/
-update lay_counsolers_dmc_visit,obs 
+update lay_counsolers_dmc_visit,obs,encounter 
 set  lay_counsolers_dmc_visit.type_dmc="DC",
-lay_counsolers_dmc_visit.value_dmc=if(obs.value_coded=1256,'START DRUGS',if(obs.value_coded=1257,'CONTINUE REGIMEN',if(obs.value_coded=1267,'COMPLETED','OTHER')))
+lay_counsolers_dmc_visit.value_dmc= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
 where   lay_counsolers_dmc_visit.patient_id=obs.person_id and
-    lay_counsolers_dmc_visit.visit_date=obs.obs_datetime and 
-    obs.concept_id=23731 and 
-    obs.voided=0;
+    lay_counsolers_dmc_visit.date_elegibbly_dmc=obs.obs_datetime and 
+    obs.concept_id=23731 and obs.voided=0
+    and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and lay_counsolers_dmc_visit.date_elegibbly_dmc=encounter.encounter_datetime;
+
 
 
                     /*PROXIMO DS*/
-update lay_counsolers_dmc_visit,obs 
+update lay_counsolers_dmc_visit,obs,encounter 
 set  lay_counsolers_dmc_visit.type_dmc="DS",
-lay_counsolers_dmc_visit.value_dmc=if(obs.value_coded=1256,'START DRUGS',if(obs.value_coded=1257,'CONTINUE REGIMEN',if(obs.value_coded=1267,'COMPLETED','OTHER')))
+lay_counsolers_dmc_visit.value_dmc= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
 where   lay_counsolers_dmc_visit.patient_id=obs.person_id and
-    lay_counsolers_dmc_visit.visit_date=obs.obs_datetime and 
-    obs.concept_id=23888 and 
-    obs.voided=0;
+    lay_counsolers_dmc_visit.date_elegibbly_dmc=obs.obs_datetime and 
+    obs.concept_id=23888 and obs.voided=0
+    and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and lay_counsolers_dmc_visit.date_elegibbly_dmc=encounter.encounter_datetime;
 
                         /*PROXIMO OUTRO*/
-update lay_counsolers_dmc_visit,obs 
+update lay_counsolers_dmc_visit,obs,encounter 
 set  lay_counsolers_dmc_visit.type_dmc=obs.value_text
 where   lay_counsolers_dmc_visit.patient_id=obs.person_id and
-    lay_counsolers_dmc_visit.visit_date=obs.obs_datetime and 
-    obs.concept_id=23732 and 
-    obs.voided=0;
+    lay_counsolers_dmc_visit.date_elegibbly_dmc=obs.obs_datetime and 
+    obs.concept_id=23732 and obs.voided=0
+  and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and lay_counsolers_dmc_visit.date_elegibbly_dmc=encounter.encounter_datetime;
 
 
 update lay_counsolers_patient set urban='N';
