@@ -734,6 +734,9 @@ if district='Nicoadala' then
   update lay_counsolers_patient set main='Y' where location_id in (277);
 end if;
 
+if district='Milange' then
+  update lay_counsolers_patient set main='Y' where location_id in (281);
+end if;
 
 
 

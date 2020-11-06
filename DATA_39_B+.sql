@@ -7,8 +7,10 @@ CREATE TABLE IF NOT EXISTS `b_prevention` (
   `district`varchar(100) DEFAULT NULL,
   `health_facility`varchar(100) DEFAULT NULL,
   `study_code`varchar(100) DEFAULT NULL,
-  `family_name`varchar(100) DEFAULT NULL,
+  `study_name`varchar(100) DEFAULT NULL,
   `first_name`varchar(100) DEFAULT NULL,
+  `middle_name`varchar(100) DEFAULT NULL,
+  `family_name`varchar(100) DEFAULT NULL,
   `urban` varchar(1) DEFAULT NULL,
   `main` varchar(1) DEFAULT NULL,
   `nid`varchar(100) DEFAULT NULL,
@@ -132,6 +134,12 @@ UPDATE b_prevention,
 SET b_prevention.first_name=person_name.given_name
 WHERE b_prevention.patient_id=person_name.person_id;
 
+/*middle_name NAME*/
+UPDATE b_prevention,
+       person_name
+SET b_prevention.middle_name=person_name.middle_name
+WHERE b_prevention.patient_id=person_name.person_id;
+
 
 /*FAMILY NAME*/
 UPDATE b_prevention,
@@ -149,7 +157,7 @@ UPDATE b_prevention,
    INNER JOIN encounter e ON e.patient_id=p.patient_id
    INNER JOIN person pe ON pe.person_id=p.patient_id
    WHERE p.voided=0
-     AND e.encounter_type IN (5,7)
+     AND e.encounter_type IN (5,7,53)
      AND e.voided=0
      AND pe.voided=0
    GROUP BY p.patient_id
