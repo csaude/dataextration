@@ -253,6 +253,19 @@ update dmc_patient,
 set dmc_patient.date_of_ART_initiation=inicio_real.data_inicio
 where dmc_patient.patient_id=inicio_real.patient_id;
 
+/*ESCOLARIDADE*/
+update dmc_patient,obs
+set dmc_patient.education_at_enrollment= case obs.value_coded 
+             when 1445 then 'NONE'
+             when 1446 then 'PRIMARY SCHOOL'
+             when 1447 then 'SECONDARY SCHOOL'
+             when 6124 then 'TECHNICAL SCHOOL'
+             when 1444 then 'SECONDARY SCHOOL'
+             when 6125 then 'TECHNICAL SCHOOL'
+             when 1448 then 'UNIVERSITY'
+          else null end
+where obs.person_id=dmc_patient.patient_id and obs.concept_id=1443 and voided=0;
+
 end
 ;;
 DELIMITER ;
