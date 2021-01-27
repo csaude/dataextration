@@ -19,7 +19,7 @@ CREATE TABLE  `dmc_patient` (
   `WHO_clinical_stage_at_enrollment_date` datetime DEFAULT NULL,
   `WHO_clinical_stage_at_art_initiation` varchar(4) DEFAULT NULL,
   `WHO_clinical_stage_at_art_initiation_date` datetime DEFAULT NULL,
-  `WHO_clinical_stage_prior_VL` varchar(4) DEFAULT NULL, /*MISSING*/
+  `WHO_clinical_stage_prior_VL` varchar(4) DEFAULT NULL, /*MISSIN*/
   `WHO_clinical_stage_prior_VL_date` datetime DEFAULT NULL, /*MISSING*/
   `WHO_clinical_stage_last` varchar(4) DEFAULT NULL, 
   `WHO_clinical_stage_last_date` datetime DEFAULT NULL, 
@@ -105,26 +105,6 @@ CREATE TABLE IF NOT EXISTS `dmc_art_pick_up` (
   `art_date` datetime DEFAULT NULL,
   `next_art_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-/*FEITO NO dmc_cv*/
-/*DROP TABLE IF EXISTS `dmc_cv_log`;
-CREATE TABLE `dmc_cv_log` (
-  `patient_id` int(11) DEFAULT NULL,
-  `cv` decimal(12,2) DEFAULT NULL,
-  `cv_date` datetime DEFAULT NULL,
-  KEY `patient_id` (`patient_id`),
-  KEY `cv_date` (`cv_date`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;*/ /*Done in dmc_cv table*/
-
-/*FEITO NO dmc_cv*/
-/*DROP TABLE IF EXISTS `dmc_cv_copies`;
-CREATE TABLE `dmc_cv_copies` (
-  `patient_id` int(11) DEFAULT NULL,
-  `cv` decimal(12,2) DEFAULT NULL,
-  `cv_date` datetime DEFAULT NULL,
-  KEY `patient_id` (`patient_id`),
-  KEY `cv_date` (`cv_date`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;*/
 
 DROP TABLE IF EXISTS `dmc_cv`;
 CREATE TABLE `dmc_cv` (
