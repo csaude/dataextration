@@ -14,6 +14,8 @@ CREATE TABLE  `dmc_patient` (
   `marital_status_at_enrollment` varchar(100) DEFAULT NULL,
   `education_at_enrollment` varchar(100) DEFAULT NULL,
   `occupation_at_enrollment` varchar(100) DEFAULT NULL,
+  `cv_first` decimal(12,2) DEFAULT NULL,
+  `cv_first_date` datetime DEFAULT NULL,
   `partner_status_at_enrollment` varchar(100) DEFAULT NULL,
   `WHO_clinical_stage_at_enrollment` varchar(1) DEFAULT NULL,
   `WHO_clinical_stage_at_enrollment_date` datetime DEFAULT NULL,
@@ -179,62 +181,9 @@ SELECT e.patient_id,min(encounter_datetime) data_abertura, e.location_id
 
 Update dmc_patient set dmc_patient.district=district;
 
-
 update dmc_patient,location
 set dmc_patient.health_facility=location.name
 where dmc_patient.location_id=location.location_id;
-
-/*URBAN AND MAIN*/
-update dmc_patient set urban='N';
-update dmc_patient set main='N';
-if district='Quelimane' then
-  update dmc_patient set urban='Y';
-end if;
-if district='Namacurra' then
-  update dmc_patient set main='Y' where location_id=5;
-end if;
-if district='Maganja' then
-  update dmc_patient set main='Y' where location_id=15;
-end if;
-if district='Pebane' then
-  update dmc_patient set main='Y' where location_id=16;
-end if;
-if district='Gile' then
-  update dmc_patient set main='Y' where location_id=6;
-end if;
-if district='Molocue' then
-  update dmc_patient set main='Y' where location_id=3;
-end if;
-if district='Mocubela' then
-  update dmc_patient set main='Y' where location_id=62;
-end if;
-if district='Inhassunge' then
-  update dmc_patient set main='Y' where location_id=7;
-end if;
-if district='Ile' then
-  update dmc_patient set main='Y' where location_id in (4,55);
-end if;
-if district='Namarroi' then
-  update dmc_patient set main='Y' where location_id in (252);
-end if;
-if district='Mopeia' then
-  update dmc_patient set main='Y' where location_id in (11);
-end if;
-if district='Morrumbala' then
-  update dmc_patient set main='Y' where location_id in (13);
-end if;
-if district='Gurue' then
-  update dmc_patient set main='Y' where location_id in (280);
-end if;
-if district='Mocuba' then
-  update dmc_patient set main='Y' where location_id in (227);
-end if;
-if district='Nicoadala' then
-  update dmc_patient set main='Y' where location_id in (277);
-end if;
-if district='Milange' then
-  update dmc_patient set main='Y' where location_id in (281);
-end if;
 
 
 /*DATA DE NASCIMENTO*/
@@ -243,13 +192,14 @@ UPDATE dmc_patient,
 SET dmc_patient.date_of_birth=person.birthdate
 WHERE dmc_patient.patient_id=person.person_id;
 
-/*Sexo*/
-update dmc_patient,person set dmc_patient.sex=.person.gender
-where  person_id=dmc_patient.patient_id;
-
-
 /*IDADE NA INSCRICAO*/
 update dmc_patient,person set dmc_patient.age_enrollment=round(datediff(dmc_patient.enrollment_date,person.birthdate)/365)
+where  person_id=dmc_patient.patient_id;
+
+delete from dmc_patient where age_enrollment<15;
+
+  /*Sexo*/
+update dmc_patient,person set dmc_patient.sex=.person.gender
 where  person_id=dmc_patient.patient_id;
 
 
@@ -264,6 +214,82 @@ set dmc_patient.marital_status_at_enrollment= case obs.value_coded
              when 1058 then 'DIVORCED'
              else null end
 where obs.person_id=dmc_patient.patient_id and obs.concept_id=1054 and obs.voided=0; 
+
+/*Carga Viral*/
+update dmc_patient,
+  ( Select  p.patient_id,o.value_numeric cv, min(e.encounter_datetime) data_carga
+    from  patient p 
+        inner join encounter e on p.patient_id=e.patient_id 
+        inner join obs o on o.encounter_id=e.encounter_id
+    where   e.voided=0 and o.voided=0 and
+        e.encounter_type in (6,9,13,53) and o.concept_id=856 and o.obs_datetime between startDate and endDate
+    group by p.patient_id
+  ) cargaviral
+set dmc_patient.cv_first=cargaviral.cv, dmc_patient.cv_first_date=cargaviral.data_carga
+where dmc_patient.patient_id=cargaviral.patient_id;
+
+/*ESTADIO OMS VL*/
+update dmc_patient,
+( select  p.patient_id,
+      max(encounter_datetime) encounter_datetime,
+      case o.value_coded
+      when 1204 then 'I'
+      when 1205 then 'II'
+      when 1206 then 'III'
+      when 1207 then 'IV'
+      else null end as cod
+  from dmc_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where e.voided=0 and e.encounter_type in(6,53) and o.obs_datetime=e.encounter_datetime and e.encounter_datetime<=p.cv_first_date and p.cv_first_date is not null
+  and o.concept_id=5356
+  group by p.patient_id
+)stage,obs
+set dmc_patient.WHO_clinical_stage_prior_VL=stage.cod,
+dmc_patient.WHO_clinical_stage_prior_VL_date=stage.encounter_datetime
+where dmc_patient.patient_id=stage.patient_id 
+and dmc_patient.patient_id=obs.person_id 
+and obs.voided=0 
+and obs.obs_datetime=stage.encounter_datetime
+and obs.concept_id=5356;
+
+/*PESO VL*/
+update dmc_patient,
+( select  p.patient_id,
+      max(encounter_datetime) encounter_datetime,
+      o.value_numeric
+  from  dmc_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type in(1,6) 
+  and o.obs_datetime=e.encounter_datetime and o.concept_id=5089  and o.obs_datetime=e.encounter_datetime 
+  and e.encounter_datetime<=p.cv_first_date and p.cv_first_date is not null
+  and o.concept_id=5089
+  group by p.patient_id
+)peso,obs
+set dmc_patient.weight_prior_VL=obs.value_numeric, dmc_patient.weight_prior_VL_date=peso.encounter_datetime
+where dmc_patient.patient_id=obs.person_id 
+and dmc_patient.patient_id=peso.patient_id 
+and obs.voided=0 and obs.obs_datetime=peso.encounter_datetime
+and obs.concept_id=5089;
+
+/*ALTURA VL*/
+update dmc_patient,
+( select  p.patient_id as patient_id,
+      max(encounter_datetime) encounter_datetime
+      from  dmc_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type in(1,6) and o.concept_id=5090 and o.obs_datetime=e.encounter_datetime  
+  and e.encounter_datetime<=p.cv_first_date and p.cv_first_date is not null
+  group by p.patient_id
+)altura,obs
+set dmc_patient.height_prior_VL=obs.value_numeric, dmc_patient.height_prior_VL_date=altura.encounter_datetime
+where dmc_patient.patient_id=obs.person_id 
+and dmc_patient.patient_id=altura.patient_id 
+and obs.voided=0 and obs.obs_datetime=altura.encounter_datetime
+and obs.concept_id=5090;
+
 
 /*Inicio TARV*/
 update dmc_patient,
@@ -1079,6 +1105,57 @@ where   dmc_support_groups_visit.patient_id=obs.person_id and
     obs.concept_id=23772 and obs.voided=0
   and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and dmc_support_groups_visit.date_elegibbly_support_groups=encounter.encounter_datetime;
 
+/*URBAN AND MAIN*/
+update dmc_patient set urban='N';
+update dmc_patient set main='N';
+if district='Quelimane' then
+  update dmc_patient set urban='Y';
+end if;
+if district='Namacurra' then
+  update dmc_patient set main='Y' where location_id=5;
+end if;
+if district='Maganja' then
+  update dmc_patient set main='Y' where location_id=15;
+end if;
+if district='Pebane' then
+  update dmc_patient set main='Y' where location_id=16;
+end if;
+if district='Gile' then
+  update dmc_patient set main='Y' where location_id=6;
+end if;
+if district='Molocue' then
+  update dmc_patient set main='Y' where location_id=3;
+end if;
+if district='Mocubela' then
+  update dmc_patient set main='Y' where location_id=62;
+end if;
+if district='Inhassunge' then
+  update dmc_patient set main='Y' where location_id=7;
+end if;
+if district='Ile' then
+  update dmc_patient set main='Y' where location_id in (4,55);
+end if;
+if district='Namarroi' then
+  update dmc_patient set main='Y' where location_id in (252);
+end if;
+if district='Mopeia' then
+  update dmc_patient set main='Y' where location_id in (11);
+end if;
+if district='Morrumbala' then
+  update dmc_patient set main='Y' where location_id in (13);
+end if;
+if district='Gurue' then
+  update dmc_patient set main='Y' where location_id in (280);
+end if;
+if district='Mocuba' then
+  update dmc_patient set main='Y' where location_id in (227);
+end if;
+if district='Nicoadala' then
+  update dmc_patient set main='Y' where location_id in (277);
+end if;
+if district='Milange' then
+  update dmc_patient set main='Y' where location_id in (281);
+end if;
 
 end
 ;;
