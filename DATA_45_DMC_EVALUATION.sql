@@ -132,7 +132,7 @@ CREATE TABLE `dmc_type_of_dispensation_visit` (
 DROP TABLE IF EXISTS `dmc_regimes`;
 CREATE TABLE `dmc_regimes` (
   `patient_id` int(11) DEFAULT NULL,
-  `regime` decimal(12,2) DEFAULT NULL,
+  `regime` varchar(100) DEFAULT NULL,
   `regime_date` datetime DEFAULT NULL,
   KEY `patient_id` (`patient_id`),
   KEY `regime_date` (`regime_date`)
@@ -490,7 +490,7 @@ and dmc_patient.patient_id=peso.patient_id
 and peso.encounter_datetime=dmc_patient.date_of_ART_initiation
 and obs.voided=0 and obs.obs_datetime=peso.encounter_datetime
 and obs.concept_id=5089;
-
+  
 /*ALTURA AT TIME OF ART INITIATION*/
 update dmc_patient,
 ( select  p.patient_id as patient_id,
