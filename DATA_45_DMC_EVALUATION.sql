@@ -176,7 +176,7 @@ SELECT e.patient_id,min(encounter_datetime) data_abertura,e.location_id
    INNER JOIN person pe ON pe.person_id=p.patient_id
    WHERE p.voided=0
      AND e.encounter_type IN (5,7)
-     AND e.encounter_datetime   BETWEEN startDate  AND endDate
+     AND e.encounter_datetime <= endDate
      AND e.voided=0
      AND pe.voided=0
    GROUP BY p.patient_id
@@ -187,9 +187,9 @@ SELECT e.patient_id,min(encounter_datetime) data_abertura,e.location_id
   INNER JOIN obs o on o.encounter_id=e.encounter_id 
   INNER JOIN obs obsData on e.encounter_id=obsData.encounter_id 
   WHERE e.voided=0 AND o.voided=0  AND e.encounter_type=53 AND obsData.concept_id=23891 
-  and e.encounter_datetime  BETWEEN startDate  AND endDate AND obsData.voided=0 
+  and e.encounter_datetime <= endDate AND obsData.voided=0 
   GROUP BY p.patient_id
-  ) enrollment 
+  ) enrollment  where enrollment.data_abertura  between startDate and endDate
   GROUP BY enrollment.patient_id;
 
 
