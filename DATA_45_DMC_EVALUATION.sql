@@ -168,29 +168,34 @@ TRUNCATE TABLE dmc_support_groups_visit;
 
 /*INSCRICAO*/
 insert into dmc_patient(patient_id, enrollment_date, location_id)
-SELECT enrollment.patient_id, min(enrollment.data_abertura), enrollment.location_id FROM 
-(
-SELECT e.patient_id,min(encounter_datetime) data_abertura,e.location_id
-   FROM patient p
-   INNER JOIN encounter e ON e.patient_id=p.patient_id
-   INNER JOIN person pe ON pe.person_id=p.patient_id
-   WHERE p.voided=0
-     AND e.encounter_type IN (5,7)
-     AND e.encounter_datetime <= endDate
-     AND e.voided=0
-     AND pe.voided=0
-   GROUP BY p.patient_id
-   UNION
-  SELECT p.patient_id,min(obsData.value_datetime) AS data_abertura,e.location_id
-    FROM patient p 
-  INNER JOIN encounter e  ON e.patient_id=p.patient_id 
-  INNER JOIN obs o on o.encounter_id=e.encounter_id 
-  INNER JOIN obs obsData on e.encounter_id=obsData.encounter_id 
-  WHERE e.voided=0 AND o.voided=0  AND e.encounter_type=53 AND obsData.concept_id=23891 
-  and e.encounter_datetime <= endDate AND obsData.voided=0 
-  GROUP BY p.patient_id
-  ) enrollment  where enrollment.data_abertura  between startDate and endDate
-  GROUP BY enrollment.patient_id;
+        SELECT preTarvFinal.patient_id,preTarvFinal.initialDate,preTarvFinal.location FROM
+         
+         (   
+             SELECT preTarv.patient_id, MIN(preTarv.initialDate) initialDate,preTarv.location as location FROM 
+             ( 
+             SELECT p.patient_id,min(o.value_datetime) AS initialDate,e.location_id as location FROM patient p  
+             
+             INNER JOIN encounter e  ON e.patient_id=p.patient_id 
+             INNER JOIN obs o on o.encounter_id=e.encounter_id 
+             WHERE e.voided=0 AND o.voided=0 AND e.encounter_type=53 
+             AND o.value_datetime IS NOT NULL AND o.concept_id=23808 AND o.value_datetime<=endDate
+             GROUP BY p.patient_id 
+             UNION 
+             SELECT p.patient_id,min(e.encounter_datetime) AS initialDate,e.location_id as location FROM patient p 
+             INNER JOIN encounter e  ON e.patient_id=p.patient_id 
+             INNER JOIN obs o on o.encounter_id=e.encounter_id 
+             WHERE e.voided=0 AND o.voided=0 AND e.encounter_type IN(5,7) 
+             AND e.encounter_datetime<=endDate 
+             GROUP BY p.patient_id 
+             UNION 
+             SELECT pg.patient_id, MIN(pg.date_enrolled) AS initialDate,pg.location_id as location FROM patient p 
+             INNER JOIN patient_program pg on pg.patient_id=p.patient_id 
+             WHERE pg.program_id=1  AND pg.voided=0 AND pg.date_enrolled<=endDate  GROUP BY patient_id 
+              ) preTarv 
+             GROUP BY preTarv.patient_id
+        ) 
+      preTarvFinal where preTarvFinal.initialDate BETWEEN startDate AND endDate
+      GROUP BY preTarvFinal.patient_id;
 
 
 Update dmc_patient set dmc_patient.district=district;
