@@ -1,6 +1,6 @@
 SET FOREIGN_KEY_CHECKS=0;
 
-Drop table hops_47; 
+ 
 CREATE TABLE IF NOT EXISTS `hops_47` (
   `id` int(11) DEFAULT NULL AUTO_INCREMENT,
   `nid`varchar(100) DEFAULT NULL,
