@@ -146,7 +146,7 @@ SET hops.patient_id=patient_identifier.patient_id, hops.location_id=patient_iden
 WHERE  patient_identifier.identifier=hops.nid;
 
 
-/*DATA DE NAICIMENTO*/
+/*DATA DE NASCIMENTO*/
 UPDATE hops,
        person
 SET hops.openmrs_birth_date=person.birthdate
