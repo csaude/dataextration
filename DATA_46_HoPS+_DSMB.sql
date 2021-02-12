@@ -146,7 +146,7 @@ SET hops.patient_id=patient_identifier.patient_id, hops.location_id=patient_iden
 WHERE  patient_identifier.identifier=hops.nid;
 
 
-/*DATA DE NAICIMENTO*/
+/*DATA DE NASCIMENTO*/
 UPDATE hops,
        person
 SET hops.openmrs_birth_date=person.birthdate
@@ -532,6 +532,8 @@ insert into hops_art_pick_up(patient_id,regime,art_date)
         when 6234 then 'ABC+TDF+LPV'
         when 6242 then 'D4T+DDI+NVP'
         when 6118 then 'DDI50+ABC+LPV'
+        when 23784 then 'TDF+3TC+DTG'
+        when 23799 then 'TDF+3TC+DTG (2ª Linha)'
         else null end,
         encounter_datetime
   from  hops p
