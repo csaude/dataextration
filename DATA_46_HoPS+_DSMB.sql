@@ -77,8 +77,8 @@ CREATE TABLE IF NOT EXISTS `hops_art_pick_up_reception_art` (
   `next_art_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `art_regimes`;
-CREATE TABLE `art_regimes` (
+DROP TABLE IF EXISTS `hops_art_regimes`;
+CREATE TABLE `hops_art_regimes` (
   `patient_id` int(11) DEFAULT NULL,
   `regime` decimal(12,2) DEFAULT NULL,
   `regime_date` datetime DEFAULT NULL,
@@ -98,12 +98,12 @@ CREATE TABLE IF NOT EXISTS `hops_tb_investigation` (
   `tb_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-CREATE TABLE IF NOT EXISTS `hops_start_tb_tretment` (
+CREATE TABLE IF NOT EXISTS `hops_start_tb_treatment` (
   `patient_id` int(11) DEFAULT NULL,
   `start_tb_treatment` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-CREATE TABLE IF NOT EXISTS `hops_end_tb_tretment` (
+CREATE TABLE IF NOT EXISTS `hops_end_tb_treatment` (
   `patient_id` int(11) DEFAULT NULL,
   `end_tb_treatment` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -132,8 +132,8 @@ truncate table hops_cd4;
 truncate table hops_visit;
 truncate table hops_cv;
 truncate table hops_tb_investigation;
-truncate table hops_start_tb_tretment;
-truncate table hops_end_tb_tretment;
+truncate table hops_start_tb_treatment;
+truncate table hops_end_tb_treatment;
 truncate table art_regimes;
 truncate table hops_type_of_dispensation_visit;
 truncate table hops_art_pick_up;
@@ -575,7 +575,7 @@ set  hops_art_pick_up_reception_art.next_art_date=DATE_ADD(hops_art_pick_up_rece
 
 
 /*LEVANTAMENTO Regime*/
-insert into art_regimes(patient_id,regime,regime_date)
+insert into hops_art_regimes(patient_id,regime,regime_date)
   select distinct p.patient_id,
   case   o.value_coded     
         when 1651 then 'AZT+3TC+NVP'
@@ -624,6 +624,8 @@ insert into art_regimes(patient_id,regime,regime_date)
         when 6234 then 'ABC+TDF+LPV'
         when 6242 then 'D4T+DDI+NVP'
         when 6118 then 'DDI50+ABC+LPV'
+        when 23784 then 'TDF+3TC+DTG'
+        when 23799 then 'TDF+3TC+DTG (2ª Linha)'
         else null end,
         encounter_datetime
   from hops p
@@ -655,7 +657,7 @@ where hops.location_id=location.location_id;
 
 
 /*TB start Date*/
-insert into hops_start_tb_tretment(patient_id,start_tb_treatment)
+insert into hops_start_tb_treatment(patient_id,start_tb_treatment)
 Select distinct p.patient_id, min(encounter_datetime) encounter_datetime
 from  hops p 
       inner join encounter e on p.patient_id=e.patient_id
@@ -665,7 +667,7 @@ from  hops p
 
 
   /*TB end Date*/
-insert into hops_end_tb_tretment(patient_id,end_tb_treatment)
+insert into hops_end_tb_treatment(patient_id,end_tb_treatment)
 Select distinct p.patient_id, max(encounter_datetime) encounter_datetime
 from  hops p 
       inner join encounter e on p.patient_id=e.patient_id
