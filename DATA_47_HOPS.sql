@@ -26,7 +26,6 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `FillHops_47`(startDate date,endDate
     READS SQL DATA
 begin
 
-TRUNCATE TABLE hops_47;
 
 /*BUSCAR ID DO PACIENTE E LOCATION*/
 UPDATE hops_47,
