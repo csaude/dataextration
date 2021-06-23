@@ -149,6 +149,16 @@ CREATE TABLE `dmc_support_groups_visit` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
+DROP TABLE IF EXISTS `dmc_dispensation_therapeutic_line_posology`;
+CREATE TABLE `dmc_dispensation_therapeutic_line_posology` (
+  `patient_id` int(11) DEFAULT NULL,
+  `visit_date` datetime DEFAULT NULL,
+  `dmc_type` varchar(100) DEFAULT NULL,
+  `therapeutic_line` varchar(100) DEFAULT NULL,
+  `posology` varchar(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
 DROP PROCEDURE IF EXISTS `FillDMC`;
 DELIMITER ;;
 CREATE DEFINER=`root`@`localhost` PROCEDURE `FillDMC`(startDate date,endDate date, district varchar(100))
@@ -1123,6 +1133,44 @@ where   dmc_support_groups_visit.patient_id=obs.person_id and
     dmc_support_groups_visit.date_elegibbly_support_groups=obs.obs_datetime and 
     obs.concept_id=23772 and obs.voided=0
   and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and dmc_support_groups_visit.date_elegibbly_support_groups=encounter.encounter_datetime;
+
+/*DMC*/
+insert into dmc_dispensation_therapeutic_line_posology(patient_id,visit_date)
+Select distinct p.patient_id,e.encounter_datetime 
+from  dmc_patient p 
+    inner join encounter e on p.patient_id=e.patient_id 
+where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
+
+update dmc_dispensation_therapeutic_line_posology,obs,encounter 
+set dmc_dispensation_therapeutic_line_posology.dmc_type= case obs.value_coded
+             when 1098 then  'DM'
+             when 23720 then 'DT'
+             when 23888 then 'DS'
+             else null end
+where   dmc_dispensation_therapeutic_line_posology.patient_id=obs.person_id and
+    dmc_dispensation_therapeutic_line_posology.visit_date=obs.obs_datetime and 
+    obs.concept_id=23739 and obs.voided=0
+            and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and dmc_dispensation_therapeutic_line_posology.visit_date=encounter.encounter_datetime;
+
+update dmc_dispensation_therapeutic_line_posology,obs,encounter 
+set dmc_dispensation_therapeutic_line_posology.posology= obs.value_text
+where dmc_dispensation_therapeutic_line_posology.patient_id=obs.person_id and
+    dmc_dispensation_therapeutic_line_posology.visit_date=obs.obs_datetime and 
+    obs.concept_id=1711 and obs.voided=0
+            and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and dmc_dispensation_therapeutic_line_posology.visit_date=encounter.encounter_datetime;
+
+
+update dmc_dispensation_therapeutic_line_posology,obs,encounter 
+set dmc_dispensation_therapeutic_line_posology.therapeutic_line= case obs.value_coded
+      when 23741 then 'ALTERNATIVE 1st LINE OF THE ART'
+      when 1371  then 'REGIMEN SWITCH'
+      when 1066  then 'NO'
+      else null  end
+where dmc_dispensation_therapeutic_line_posology.patient_id=obs.person_id and
+    dmc_dispensation_therapeutic_line_posology.visit_date=obs.obs_datetime and 
+    obs.concept_id=23742 and obs.voided=0
+    and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and dmc_dispensation_therapeutic_line_posology.visit_date=encounter.encounter_datetime;
+
 
 /*URBAN AND MAIN*/
 update dmc_patient set urban='N';
