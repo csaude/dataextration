@@ -23,8 +23,8 @@ CREATE TABLE  `mch_patient` (
   `height_date` datetime DEFAULT NULL,
   `art_initiation_date` datetime DEFAULT NULL,
   `art_regimen` varchar(255) DEFAULT NULL,
-  /*`patient_status` varchar(100) DEFAULT NULL,
-  `patient_status_date` datetime DEFAULT NULL,*/ 
+  `patient_status` varchar(100) DEFAULT NULL,
+  `patient_status_date` datetime DEFAULT NULL,
   `tb_at_screening` varchar(255) DEFAULT NULL,
   `tb_co_infection` varchar(255) DEFAULT NULL,
   `has_phone_number` varchar(100) DEFAULT NULL, 
@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS `mch_art_pick_up_reception_art` (
 DROP TABLE IF EXISTS `mch_art_regimes`;
 CREATE TABLE `mch_art_regimes` (
   `patient_id` int(11) DEFAULT NULL,
-  `regime` decimal(12,2) DEFAULT NULL,
+  `regime` varchar (100) DEFAULT NULL,
   `regime_date` datetime DEFAULT NULL,
   KEY `patient_id` (`patient_id`),
   KEY `regime_date` (`regime_date`)
@@ -207,7 +207,8 @@ set mch_patient.education_at_enrollment= case obs.value_coded
              when 1444 then 'SECONDARY SCHOOL'
              when 6125 then 'TECHNICAL SCHOOL'
              when 1448 then 'UNIVERSITY'
-          else null end
+             else null end
+          
 where obs.person_id=mch_patient.patient_id and obs.concept_id=1443 and voided=0;
 
 /*PROFISSAO*/
@@ -368,6 +369,27 @@ else null end as cod
 )updateART
 set mch_patient.ART_regimen=updateART.cod
 where mch_patient.patient_id=updateART.patient_id;
+
+/*Estado Actual TARV*/
+update mch_patient,
+		(select 	pg.patient_id,ps.start_date,
+				case ps.state
+					when 7 then 'TRASFERRED OUT'
+					when 8 then 'SUSPENDED'
+					when 9 then 'ART LTFU'
+					when 10 then 'DEAD'
+				else null end as codeestado
+		from 	patient p 
+				inner join patient_program pg on p.patient_id=pg.patient_id
+				inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+		where 	pg.voided=0 and ps.voided=0 and  
+				pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and 
+				ps.start_date<=endDate
+		) saida
+set 	mch_patient.patient_status=saida.codeestado
+/*mch_patient.patient_status_date=saida.start_date*/
+where saida.patient_id=mch_patient.patient_id;
+
 
 
 /*TB */

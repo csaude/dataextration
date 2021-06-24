@@ -857,7 +857,7 @@ where  dmc_cv.patient_id=obs.person_id and
 
 
 /*DMC DISPENSATION VISIT*/
-insert into dmc_type_of_dispensation_visit(patient_id,date_elegibbly_dmc)
+insert into dmc_type_of_dispensation_visit(patient_id,date_elegibbly_dmc) /*ask Eusebiu*/
 Select distinct p.patient_id,e.encounter_datetime 
 from  dmc_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
@@ -1037,6 +1037,8 @@ insert into dmc_regimes(patient_id,regime,regime_date)
         when 6234 then 'ABC+TDF+LPV'
         when 6242 then 'D4T+DDI+NVP'
         when 6118 then 'DDI50+ABC+LPV'
+        when 23784 then 'TDF+3TC+DTG'
+        when 23799 then 'TDF+3TC+DTG (2ª Linha)' 
         else null end,
         encounter_datetime
   from dmc_patient p
