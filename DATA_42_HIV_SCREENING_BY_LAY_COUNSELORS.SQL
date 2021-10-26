@@ -484,6 +484,8 @@ insert into lay_counsolers_art_pick_up(patient_id,regime,art_date)
         when 6234 then 'ABC+TDF+LPV'
         when 6242 then 'D4T+DDI+NVP'
         when 6118 then 'DDI50+ABC+LPV'
+        when 23784 then 'TDF+3TC+DTG'
+        when 23799 then 'TDF+3TC+DTG (2ª Linha)'
         else null end,
         encounter_datetime
   from  lay_counsolers_patient p
@@ -645,8 +647,6 @@ where   lay_counsolers_dmc_visit.patient_id=obs.person_id and
     lay_counsolers_dmc_visit.date_elegibbly_dmc=obs.obs_datetime and 
     obs.concept_id=23731 and obs.voided=0
     and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and lay_counsolers_dmc_visit.date_elegibbly_dmc=encounter.encounter_datetime;
-
-
 
                     /*PROXIMO DS*/
 update lay_counsolers_dmc_visit,obs,encounter 
