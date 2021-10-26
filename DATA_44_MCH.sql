@@ -102,7 +102,7 @@ CREATE TABLE `mch_art_regimes` (
 
 DROP PROCEDURE IF EXISTS `FillMCH`;
 DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` PROCEDURE `FillMCH`(startDate date,endDate date, district varchar(100))
+CREATE DEFINER=`root`@`localhost` PROCEDURE `FillMCH`(startDate date,endDate date, district varchar(100), location_id_parameter int(11))
     READS SQL DATA
 begin
 
@@ -113,6 +113,9 @@ TRUNCATE TABLE mch_visit;
 TRUNCATE TABLE mch_art_pick_up;
 TRUNCATE TABLE mch_art_pick_up_reception_art;
 TRUNCATE TABLE mch_art_regimes;
+
+SET @location:=location_id_parameter;
+
 
 
 /*INSCRICAO*/
@@ -153,6 +156,7 @@ update mch_patient,location
 set mch_patient.health_facility=location.name
 where mch_patient.location_id=location.location_id;
 
+delete from mch_patient where location_id not in (@location);
 
 /*DATA DE NASCIMENTO*/
 UPDATE mch_patient,
@@ -509,7 +513,7 @@ where   mch_visit.patient_id=obs.person_id and
 insert into mch_art_pick_up(patient_id,regime,art_date)
   select distinct p.patient_id,
   case   o.value_coded     
-        when 1651 then 'AZT+3TC+NVP'
+                  when 1651 then 'AZT+3TC+NVP'
         when 6324 then 'TDF+3TC+EFV'
         when 1703 then 'AZT+3TC+EFV'
         when 6243 then 'TDF+3TC+NVP'
@@ -519,7 +523,7 @@ insert into mch_art_pick_up(patient_id,regime,art_date)
         when 6102 then 'D4T+3TC+ABC'
         when 6116 then 'AZT+3TC+ABC'
         when 6108 then 'TDF+3TC+LPV/r(2ª Linha)'
-        when 6100 then 'AZT+3TC+LPV/r(2ª Linha)'
+        when 6100 then 'AZT+3TC+LPV/r'
         when 6329 then 'TDF+3TC+RAL+DRV/r (3ª Linha)'
         when 6330 then 'AZT+3TC+RAL+DRV/r (3ª Linha)'
         when 6105 then 'ABC+3TC+NVP'
@@ -556,7 +560,28 @@ insert into mch_art_pick_up(patient_id,regime,art_date)
         when 6242 then 'D4T+DDI+NVP'
         when 6118 then 'DDI50+ABC+LPV'
         when 23784 then 'TDF+3TC+DTG'
-        when 23799 then 'TDF+3TC+DTG (2ª Linha)'
+        when 23799 then 'TDF+3TC+DTG (2ª Linha)' 
+        when 23786 then 'ABC+3TC+DTG'
+        when 23790 then 'TDF+3TC+LPV/r+RTV'
+        when 23791 then 'TDF+3TC+ATV/r'
+        when 23792 then 'ABC+3TC+ATV/r'
+        when 23793 then 'AZT+3TC+ATV/r'
+        when 23795 then 'ABC+3TC+ATV/r+RAL'
+        when 23796 then 'TDF+3TC+ATV/r+RAL'
+        when 23801 then 'AZT+3TC+RAL'
+        when 23802 then 'AZT+3TC+DRV/r'
+        when 23815 then 'AZT+3TC+DTG'
+        when 23797 then 'ABC+3TC++RAL+DRV/r'
+        when 23798 then '3TC+RAL+DRV/r'
+        when 23803 then 'AZT+3TC+RAL+DRV/r'
+        when 23785 then 'TDF+3TC+DTG2'
+        when 23800 then 'ABC+3TC+DTG (2ª Linha)'
+        when 165261 then 'TDF+3TC+RAL'
+        when 165262 then 'ABC+3TC+RAL' 
+        when 165215 then 'TDF/FTC' 
+        when 23787 then 'ABC+AZT+LPV/r'
+        when 23789 then 'TDF+AZT+LPV/r'
+        when 23788 then 'TDF+ABC+3TC+LPV/r'
         else null end,
         encounter_datetime
   from  mch_patient p
@@ -601,7 +626,7 @@ set  mch_art_pick_up_reception_art.next_art_date=DATE_ADD(mch_art_pick_up_recept
 insert into mch_art_regimes(patient_id,regime,regime_date)
   select distinct p.patient_id,
   case   o.value_coded     
-        when 1651 then 'AZT+3TC+NVP'
+                  when 1651 then 'AZT+3TC+NVP'
         when 6324 then 'TDF+3TC+EFV'
         when 1703 then 'AZT+3TC+EFV'
         when 6243 then 'TDF+3TC+NVP'
@@ -611,7 +636,7 @@ insert into mch_art_regimes(patient_id,regime,regime_date)
         when 6102 then 'D4T+3TC+ABC'
         when 6116 then 'AZT+3TC+ABC'
         when 6108 then 'TDF+3TC+LPV/r(2ª Linha)'
-        when 6100 then 'AZT+3TC+LPV/r(2ª Linha)'
+        when 6100 then 'AZT+3TC+LPV/r'
         when 6329 then 'TDF+3TC+RAL+DRV/r (3ª Linha)'
         when 6330 then 'AZT+3TC+RAL+DRV/r (3ª Linha)'
         when 6105 then 'ABC+3TC+NVP'
@@ -648,7 +673,28 @@ insert into mch_art_regimes(patient_id,regime,regime_date)
         when 6242 then 'D4T+DDI+NVP'
         when 6118 then 'DDI50+ABC+LPV'
         when 23784 then 'TDF+3TC+DTG'
-        when 23799 then 'TDF+3TC+DTG (2ª Linha)'
+        when 23799 then 'TDF+3TC+DTG (2ª Linha)' 
+        when 23786 then 'ABC+3TC+DTG'
+        when 23790 then 'TDF+3TC+LPV/r+RTV'
+        when 23791 then 'TDF+3TC+ATV/r'
+        when 23792 then 'ABC+3TC+ATV/r'
+        when 23793 then 'AZT+3TC+ATV/r'
+        when 23795 then 'ABC+3TC+ATV/r+RAL'
+        when 23796 then 'TDF+3TC+ATV/r+RAL'
+        when 23801 then 'AZT+3TC+RAL'
+        when 23802 then 'AZT+3TC+DRV/r'
+        when 23815 then 'AZT+3TC+DTG'
+        when 23797 then 'ABC+3TC++RAL+DRV/r'
+        when 23798 then '3TC+RAL+DRV/r'
+        when 23803 then 'AZT+3TC+RAL+DRV/r'
+        when 23785 then 'TDF+3TC+DTG2'
+        when 23800 then 'ABC+3TC+DTG (2ª Linha)'
+        when 165261 then 'TDF+3TC+RAL'
+        when 165262 then 'ABC+3TC+RAL' 
+        when 165215 then 'TDF/FTC' 
+        when 23787 then 'ABC+AZT+LPV/r'
+        when 23789 then 'TDF+AZT+LPV/r'
+        when 23788 then 'TDF+ABC+3TC+LPV/r'
         else null end,
         encounter_datetime
   from mch_patient p
