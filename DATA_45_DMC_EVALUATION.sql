@@ -17,7 +17,7 @@ CREATE TABLE  `dmc_patient` (
   `cv_first` decimal(12,2) DEFAULT NULL,
   `cv_first_date` datetime DEFAULT NULL,
   `partner_status_at_enrollment` varchar(100) DEFAULT NULL,
-  `WHO_clinical_stage_at_enrollment` varchar(1) DEFAULT NULL,
+  `WHO_clinical_stage_at_enrollment` varchar(10) DEFAULT NULL,
   `WHO_clinical_stage_at_enrollment_date` datetime DEFAULT NULL,
   `WHO_clinical_stage_at_art_initiation` varchar(4) DEFAULT NULL,
   `WHO_clinical_stage_at_art_initiation_date` datetime DEFAULT NULL,
@@ -161,7 +161,7 @@ CREATE TABLE `dmc_dispensation_therapeutic_line_posology` (
 
 DROP PROCEDURE IF EXISTS `FillDMC`;
 DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` PROCEDURE `FillDMC`(startDate date,endDate date, district varchar(100))
+CREATE DEFINER=`root`@`localhost` PROCEDURE `FillDMC`(startDate date,endDate date, district varchar(100), location_id_parameter int(11))
     READS SQL DATA
 begin
 
@@ -175,6 +175,8 @@ TRUNCATE TABLE dmc_cv;
 TRUNCATE TABLE dmc_type_of_dispensation_visit;
 TRUNCATE TABLE dmc_regimes;
 TRUNCATE TABLE dmc_support_groups_visit;
+
+SET @location:=location_id_parameter;
 
 /*INSCRICAO*/
 insert into dmc_patient(patient_id, enrollment_date, location_id)
@@ -213,6 +215,9 @@ Update dmc_patient set dmc_patient.district=district;
 update dmc_patient,location
 set dmc_patient.health_facility=location.name
 where dmc_patient.location_id=location.location_id;
+
+/*Apagar todos fora desta localização*/
+delete from dmc_patient where location_id not in (@location);
 
 
 /*DATA DE NASCIMENTO*/
