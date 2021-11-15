@@ -102,7 +102,7 @@ CREATE TABLE `mch_art_regimes` (
 
 DROP PROCEDURE IF EXISTS `FillMCH`;
 DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` PROCEDURE `FillMCH`(startDate date,endDate date, district varchar(100) /*, location_id_parameter int(11)*/)
+CREATE DEFINER=`root`@`localhost` PROCEDURE `FillMCH`(startDate date,endDate date, district varchar(100)/*, location_id_parameter int(11)*/)
     READS SQL DATA
 begin
 
@@ -115,7 +115,6 @@ TRUNCATE TABLE mch_art_pick_up_reception_art;
 TRUNCATE TABLE mch_art_regimes;
 
 /*SET @location:=location_id_parameter;*/
-
 
 
 /*INSCRICAO*/
@@ -197,7 +196,6 @@ update mch_patient,obs
 set mch_patient.pregnancy_status_at_enrollment= if(obs.value_numeric is not null,'YES',null)
 where mch_patient.patient_id=obs.person_id and obs.concept_id=1279 and obs.obs_datetime=mch_patient.enrollment_date and mch_patient.pregnancy_status_at_enrollment is null;
 
-
 update mch_patient,patient_program
 set mch_patient.pregnancy_status_at_enrollment= 'YES'
 where mch_patient.patient_id=patient_program.patient_id and program_id=8 and  voided=0 and pregnancy_status_at_enrollment is null;
@@ -254,7 +252,6 @@ and mch_patient.patient_id=obs.person_id
 and obs.voided=0 
 and obs.obs_datetime=stage.encounter_datetime
 and obs.concept_id=5356;
-
 
 /*PESO AT TIME OF ART ENROLLMENT*/
 update mch_patient,
