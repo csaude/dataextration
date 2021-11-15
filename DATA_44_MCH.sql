@@ -15,7 +15,7 @@ CREATE TABLE  `mch_patient` (
   `education_at_enrollment` varchar(100) DEFAULT NULL,
   `occupation_at_enrollment` varchar(100) DEFAULT NULL,
   `partner_status_at_enrollment` varchar(100) DEFAULT NULL,
-  `WHO_clinical_stage_at_enrollment` varchar(1) DEFAULT NULL,
+  `WHO_clinical_stage_at_enrollment` varchar(10) DEFAULT NULL,
   `WHO_clinical_stage_at_enrollment_date` datetime DEFAULT NULL,
   `weight_enrollment` double DEFAULT NULL,
   `weight_date` datetime DEFAULT NULL,
@@ -102,7 +102,7 @@ CREATE TABLE `mch_art_regimes` (
 
 DROP PROCEDURE IF EXISTS `FillMCH`;
 DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` PROCEDURE `FillMCH`(startDate date,endDate date, district varchar(100), location_id_parameter int(11))
+CREATE DEFINER=`root`@`localhost` PROCEDURE `FillMCH`(startDate date,endDate date, district varchar(100) /*, location_id_parameter int(11)*/)
     READS SQL DATA
 begin
 
@@ -114,7 +114,7 @@ TRUNCATE TABLE mch_art_pick_up;
 TRUNCATE TABLE mch_art_pick_up_reception_art;
 TRUNCATE TABLE mch_art_regimes;
 
-SET @location:=location_id_parameter;
+/*SET @location:=location_id_parameter;*/
 
 
 
@@ -156,7 +156,8 @@ update mch_patient,location
 set mch_patient.health_facility=location.name
 where mch_patient.location_id=location.location_id;
 
-delete from mch_patient where location_id not in (@location);
+/*Apagar todos fora desta localização*/
+/*delete from mch_patient where location_id not in (@location);*/
 
 /*DATA DE NASCIMENTO*/
 UPDATE mch_patient,
