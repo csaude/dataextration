@@ -464,7 +464,7 @@ update mch_patient, patient_program
 
 /* CARGA VIRAL LABORATORIO*/
 insert into mch_cv(patient_id,copies_cv,cv_date,source)
-Select distinct p.patient_id,o.value_numeric,o.obs_datetime,LABORATORY
+Select distinct p.patient_id,o.value_numeric,o.obs_datetime,"LABORATORY"
 from  mch_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
@@ -473,7 +473,7 @@ and o.concept_id=856 and o.obs_datetime < endDate;
 
 /*CARGA VIRAL SEGUIMENTO*/
 insert into mch_cv(patient_id,copies_cv,cv_date,source)
-Select distinct p.patient_id,o.value_numeric,o.obs_datetime,FOLLOW_UP
+Select distinct p.patient_id,o.value_numeric,o.obs_datetime,"FOLLOW_UP"
 from  mch_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
