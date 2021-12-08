@@ -59,21 +59,29 @@ CREATE TABLE `mch_cd4_absolute` (
   `patient_id` int(11) DEFAULT NULL,
   `cd4` double DEFAULT NULL,
   `cd4_date` datetime DEFAULT NULL,
-  `uuid` varchar(255) DEFAULT NULL
+  `uuid` varchar(255) DEFAULT NULL,
+  KEY `patient_id` (`patient_id`),
+  KEY `cd4_date` (`cd4_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS `mch_cd4_percentage`;
 CREATE TABLE `mch_cd4_percentage` (
   `patient_id` int(11) DEFAULT NULL,
   `cd4` double DEFAULT NULL,
-  `cd4_date` datetime DEFAULT NULL
+  `cd4_date` datetime DEFAULT NULL,
+  KEY `patient_id` (`patient_id`),
+  KEY `cd4_date` (`cd4_date`)
+
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS `mch_visit`;
 CREATE TABLE `mch_visit` (
   `patient_id` int(11) DEFAULT NULL,
   `visit_date` datetime DEFAULT NULL,
-  `next_visit_date` datetime DEFAULT NULL
+  `next_visit_date` datetime DEFAULT NULL,
+  KEY `patient_id` (`patient_id`),
+  KEY `visit_date` (`visit_date`),
+  KEY `next_visit_date` (`next_visit_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS `mch_art_pick_up`;
@@ -82,13 +90,19 @@ CREATE TABLE IF NOT EXISTS `mch_art_pick_up` (
   `regime` varchar(255) DEFAULT NULL,
   `art_date` datetime DEFAULT NULL,
   `next_art_date` datetime DEFAULT NULL,
-  `number_of_pills` int(11) DEFAULT NULL
+  `number_of_pills` int(11) DEFAULT NULL,
+  KEY `patient_id` (`patient_id`),
+  KEY `art_date` (`art_date`),
+  KEY `next_art_date` (`next_art_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `mch_art_pick_up_reception_art` (
   `patient_id` int(11) DEFAULT NULL,
   `art_date` datetime DEFAULT NULL,
-  `next_art_date` datetime DEFAULT NULL
+  `next_art_date` datetime DEFAULT NULL,
+  KEY `patient_id` (`patient_id`),
+  KEY `art_date` (`art_date`),
+  KEY `next_art_date` (`next_art_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS `mch_art_regimes`;
@@ -234,7 +248,7 @@ update mch_patient,
       when 1206 then 'III'
       when 1207 then 'IV'
       else null end as cod
-  from patient p
+  from mch_patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
   where   e.voided=0 and e.encounter_type in(6,53) and o.obs_datetime=e.encounter_datetime 
@@ -255,7 +269,7 @@ update mch_patient,
 ( select  p.patient_id,
       min(encounter_datetime) encounter_datetime,
       o.value_numeric
-  from  patient p
+  from  mch_patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
   where   e.voided=0 and e.encounter_type in(1,6) 
@@ -272,7 +286,7 @@ and obs.concept_id=5089;
 update mch_patient,
 ( select  p.patient_id as patient_id,
       min(encounter_datetime) encounter_datetime
-      from  patient p
+      from  mch_patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
   where   e.voided=0 and e.encounter_type in(1,6) and o.obs_datetime=e.encounter_datetime and o.concept_id=5090 
@@ -293,12 +307,11 @@ UPDATE mch_patient,
    FROM
      (SELECT p.patient_id,
              min(e.encounter_datetime) data_inicio
-      FROM patient p
+      FROM mch_patient p
       INNER JOIN encounter e ON p.patient_id=e.patient_id
       INNER JOIN obs o ON o.encounter_id=e.encounter_id
       WHERE e.voided=0
         AND o.voided=0
-        AND p.voided=0
         AND e.encounter_type IN (18,
                                  6,
                                  9)
@@ -307,11 +320,10 @@ UPDATE mch_patient,
       GROUP BY p.patient_id
       UNION SELECT p.patient_id,
                    min(value_datetime) data_inicio
-      FROM patient p
+      FROM mch_patient p
       INNER JOIN encounter e ON p.patient_id=e.patient_id
       INNER JOIN obs o ON e.encounter_id=o.encounter_id
-      WHERE p.voided=0
-        AND e.voided=0
+      WHERE e.voided=0
         AND o.voided=0
         AND e.encounter_type IN (18,
                                  6,
@@ -321,20 +333,20 @@ UPDATE mch_patient,
       GROUP BY p.patient_id
       UNION SELECT pg.patient_id,
                    date_enrolled data_inicio
-      FROM patient p
+      FROM mch_patient p
       INNER JOIN patient_program pg ON p.patient_id=pg.patient_id
       WHERE pg.voided=0
-        AND p.voided=0
         AND program_id=2
       UNION SELECT e.patient_id,
                    MIN(e.encounter_datetime) AS data_inicio
-      FROM patient p
+      FROM mch_patient p
       INNER JOIN encounter e ON p.patient_id=e.patient_id
-      WHERE p.voided=0
-        AND e.encounter_type=18
+      WHERE e.encounter_type=18
         AND e.voided=0
-      GROUP BY p.patient_id) inicio
-   GROUP BY patient_id)inicio_real
+      GROUP BY p.patient_id 
+      ) inicio
+   GROUP BY patient_id 
+   )inicio_real
 SET mch_patient.art_initiation_date=inicio_real.data_inicio
 WHERE mch_patient.patient_id=inicio_real.patient_id;
 
@@ -358,9 +370,9 @@ when 630 then 'ZIDOVUDINE AND LAMIVUDINE'
 else null end as cod
   from
   ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
-    from  patient p
+    from  mch_patient p
         inner join encounter e on p.patient_id=e.patient_id
-    where   p.voided=0 and e.voided=0  and e.encounter_type in (11) 
+    where   e.voided=0  and e.encounter_type in (11) 
     group by p.patient_id
   ) cpn
   inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
@@ -374,7 +386,7 @@ where mch_patient.patient_id=updateART.patient_id;
 update mch_patient,
 ( select  p.patient_id,
       min(encounter_datetime) encounter_datetime
-  from  patient p
+  from  mch_patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
   where   e.voided=0 and e.encounter_type in(6,9) and o.obs_datetime=e.encounter_datetime 
@@ -428,7 +440,7 @@ update mch_patient, patient_program
 
 /* CARGA VIRAL LABORATORIO*/
 insert into mch_cv(patient_id,copies_cv,cv_date,source)
-Select distinct p.patient_id,o.value_numeric,o.obs_datetime,"LABORATORY"
+Select distinct p.patient_id,o.value_numeric,o.obs_datetime,LABORATORY
 from  mch_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
@@ -437,7 +449,7 @@ and o.concept_id=856 and o.obs_datetime < endDate;
 
 /*CARGA VIRAL SEGUIMENTO*/
 insert into mch_cv(patient_id,copies_cv,cv_date,source)
-Select distinct p.patient_id,o.value_numeric,o.obs_datetime,"FOLLOW_UP"
+Select distinct p.patient_id,o.value_numeric,o.obs_datetime,FOLLOW_UP
 from  mch_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
@@ -487,54 +499,72 @@ where   mch_visit.patient_id=obs.person_id and
 insert into mch_art_pick_up(patient_id,regime,art_date)
   select distinct p.patient_id,
   case   o.value_coded     
-        when 1651 then 'AZT+3TC+NVP'
-        when 6324 then 'TDF+3TC+EFV'
-        when 1703 then 'AZT+3TC+EFV'
-        when 6243 then 'TDF+3TC+NVP'
-        when 6103 then 'D4T+3TC+LPV/r'
-        when 792  then 'D4T+3TC+NVP'
-        when 1827 then 'D4T+3TC+EFV'
-        when 6102 then 'D4T+3TC+ABC'
-        when 6116 then 'AZT+3TC+ABC'
-        when 6108 then 'TDF+3TC+LPV/r(2ª Linha)'
-        when 6100 then 'AZT+3TC+LPV/r(2ª Linha)'
-        when 6329 then 'TDF+3TC+RAL+DRV/r (3ª Linha)'
-        when 6330 then 'AZT+3TC+RAL+DRV/r (3ª Linha)'
-        when 6105 then 'ABC+3TC+NVP'
-        when 6325 then 'D4T+3TC+ABC+LPV/r (2ª Linha)'
-        when 6326 then 'AZT+3TC+ABC+LPV/r (2ª Linha)'
-        when 6327 then 'D4T+3TC+ABC+EFV (2ª Linha)'
-        when 6328 then 'AZT+3TC+ABC+EFV (2ª Linha)'
-        when 6109 then 'AZT+DDI+LPV/r (2ª Linha)'
-        when 6110 then 'D4T20+3TC+NVP'
-        when 1702 then 'AZT+3TC+NFV'
-        when 817  then 'AZT+3TC+ABC'
-        when 6104 then 'ABC+3TC+EFV'
-        when 6106 then 'ABC+3TC+LPV/r'
-        when 6244 then 'AZT+3TC+RTV'
-        when 1700 then 'AZT+DDl+NFV'
-        when 633  then 'EFV'
-        when 625  then 'D4T'
-        when 631  then 'NVP'
-        when 628  then '3TC'
-        when 635  then 'NFV'
-        when 797  then 'AZT'
-        when 814  then 'ABC'
-        when 6107 then 'TDF+AZT+3TC+LPV/r'
-        when 6236 then 'D4T+DDI+RTV-IP'
-        when 1701 then 'ABC+DDI+NFV'
-        when 1311 then 'ABC+3TC+LPV/r (2ª Linha)'
-        when 1313 then 'ABC+3TC+EFV (2ª Linha)'
-        when 1314 then 'AZT+3TC+LPV (2ª Linha)'
-        when 1315 then 'TDF+3TC+EFV (2ª Linha)'
-        when 6114 then '3DFC'
-        when 6115 then '2DFC+EFV'
-        when 6233 then 'AZT+3TC+DDI+LPV'
-        when 6234 then 'ABC+TDF+LPV'
-        when 6242 then 'D4T+DDI+NVP'
-        when 6118 then 'DDI50+ABC+LPV'
-        when 23784 then 'TDF+3TC+DTG'
-        when 23799 then 'TDF+3TC+DTG (2ª Linha)'
+            when 1703 then 'AZT+3TC+EFV' 
+            when 6100 then 'AZT+3TC+LPV/r' 
+            when 1651 then 'AZT+3TC+NVP' 
+            when 6324 then 'TDF+3TC+EFV' 
+            when 6104 then 'ABC+3TC+EFV' 
+            when 23784 then 'TDF+3TC+DTG' 
+            when 23786 then 'ABC+3TC+DTG' 
+            when 6116 then 'AZT+3TC+ABC' 
+            when 6106 then 'ABC+3TC+LPV/r' 
+            when 6105 then 'ABC+3TC+NVP' 
+            when 6108 then 'TDF+3TC+LPV/r' 
+            when 23790 then 'TDF+3TC+LPV/r+RTV' 
+            when 23791 then 'TDF+3TC+ATV/r' 
+            when 23792 then 'ABC+3TC+ATV/r' 
+            when 23793 then 'AZT+3TC+ATV/r' 
+            when 23795 then 'ABC+3TC+ATV/r+RAL' 
+            when 23796 then 'TDF+3TC+ATV/r+RAL' 
+            when 23801 then 'AZT+3TC+RAL' 
+            when 23802 then 'AZT+3TC+DRV/r' 
+            when 23815 then 'AZT+3TC+DTG' 
+            when 6329 then 'TDF+3TC+RAL+DRV/r' 
+            when 23797 then 'ABC+3TC+DRV/r+RAL' 
+            when 23798 then '3TC+RAL+DRV/r' 
+            when 23803 then 'AZT+3TC+RAL+DRV/r' 
+            when 6243 then 'TDF+3TC+NVP' 
+            when 6103 then 'D4T+3TC+LPV/r' 
+            when 792 then 'D4T+3TC+NVP' 
+            when 1827 then 'D4T+3TC+EFV' 
+            when 6102 then 'D4T+3TC+ABC' 
+            when 1311 then 'ABC+3TC+LPV/r' 
+            when 1312 then 'ABC+3TC+NVP' 
+            when 1313 then 'ABC+3TC+EFV' 
+            when 1314 then 'AZT+3TC+LPV/r' 
+            when 1315 then 'TDF+3TC+EFV' 
+            when 6330 then 'AZT+3TC+RAL+DRV/r' 
+            when 6325 then 'D4T+3TC+ABC+LPV/r' 
+            when 6326 then 'AZT+3TC+ABC+LPV/r' 
+            when 6327 then 'D4T+3TC+ABC+EFV' 
+            when 6328 then 'AZT+3TC+ABC+EFV' 
+            when 6109 then 'AZT+DDI+LPV/r' 
+            when 21163 then 'AZT+3TC+LPV/r' 
+            when 23799 then 'TDF+3TC+DTG ' 
+            when 23800 then 'ABC+3TC+DTG ' 
+            when 6110 then  'D4T20+3TC+NVP' 
+            when 1702 then 'AZT+3TC+NFV' 
+            when 817  then 'AZT+3TC+ABC' 
+            when 6244 then 'AZT+3TC+RTV' 
+            when 1700 then 'AZT+DDl+NFV' 
+            when 633  then 'EFV' 
+            when 625  then 'D4T' 
+            when 631  then 'NVP' 
+            when 628  then '3TC' 
+            when 635  then 'NFV' 
+            when 797  then 'AZT' 
+            when 814  then 'ABC' 
+            when 6107 then 'TDF+AZT+3TC+LPV/r' 
+            when 6236 then 'D4T+DDI+RTV-IP' 
+            when 1701 then 'ABC+DDI+NFV' 
+            when 6114 then 'AZT60+3TC+NVP' 
+            when 6115 then '2DFC+EFV' 
+            when 6233 then 'AZT+3TC+DDI+LPV' 
+            when 6234 then 'ABC+TDF+LPV' 
+            when 6242 then 'D4T+DDI+NVP' 
+            when 6118 then 'DDI50+ABC+LPV' 
+            when 23785 then 'TDF+3TC+DTG2' 
+            when 5424 then 'OUTRO MEDICAMENTO ANTI-RETROVIRAL'
         else null end,
         encounter_datetime
   from  mch_patient p
@@ -579,61 +609,79 @@ set  mch_art_pick_up_reception_art.next_art_date=DATE_ADD(mch_art_pick_up_recept
 insert into mch_art_regimes(patient_id,regime,regime_date)
   select distinct p.patient_id,
   case   o.value_coded     
-        when 1651 then 'AZT+3TC+NVP'
-        when 6324 then 'TDF+3TC+EFV'
-        when 1703 then 'AZT+3TC+EFV'
-        when 6243 then 'TDF+3TC+NVP'
-        when 6103 then 'D4T+3TC+LPV/r'
-        when 792  then 'D4T+3TC+NVP'
-        when 1827 then 'D4T+3TC+EFV'
-        when 6102 then 'D4T+3TC+ABC'
-        when 6116 then 'AZT+3TC+ABC'
-        when 6108 then 'TDF+3TC+LPV/r(2ª Linha)'
-        when 6100 then 'AZT+3TC+LPV/r(2ª Linha)'
-        when 6329 then 'TDF+3TC+RAL+DRV/r (3ª Linha)'
-        when 6330 then 'AZT+3TC+RAL+DRV/r (3ª Linha)'
-        when 6105 then 'ABC+3TC+NVP'
-        when 6325 then 'D4T+3TC+ABC+LPV/r (2ª Linha)'
-        when 6326 then 'AZT+3TC+ABC+LPV/r (2ª Linha)'
-        when 6327 then 'D4T+3TC+ABC+EFV (2ª Linha)'
-        when 6328 then 'AZT+3TC+ABC+EFV (2ª Linha)'
-        when 6109 then 'AZT+DDI+LPV/r (2ª Linha)'
-        when 6110 then 'D4T20+3TC+NVP'
-        when 1702 then 'AZT+3TC+NFV'
-        when 817  then 'AZT+3TC+ABC'
-        when 6104 then 'ABC+3TC+EFV'
-        when 6106 then 'ABC+3TC+LPV/r'
-        when 6244 then 'AZT+3TC+RTV'
-        when 1700 then 'AZT+DDl+NFV'
-        when 633  then 'EFV'
-        when 625  then 'D4T'
-        when 631  then 'NVP'
-        when 628  then '3TC'
-        when 635  then 'NFV'
-        when 797  then 'AZT'
-        when 814  then 'ABC'
-        when 6107 then 'TDF+AZT+3TC+LPV/r'
-        when 6236 then 'D4T+DDI+RTV-IP'
-        when 1701 then 'ABC+DDI+NFV'
-        when 1311 then 'ABC+3TC+LPV/r (2ª Linha)'
-        when 1313 then 'ABC+3TC+EFV (2ª Linha)'
-        when 1314 then 'AZT+3TC+LPV (2ª Linha)'
-        when 1315 then 'TDF+3TC+EFV (2ª Linha)'
-        when 6114 then '3DFC'
-        when 6115 then '2DFC+EFV'
-        when 6233 then 'AZT+3TC+DDI+LPV'
-        when 6234 then 'ABC+TDF+LPV'
-        when 6242 then 'D4T+DDI+NVP'
-        when 6118 then 'DDI50+ABC+LPV'
-        when 23784 then 'TDF+3TC+DTG'
-        when 23799 then 'TDF+3TC+DTG (2ª Linha)'
+            when 1703 then 'AZT+3TC+EFV' 
+            when 6100 then 'AZT+3TC+LPV/r' 
+            when 1651 then 'AZT+3TC+NVP' 
+            when 6324 then 'TDF+3TC+EFV' 
+            when 6104 then 'ABC+3TC+EFV' 
+            when 23784 then 'TDF+3TC+DTG' 
+            when 23786 then 'ABC+3TC+DTG' 
+            when 6116 then 'AZT+3TC+ABC' 
+            when 6106 then 'ABC+3TC+LPV/r' 
+            when 6105 then 'ABC+3TC+NVP' 
+            when 6108 then 'TDF+3TC+LPV/r' 
+            when 23790 then 'TDF+3TC+LPV/r+RTV' 
+            when 23791 then 'TDF+3TC+ATV/r' 
+            when 23792 then 'ABC+3TC+ATV/r' 
+            when 23793 then 'AZT+3TC+ATV/r' 
+            when 23795 then 'ABC+3TC+ATV/r+RAL' 
+            when 23796 then 'TDF+3TC+ATV/r+RAL' 
+            when 23801 then 'AZT+3TC+RAL' 
+            when 23802 then 'AZT+3TC+DRV/r' 
+            when 23815 then 'AZT+3TC+DTG' 
+            when 6329 then 'TDF+3TC+RAL+DRV/r' 
+            when 23797 then 'ABC+3TC+DRV/r+RAL' 
+            when 23798 then '3TC+RAL+DRV/r' 
+            when 23803 then 'AZT+3TC+RAL+DRV/r' 
+            when 6243 then 'TDF+3TC+NVP' 
+            when 6103 then 'D4T+3TC+LPV/r' 
+            when 792 then 'D4T+3TC+NVP' 
+            when 1827 then 'D4T+3TC+EFV' 
+            when 6102 then 'D4T+3TC+ABC' 
+            when 1311 then 'ABC+3TC+LPV/r' 
+            when 1312 then 'ABC+3TC+NVP' 
+            when 1313 then 'ABC+3TC+EFV' 
+            when 1314 then 'AZT+3TC+LPV/r' 
+            when 1315 then 'TDF+3TC+EFV' 
+            when 6330 then 'AZT+3TC+RAL+DRV/r' 
+            when 6325 then 'D4T+3TC+ABC+LPV/r' 
+            when 6326 then 'AZT+3TC+ABC+LPV/r' 
+            when 6327 then 'D4T+3TC+ABC+EFV' 
+            when 6328 then 'AZT+3TC+ABC+EFV' 
+            when 6109 then 'AZT+DDI+LPV/r' 
+            when 21163 then 'AZT+3TC+LPV/r' 
+            when 23799 then 'TDF+3TC+DTG ' 
+            when 23800 then 'ABC+3TC+DTG ' 
+            when 6110 then  'D4T20+3TC+NVP' 
+            when 1702 then 'AZT+3TC+NFV' 
+            when 817  then 'AZT+3TC+ABC' 
+            when 6244 then 'AZT+3TC+RTV' 
+            when 1700 then 'AZT+DDl+NFV' 
+            when 633  then 'EFV' 
+            when 625  then 'D4T' 
+            when 631  then 'NVP' 
+            when 628  then '3TC' 
+            when 635  then 'NFV' 
+            when 797  then 'AZT' 
+            when 814  then 'ABC' 
+            when 6107 then 'TDF+AZT+3TC+LPV/r' 
+            when 6236 then 'D4T+DDI+RTV-IP' 
+            when 1701 then 'ABC+DDI+NFV' 
+            when 6114 then 'AZT60+3TC+NVP' 
+            when 6115 then '2DFC+EFV' 
+            when 6233 then 'AZT+3TC+DDI+LPV' 
+            when 6234 then 'ABC+TDF+LPV' 
+            when 6242 then 'D4T+DDI+NVP' 
+            when 6118 then 'DDI50+ABC+LPV' 
+            when 23785 then 'TDF+3TC+DTG2' 
+            when 5424 then 'OUTRO MEDICAMENTO ANTI-RETROVIRAL'
         else null end,
         encounter_datetime
   from mch_patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
   where   encounter_type=6 and o.concept_id=1087  and e.voided=0 
-  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and o.obs_datetime < endDate; 
+  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and e.encounter_datetime < endDate; 
 
 /*URBAN AND MAIN*/
 update mch_patient set urban='N';
