@@ -15,7 +15,7 @@ CREATE TABLE  `mch_patient` (
   `education_at_enrollment` varchar(100) DEFAULT NULL,
   `occupation_at_enrollment` varchar(100) DEFAULT NULL,
   `partner_status_at_enrollment` varchar(100) DEFAULT NULL,
-  `WHO_clinical_stage_at_enrollment` varchar(1) DEFAULT NULL,
+  `WHO_clinical_stage_at_enrollment` varchar(10) DEFAULT NULL,
   `WHO_clinical_stage_at_enrollment_date` datetime DEFAULT NULL,
   `weight_enrollment` double DEFAULT NULL,
   `weight_date` datetime DEFAULT NULL,
@@ -23,8 +23,8 @@ CREATE TABLE  `mch_patient` (
   `height_date` datetime DEFAULT NULL,
   `art_initiation_date` datetime DEFAULT NULL,
   `art_regimen` varchar(255) DEFAULT NULL,
-  /*`patient_status` varchar(100) DEFAULT NULL,
-  `patient_status_date` datetime DEFAULT NULL,*/ 
+  `patient_status` varchar(100) DEFAULT NULL,
+  `patient_status_date` datetime DEFAULT NULL,
   `tb_at_screening` varchar(255) DEFAULT NULL,
   `tb_co_infection` varchar(255) DEFAULT NULL,
   `has_phone_number` varchar(100) DEFAULT NULL, 
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS `mch_art_pick_up_reception_art` (
 DROP TABLE IF EXISTS `mch_art_regimes`;
 CREATE TABLE `mch_art_regimes` (
   `patient_id` int(11) DEFAULT NULL,
-  `regime` decimal(12,2) DEFAULT NULL,
+  `regime` varchar (100) DEFAULT NULL,
   `regime_date` datetime DEFAULT NULL,
   KEY `patient_id` (`patient_id`),
   KEY `regime_date` (`regime_date`)
@@ -116,7 +116,7 @@ CREATE TABLE `mch_art_regimes` (
 
 DROP PROCEDURE IF EXISTS `FillMCH`;
 DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` PROCEDURE `FillMCH`(startDate date,endDate date, district varchar(100))
+CREATE DEFINER=`root`@`localhost` PROCEDURE `FillMCH`(startDate date,endDate date, district varchar(100)/*, location_id_parameter int(11)*/)
     READS SQL DATA
 begin
 
@@ -127,6 +127,8 @@ TRUNCATE TABLE mch_visit;
 TRUNCATE TABLE mch_art_pick_up;
 TRUNCATE TABLE mch_art_pick_up_reception_art;
 TRUNCATE TABLE mch_art_regimes;
+
+/*SET @location:=location_id_parameter;*/
 
 
 /*INSCRICAO*/
@@ -167,6 +169,8 @@ update mch_patient,location
 set mch_patient.health_facility=location.name
 where mch_patient.location_id=location.location_id;
 
+/*Apagar todos fora desta localização*/
+/*delete from mch_patient where location_id not in (@location);*/
 
 /*DATA DE NASCIMENTO*/
 UPDATE mch_patient,
@@ -206,7 +210,6 @@ update mch_patient,obs
 set mch_patient.pregnancy_status_at_enrollment= if(obs.value_numeric is not null,'YES',null)
 where mch_patient.patient_id=obs.person_id and obs.concept_id=1279 and obs.obs_datetime=mch_patient.enrollment_date and mch_patient.pregnancy_status_at_enrollment is null;
 
-
 update mch_patient,patient_program
 set mch_patient.pregnancy_status_at_enrollment= 'YES'
 where mch_patient.patient_id=patient_program.patient_id and program_id=8 and  voided=0 and pregnancy_status_at_enrollment is null;
@@ -221,7 +224,8 @@ set mch_patient.education_at_enrollment= case obs.value_coded
              when 1444 then 'SECONDARY SCHOOL'
              when 6125 then 'TECHNICAL SCHOOL'
              when 1448 then 'UNIVERSITY'
-          else null end
+             else null end
+          
 where obs.person_id=mch_patient.patient_id and obs.concept_id=1443 and voided=0;
 
 /*PROFISSAO*/
@@ -262,7 +266,6 @@ and mch_patient.patient_id=obs.person_id
 and obs.voided=0 
 and obs.obs_datetime=stage.encounter_datetime
 and obs.concept_id=5356;
-
 
 /*PESO AT TIME OF ART ENROLLMENT*/
 update mch_patient,
@@ -380,6 +383,27 @@ else null end as cod
 )updateART
 set mch_patient.ART_regimen=updateART.cod
 where mch_patient.patient_id=updateART.patient_id;
+
+/*Estado Actual TARV*/
+update mch_patient,
+		(select 	pg.patient_id,ps.start_date,
+				case ps.state
+					when 7 then 'TRASFERRED OUT'
+					when 8 then 'SUSPENDED'
+					when 9 then 'ART LTFU'
+					when 10 then 'DEAD'
+				else null end as codeestado
+		from 	patient p 
+				inner join patient_program pg on p.patient_id=pg.patient_id
+				inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+		where 	pg.voided=0 and ps.voided=0 and  
+				pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and 
+				ps.start_date<=endDate
+		) saida
+set 	mch_patient.patient_status=saida.codeestado
+/*mch_patient.patient_status_date=saida.start_date*/
+where saida.patient_id=mch_patient.patient_id;
+
 
 
 /*TB */
