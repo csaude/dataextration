@@ -34,7 +34,6 @@ CREATE TABLE  `mch_patient` (
   `location_id` int(11) DEFAULT NULL,
   `urban` varchar(1) DEFAULT NULL,
   `main` varchar(1) DEFAULT NULL, 
-  
   PRIMARY KEY (id),
   KEY `patient_id` (`patient_id`),
   KEY `enrollment_date` (`enrollment_date`),
@@ -393,12 +392,12 @@ update mch_patient,
 					when 9 then 'ART LTFU'
 					when 10 then 'DEAD'
 				else null end as codeestado
-		from 	patient p 
+		from 	mch_patient p 
 				inner join patient_program pg on p.patient_id=pg.patient_id
 				inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
 		where 	pg.voided=0 and ps.voided=0 and  
 				pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and 
-				ps.start_date<=endDate
+				ps.start_date BETWEEN startDate AND endDate
 		) saida
 set 	mch_patient.patient_status=saida.codeestado
 /*mch_patient.patient_status_date=saida.start_date*/
@@ -469,7 +468,7 @@ from  mch_patient p
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type=13 
-and o.concept_id=856 and o.obs_datetime < endDate;
+and o.concept_id=856 and o.obs_datetime BETWEEN startDate AND endDate;
 
 /*CARGA VIRAL SEGUIMENTO*/
 insert into mch_cv(patient_id,copies_cv,cv_date,source)
@@ -478,7 +477,7 @@ from  mch_patient p
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type=9
-and o.concept_id=1518 and  o.obs_datetime < endDate;
+and o.concept_id=1518 and  o.obs_datetime BETWEEN startDate AND endDate;
 
 /*CARGA VIRAL LOGS*/
 update mch_cv,obs 
@@ -595,7 +594,7 @@ insert into mch_art_pick_up(patient_id,regime,art_date)
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
   where   encounter_type=18 and o.concept_id=1088  and e.voided=0 
-  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and e.encounter_datetime  < endDate;
+  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and e.encounter_datetime  BETWEEN startDate AND endDate;
 
 /*PROXIMO LEVANTAMENTO*/
 update mch_art_pick_up,obs 
@@ -705,7 +704,7 @@ insert into mch_art_regimes(patient_id,regime,regime_date)
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
   where   encounter_type=6 and o.concept_id=1087  and e.voided=0 
-  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and e.encounter_datetime < endDate; 
+  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and e.encounter_datetime BETWEEN startDate AND endDate; 
 
 /*URBAN AND MAIN*/
 update mch_patient set urban='N';
