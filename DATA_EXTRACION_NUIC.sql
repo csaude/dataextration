@@ -154,8 +154,7 @@ UPDATE children,
 SET children.date_of_ART_initiation=inicio_real.data_inicio
 WHERE children.patient_id=inicio_real.patient_id;
 
-delete from children where children.age_enrollment<=13;
-
+delete from children where children.age_enrollment<=13 and children.nuic is null;
 
 /*Urban e Main*/
 update children set urban='N';
