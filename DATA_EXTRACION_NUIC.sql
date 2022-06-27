@@ -43,6 +43,8 @@ WHERE patient_identifier.identifier_type=2
 
 UPDATE children, location SET children.health_facility=location.name where location.location_id=children.location_id;
 
+update children,patient_identifier set children.nuic=patient_identifier.identifier where children.patient_id=patient_identifier.patient_id and patient_identifier.identifier_type=14;
+
   /*FIRST NAME*/
 UPDATE children,
        person_name
