@@ -32,8 +32,6 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `FillNUIC`(startDate date,endDate da
     READS SQL DATA
 begin
 
-truncate children;
-
 /*BUSCAR ID DO PACIENTE E LOCATION*/
 UPDATE children,
        patient_identifier
@@ -71,7 +69,7 @@ SET children.date_of_birth=person.birthdate
 WHERE children.patient_id=person.person_id;
 
 /*SEXO*/
-update children,person set children.sex=.person.gender where  person_id=children.patient_id;
+update children,person set children.sex=person.gender where  person_id=children.patient_id;
 
 
 /*IDADE NA INSCRICAO*/
