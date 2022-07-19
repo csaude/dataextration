@@ -32,6 +32,11 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `FillNUIC`(startDate date,endDate da
     READS SQL DATA
 begin
 
+
+insert into children(patient_id,nuic,location_id)
+   select pi.patient_id,pi.identifier,pi.location_id  from patient_identifier pi where pi.identifier_type=14;
+
+
 /*BUSCAR ID DO PACIENTE E LOCATION*/
 UPDATE children,
        patient_identifier
@@ -41,7 +46,6 @@ WHERE patient_identifier.identifier_type=2
 
 UPDATE children, location SET children.health_facility=location.name where location.location_id=children.location_id;
 
-update children,patient_identifier set children.nuic=patient_identifier.identifier where children.patient_id=patient_identifier.patient_id and patient_identifier.identifier_type=14;
 
   /*FIRST NAME*/
 UPDATE children,
