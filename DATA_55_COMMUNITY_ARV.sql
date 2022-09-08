@@ -127,6 +127,14 @@ CREATE TABLE `community_type_arv_dispensation` (
   `dispensation_type` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `community_differentiated_model`;
+CREATE TABLE `community_differentiated_model` (
+  `patient_id` int(11) DEFAULT NULL,
+  `visit_date` datetime DEFAULT NULL,
+  `differentiated_model` varchar(100) DEFAULT NULL,
+  `differentiated_model_status` varchar(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 
 DROP PROCEDURE IF EXISTS `FillCOMMARV`;
 DELIMITER ;;
@@ -143,6 +151,8 @@ TRUNCATE TABLE community_arv_cd4_absolute;
 TRUNCATE TABLE community_arv_cd4_percentage;
 TRUNCATE TABLE community_arv_visit;
 TRUNCATE TABLE community_arv_posology;
+TRUNCATE TABLE community_type_arv_dispensation;
+TRUNCATE TABLE community_differentiated_model;
 
 SET @location:=location_id_parameter;
 
@@ -716,6 +726,51 @@ update community_type_arv_dispensation,
     ) final
     set community_type_arv_dispensation.dispensation_type=final.code
     where community_type_arv_dispensation.patient_id=final.patient_id;
+
+insert into community_differentiated_model(patient_id,visit_date) /*ask Eusebiu*/
+Select distinct p.patient_id,e.encounter_datetime
+from  community_arv_patient p
+    inner join encounter e on p.patient_id=e.patient_id
+where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
+update community_differentiated_model,
+    (
+    select p.patient_id,
+    case o.value_coded
+    when 23730  then 'QUARTERLY DISPENSATION (DT)'
+    when 23888  then 'SEMESTER ARV PICKUP (DS)'
+    when 165314 then 'ARV ANUAL DISPENSATION (DA)'
+    when 165315 then 'DESCENTRALIZED ARV DISPENSATION (DD)'
+    when 165178 then 'COMMUNITY DISPENSE VIA PROVIDER (DCP)'
+    when 165179 then 'COMMUNITY DISPENSE VIA APE (DCA)'
+    when 165264 then 'MOBILE BRIGADES (DCBM)'
+    when 165265 then 'MOBILE CLINICS (DCCM)'
+    when 23725  then 'FAMILY APPROACH (AF)'
+    when 23729  then 'RAPID FLOW (FR)'
+    when 23724  then 'GAAC (GA)'
+    when 23726  then 'ACCESSION CLUBS (CA)'
+    when 165316 then 'HOURS EXTENSION (EH)'
+    when 165317 then 'SINGLE STOP IN TB SECTOR (TB)'
+    when 165318 then 'SINGLE STOP ON TARV SERVICES (CT)'
+    when 165319 then 'SINGLE STOP SAAJ (SAAJ)'
+    when 165320 then 'SINGLE STOP SMI (SMI)'
+    when 165321 then 'HIV ADVANCED DISEASE (DAH)'
+    when 23727  then 'SINGLE STOP (PU)'
+    when 165177 then 'FARMAC/PRIVATE PHARMACY (FARMAC)'
+    when 23731  then 'COMMUNITY DISPENSATION (DC)'
+    when 23732  then 'OTHER'
+    else null end  as code,
+    case obsEstado.value_coded
+    when 1256  then 'START DRUGS'
+    when 1257  then 'CONTINUE REGIMEN'
+    when 1267  then 'COMPLETED' else null end  status
+    from patient p
+    inner join encounter e on e.patient_id=p.patient_id
+    inner join obs o on o.encounter_id=e.encounter_id
+    inner join obs obsEstado on obsEstado.encounter_id=e.encounter_id
+    where e.encounter_type=6 and e.encounter_datetime  BETWEEN startDate AND endDate and p.voided=0 and e.voided=0 and o.voided=0 and o.concept_id=165174  and obsEstado.concept_id=165322 and obsEstado.voided=0
+    ) final
+    set community_differentiated_model.differentiated_model=final.code and community_differentiated_model.differentiated_model_status=final.status
+    where community_differentiated_model.patient_id=final.patient_id;
 
 /*URBAN AND MAIN*/
 update community_arv_patient set urban='N';
