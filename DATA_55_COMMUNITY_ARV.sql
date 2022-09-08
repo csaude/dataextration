@@ -130,7 +130,7 @@ CREATE TABLE `community_type_arv_dispensation` (
 
 DROP PROCEDURE IF EXISTS `FillCOMMARV`;
 DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` PROCEDURE `FillMCH`(startDate date,endDate date, district varchar(100)/*, location_id_parameter int(11)*/)
+CREATE DEFINER=`root`@`localhost` PROCEDURE `FillCOMMARV`(startDate date,endDate date, district varchar(100), location_id_parameter int(11))
     READS SQL DATA
 begin
 
@@ -144,7 +144,7 @@ TRUNCATE TABLE community_arv_cd4_percentage;
 TRUNCATE TABLE community_arv_visit;
 TRUNCATE TABLE community_arv_posology;
 
-/*SET @location:=location_id_parameter;*/
+SET @location:=location_id_parameter;
 
 /*INSCRICAO*/
 insert into community_arv_patient(patient_id, enrollment_date, location_id)
@@ -185,7 +185,7 @@ set community_arv_patient.health_facility=location.name
 where community_arv_patient.location_id=location.location_id;
 
 /*Apagar todos fora desta localização*/
-/*delete from community_arv_patient where location_id not in (@location);*/
+delete from community_arv_patient where location_id not in (@location);
 
 /*DATA DE NASCIMENTO*/
 UPDATE community_arv_patient,
@@ -197,8 +197,8 @@ WHERE community_arv_patient.patient_id=person.person_id;
 update community_arv_patient,person set community_arv_patient.age_enrollment=round(datediff(community_arv_patient.enrollment_date,person.birthdate)/365)
 where  person_id=community_arv_patient.patient_id;
 
-/*delete from community_arv_patient where age_enrollment<15;
-delete from community_arv_patient where age_enrollment>49;*/
+/*Exclusion criteria*/
+delete from community_arv_patient where age_enrollment<3;
 
   /*Sexo*/
 update community_arv_patient,person set community_arv_patient.sex=.person.gender
@@ -414,7 +414,7 @@ update community_arv_patient,
 				pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and 
 				ps.start_date BETWEEN startDate AND endDate
 		) saida
-set 	community_arv_patient.patient_status=saida.codeestado
+set 	community_arv_patient.patient_status=saida.codeestado,
 community_arv_patient.patient_status_date=saida.start_date
 where saida.patient_id=community_arv_patient.patient_id;
 
@@ -701,6 +701,21 @@ where community_arv_posology.patient_id=obs.person_id and
     obs.concept_id=23742 and obs.voided=0
     and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_arv_posology.visit_date=encounter.encounter_datetime;
 
+
+/* ARV Dispensation*/
+Select distinct p.patient_id,e.encounter_datetime
+from  community_arv_patient p
+    inner join encounter e on p.patient_id=e.patient_id
+where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
+update community_type_arv_dispensation,
+    (
+    select p.patient_id,case o.value_coded when 1098  then 'DM' when 23720 then 'DT' when 23888 then 'DS' else null end  as code from patient p
+    inner join encounter e on e.patient_id=p.patient_id
+    inner join obs o on o.encounter_id=e.encounter_id
+    where e.encounter_type=6 and e.encounter_datetime BETWEEN startDate AND endDate and p.voided=0 and e.voided=0 and o.voided=0 and o.concept_id=23739
+    ) final
+    set community_type_arv_dispensation.dispensation_type=final.code
+    where community_type_arv_dispensation.patient_id=final.patient_id;
 
 /*URBAN AND MAIN*/
 update community_arv_patient set urban='N';
