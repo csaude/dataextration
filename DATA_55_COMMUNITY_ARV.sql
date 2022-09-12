@@ -292,6 +292,7 @@ and obs.voided=0
 and obs.obs_datetime=stage.encounter_datetime
 and obs.concept_id=5356;
 
+
 /*PESO AT TIME OF ART ENROLLMENT*/
 update community_arv_patient,
 ( select  p.patient_id,
@@ -585,6 +586,7 @@ insert into community_arv_art_pick_up(patient_id,regime,art_date)
         when 23787 then 'ABC+AZT+LPV/r'
         when 23789 then 'TDF+AZT+LPV/r'
         when 23788 then 'TDF+ABC+3TC+LPV/r'
+        when 165330 then 'ATV/r+TDF+3TC+DTG'
         
         else null end,
         encounter_datetime
@@ -660,17 +662,17 @@ from  community_arv_patient p
 where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=730   and o.obs_datetime   BETWEEN startDate AND endDate;
 
 /*VISITAS*/
-insert into ccommunity_arv_visit(patient_id,visit_date)
+insert into community_arv_visit(patient_id,visit_date)
 Select distinct p.patient_id,e.encounter_datetime 
 from  community_arv_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
 where   e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
 
 /*PROXIMA VISITAS*/
-update ccommunity_arv_visit,obs 
-set  ccommunity_arv_visit.next_visit_date=obs.value_datetime
-where   ccommunity_arv_visit.patient_id=obs.person_id and
-    ccommunity_arv_visit.visit_date=obs.obs_datetime and 
+update community_arv_visit,obs 
+set  community_arv_visit.next_visit_date=obs.value_datetime
+where   community_arv_visit.patient_id=obs.person_id and
+    community_arv_visit.visit_date=obs.obs_datetime and 
     obs.concept_id=1410 and 
     obs.voided=0;
 
