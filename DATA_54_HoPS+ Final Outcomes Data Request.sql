@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS `hops` (
   `openmrs_age` int(11) DEFAULT NULL,
   `openmrs_gender` varchar(1) DEFAULT NULL,
   `enrollment_date` datetime DEFAULT NULL,
+  `occupation_at_enrollment` varchar(100) DEFAULT NULL,
+  `pregnancy_status_at_enrollment` varchar(100) DEFAULT NULL,
   `art_initiation_date` datetime DEFAULT NULL,
   `last_clinic_visit` datetime DEFAULT NULL,
   `scheduled_clinic_visit` datetime DEFAULT NULL,
@@ -28,12 +30,14 @@ CREATE TABLE IF NOT EXISTS `hops` (
   `imc_date` datetime DEFAULT NULL,
   `hemoglobin` int(11)  DEFAULT NULL,
   `hemoglobin_date` datetime DEFAULT NULL,
+  `blood_pressure` varchar(255) DEFAULT NULL,
   `patient_status_6_months` varchar(225) DEFAULT NULL,
   `patient_status_6_months_date_` datetime DEFAULT NULL,
   `patient_status_12_months` varchar(225) DEFAULT NULL,
   `patient_status_12_months_date_` datetime DEFAULT NULL,
   `patient_status_18_months` varchar(225) DEFAULT NULL,
   `patient_status_18_months_date_` datetime DEFAULT NULL,
+  `family_planning` varchar(100) DEFAULT NULL,
   `enrolled_in_GAAC` varchar(100) DEFAULT NULL,
   `gaac_start_date`datetime DEFAULT NULL,
   `gaac_end_date` datetime DEFAULT NULL,
@@ -114,6 +118,29 @@ CREATE TABLE `hops_type_of_dispensation_visit` (
   `date_elegibbly_dmc` datetime DEFAULT NULL,
   `type_dmc` varchar(100) DEFAULT NULL,
   `value_dmc` varchar(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `hops_cpn_type_of_method`;
+CREATE TABLE `hops_cpn_type_of_method` (
+  `patient_id` int(11) DEFAULT NULL,
+  `type_date` datetime DEFAULT NULL,
+  `type_of_method` varchar(100) DEFAULT NULL,
+  `source`varchar(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `hops_cpn_family_planning`;
+CREATE TABLE `hops_cpn_family_planning` (
+  `patient_id` int(11) DEFAULT NULL,
+  `fp_date` datetime DEFAULT NULL,
+  `fp` varchar(100) DEFAULT NULL,
+  `source`varchar(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `hops_cpn_last_menstrual_period`;
+CREATE TABLE `hops_cpn_last_menstrual_period` (
+  `patient_id` int(11) DEFAULT NULL,
+  `hosp_cpn_last_menstrual_period_date` datetime DEFAULT NULL,
+  `source`varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -322,6 +349,23 @@ where hops.patient_id=obs.person_id
 and hops.patient_id=imc.patient_id 
 and obs.voided=0 and obs.obs_datetime=imc.encounter_datetime;
 
+/*PROFISSAO*/
+update hops,obs
+set hops.occupation_at_enrollment= obs.value_text
+where obs.person_id=hops.patient_id and obs.concept_id=1459 and voided=0;
+
+/*PREGNANCY STATUS AT TIME OF ART ENROLLMENT*/
+update hops,obs
+set hops.pregnancy_status_at_enrollment= if(obs.value_coded=44,'YES',null)
+where hops.patient_id=obs.person_id and obs.concept_id=1982 and obs.obs_datetime=hops.enrollment_date;
+
+update hops,obs
+set hops.pregnancy_status_at_enrollment= if(obs.value_numeric is not null,'YES',null)
+where hops.patient_id=obs.person_id and obs.concept_id=1279 and obs.obs_datetime=hops.enrollment_date and hops.pregnancy_status_at_enrollment is null;
+
+update hops,patient_program
+set hops.pregnancy_status_at_enrollment= 'YES'
+where hops.patient_id=patient_program.patient_id and program_id=8 and  voided=0 and pregnancy_status_at_enrollment is null;
 
 /*HEMOGLOBINA SEGUIMENTO */
 update hops,
@@ -359,6 +403,26 @@ and hops.patient_id=hemoglobin.patient_id
 and obs.voided=0 and obs.obs_datetime=hemoglobin.encounter_datetime
 and obs.concept_id=21 and hops.hemoglobin is null;
 
+/*BLOOD PRESSURE AT FIRST ANC VISIT*/
+update hops,
+(
+Select cpn.patient_id, cpn.data_cpn, case obs.value_coded 
+when 1065 then 'YES'
+when 1066 then 'NO' 
+when 1118 then 'NOT DONE'  
+else null end as cod
+  from
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+    where   p.voided=0 and e.voided=0 and e.encounter_type in (11)
+    group by p.patient_id
+  ) cpn
+  inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
+  where   obs.voided=0 and obs.concept_id=6379 
+)updateBP
+set hops.blood_pressure=updateBP.cod
+where hops.patient_id=updateBP.patient_id;
 
  /*ESTADO ACTUAL TARV 6 MESES*/
 update hops,
@@ -863,6 +927,71 @@ where   hops_type_of_dispensation_visit.patient_id=obs.person_id and
     hops_type_of_dispensation_visit.date_elegibbly_dmc=obs.obs_datetime and 
     obs.concept_id=23732 and obs.voided=0
   and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and hops_type_of_dispensation_visit.date_elegibbly_dmc=encounter.encounter_datetime;
+
+  /*DMC DISPENSATION VISIT*/
+update hops_cpn,
+(
+Select distinct p.patient_id,e.encounter_datetime 
+from  hops_cpn p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where e.voided=0 and o.voided=0 and e.encounter_type in (6,9) 
+      and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=23725 
+      and o.value_coded in(1256,1257,1267)
+      GROUP BY p.patient_id
+ )obs_planning
+set hops_cpn.family_planning=case obs_planning.encounter_datetime when null then 'NO' else 'YES' end;
+
+
+/*hops_cpn_type_of_method*/
+insert into hops_cpn_type_of_method(patient_id,type_date,type_of_method,source)
+select distinct p.patient_id,e.encounter_datetime,
+    case   o.value_coded     
+        when 1107  then 'NONE'
+        when 190   then 'CONDOMS'
+        when 780   then 'ORAL CONTRACEPTION'
+        when 5279  then 'INJECTABLE CONTRACEPTIVES'
+        when 21928 then 'IMPLANT'
+        when 5275  then 'INTRAUTERINE DEVICE'
+        when 5276  then 'FEMALE STERILIZATION'
+        when 23714 then 'VASECTOMY'
+        when 23714 then 'LACTATIONAL AMENORRAY METHOD'      
+        else null end as type, "FICHA CLINICA"
+  from hops_cpn p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where e.encounter_type in(6,9) and o.concept_id=374  and e.voided=0 and e.encounter_datetime=o.obs_datetime and o.obs_datetime BETWEEN startDate AND endDate
+  GROUP BY p.patient_id;
+
+  /*hops_cpn_family_planning*/
+insert into hops_cpn_family_planning(patient_id,fp_date,source)
+Select distinct p.patient_id,e.encounter_datetime,"FICHA CLINICA" 
+from  hops_cpn p 
+    inner join encounter e on p.patient_id=e.patient_id 
+where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate
+GROUP BY p.patient_id;
+
+
+update hops_cpn_family_planning,obs,encounter 
+set  hops_cpn_family_planning.fp= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
+where  hops_cpn_family_planning.patient_id=obs.person_id and
+    hops_cpn_family_planning.fp_date=obs.obs_datetime and 
+    obs.concept_id=23725 and 
+    obs.voided=0 and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and hops_cpn_family_planning.fp_date=encounter.encounter_datetime;
+
+ /*hosp_cpn_last_menstrual_period*/
+insert into hops_cpn_last_menstrual_period(patient_id,hosp_cpn_last_menstrual_period_date,source)
+Select distinct p.patient_id,o.value_datetime,"FICHA CLINICA" 
+from  hops_cpn p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1465
+GROUP BY p.patient_id;
+
 
 
 /* Urban and Main*/
