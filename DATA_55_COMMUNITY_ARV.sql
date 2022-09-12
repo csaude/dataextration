@@ -293,7 +293,7 @@ and obs.obs_datetime=stage.encounter_datetime
 and obs.concept_id=5356;
 
 /*Apagar todos ESTADIO OMS II E IV*/
-delete from community_arv_patient where WHO_clinical_stage_at_enrollment='III' AND WHO_clinical_stage_at_enrollment='IV';
+delete from community_arv_patient where WHO_clinical_stage_at_enrollment='III' OR WHO_clinical_stage_at_enrollment='IV';
 
 /*PESO AT TIME OF ART ENROLLMENT*/
 update community_arv_patient,
