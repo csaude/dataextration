@@ -1033,9 +1033,8 @@ Select distinct p.patient_id,
 from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-here e.voided=0 and e.encounter_type=13 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=654
+here e.voided=0 and e.encounter_type=6 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=654
 GROUP BY p.patient_id;
-
 
 /*CREATININE*/
 insert into hops_creatinine(patient_id,creatinine_value,creatinine_date)
@@ -1045,7 +1044,7 @@ Select distinct p.patient_id,
 from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-here e.voided=0 and e.encounter_type=13 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=790
+here e.voided=0 and e.encounter_type=6 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=790
 GROUP BY p.patient_id;
 
 /* All hemoglobin*/
@@ -1067,7 +1066,7 @@ Select distinct p.patient_id,
 from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-here e.voided=0 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1692
+here e.voided=0 and e.encounter_type=6 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1692
 GROUP BY p.patient_id;
 
 /*CTX*/
@@ -1080,7 +1079,7 @@ Select distinct p.patient_id,
 from  hops p  
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1719 and o.value_coded=960;
+where   e.voided=0 and o.voided=0 and e.encounter_type=6 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1719 and o.value_coded=960;
 
 
 /* Urban and Main*/
