@@ -673,7 +673,7 @@ insert into hops_art_pick_up(patient_id,regime,art_date)
   from  hops p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
-  where   encounter_type=18 and o.concept_id=1088  and e.voided=0 
+  where   encounter_type in (18,52) and o.concept_id=1088  and e.voided=0 
   and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and e.encounter_datetime  < endDate;
 
 /*PROXIMO LEVANTAMENTO*/
@@ -699,7 +699,7 @@ insert into hops_art_pick_up_reception_art(patient_id,art_date)
   from  hops p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
-  where   encounter_type=52 and o.concept_id=23866  and e.voided=0 
+  where   encounter_type in (18,52) and o.concept_id=23866  and e.voided=0 
   and p.patient_id=o.person_id and o.value_datetime <= endDate;
 
 
@@ -1068,7 +1068,7 @@ Select distinct p.patient_id,
 from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-here e.voided=0 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1692
+here e.voided=0 and e.encounter_type in (6,13) and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1692
 GROUP BY p.patient_id;
 
 /* All Blood Pressure*/
@@ -1100,7 +1100,7 @@ Select distinct p.patient_id,e.encounter_datetime, if(o.value_coded=1065,"PREGNA
 from  hops p
     inner join encounter e on p.patient_id=e.patient_id
     inner join obs o on o.encounter_id=e.encounter_id
-where e.voided=0 and e.encounter_type in (6,9) and o.concept_id=1892  and e.encounter_datetime BETWEEN startDate AND endDate;
+where e.voided=0 and e.encounter_type in (6,9) and o.concept_id=1982  and e.encounter_datetime BETWEEN startDate AND endDate;
 
 /*Pregnant breastfeeding status*/
 insert into community_breastfeeding_status(patient_id,visit_date,status)
