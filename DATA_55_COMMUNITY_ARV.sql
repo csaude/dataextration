@@ -620,7 +620,6 @@ select  p.patient_id as patient_id, o.value_numeric,
   where   e.voided=0 and e.encounter_type in(1,6) and o.obs_datetime=e.encounter_datetime and o.concept_id=5090 
   AND p.patient_id in (select patient_id from community_arv_patient);
 
-
 /*DMC CARGA VIRAL LABORATORIO*/
 insert into community_arv_cv(patient_id,copies_cv,cv_date,source)
 Select distinct p.patient_id,o.value_numeric,o.obs_datetime,"LABORATORY"

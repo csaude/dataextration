@@ -120,30 +120,63 @@ CREATE TABLE `hops_type_of_dispensation_visit` (
   `value_dmc` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `hops_cpn_type_of_method`;
-CREATE TABLE `hops_cpn_type_of_method` (
+DROP TABLE IF EXISTS `hops_type_of_method`;
+CREATE TABLE `hops_type_of_method` (
   `patient_id` int(11) DEFAULT NULL,
   `type_date` datetime DEFAULT NULL,
   `type_of_method` varchar(100) DEFAULT NULL,
   `source`varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `hops_cpn_family_planning`;
-CREATE TABLE `hops_cpn_family_planning` (
+DROP TABLE IF EXISTS `hops_family_planning`;
+CREATE TABLE `hops_family_planning` (
   `patient_id` int(11) DEFAULT NULL,
   `fp_date` datetime DEFAULT NULL,
   `fp` varchar(100) DEFAULT NULL,
   `source`varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `hops_cpn_last_menstrual_period`;
-CREATE TABLE `hops_cpn_last_menstrual_period` (
+DROP TABLE IF EXISTS `hops_last_menstrual_period`;
+CREATE TABLE `hops_last_menstrual_period` (
   `patient_id` int(11) DEFAULT NULL,
   `hosp_cpn_last_menstrual_period_date` datetime DEFAULT NULL,
   `source`varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `hops_alanine_transferase`;
+CREATE TABLE `hops_alanine_transferase` (
+  `patient_id` int(11) DEFAULT NULL,
+  `alanine_value` varchar(100) DEFAULT NULL,
+  `alt_date` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `hops_creatinine`;
+CREATE TABLE `hops_creatinine` (
+  `patient_id` int(11) DEFAULT NULL,
+  `creatinine_value` varchar(100)  DEFAULT NULL,
+  `creatinine_date` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `hops_hemoglobin`;
+CREATE TABLE `hops_hemoglobin` (
+  `patient_id` int(11) DEFAULT NULL,
+  `hemoglobin_value` varchar(100)  DEFAULT NULL,
+  `hemoglobin_date` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `hops_blood_pressure`;
+CREATE TABLE `hops_blood_pressure` (
+  `patient_id` int(11) DEFAULT NULL,
+  `blood_pressure_value` varchar(100)  DEFAULT NULL,
+  `blood_pressure_date` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `hops_ctx`;
+CREATE TABLE `hops_ctx` (
+  `patient_id` int(11) DEFAULT NULL,
+  `prescrition` varchar(100)  DEFAULT NULL,
+  `prescrition_date` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- ----------------------------
 -- Procedure structure for FillTCVGAACTable
@@ -929,10 +962,10 @@ where   hops_type_of_dispensation_visit.patient_id=obs.person_id and
   and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and hops_type_of_dispensation_visit.date_elegibbly_dmc=encounter.encounter_datetime;
 
   /*DMC DISPENSATION VISIT*/
-update hops_cpn,
+update hops,
 (
 Select distinct p.patient_id,e.encounter_datetime 
-from  hops_cpn p 
+from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
 where e.voided=0 and o.voided=0 and e.encounter_type in (6,9) 
@@ -940,11 +973,11 @@ where e.voided=0 and o.voided=0 and e.encounter_type in (6,9)
       and o.value_coded in(1256,1257,1267)
       GROUP BY p.patient_id
  )obs_planning
-set hops_cpn.family_planning=case obs_planning.encounter_datetime when null then 'NO' else 'YES' end;
+set hops.family_planning=case obs_planning.encounter_datetime when null then 'NO' else 'YES' end;
 
 
-/*hops_cpn_type_of_method*/
-insert into hops_cpn_type_of_method(patient_id,type_date,type_of_method,source)
+/*hops_type_of_method*/
+insert into hops_type_of_method(patient_id,type_date,type_of_method,source)
 select distinct p.patient_id,e.encounter_datetime,
     case   o.value_coded     
         when 1107  then 'NONE'
@@ -957,41 +990,97 @@ select distinct p.patient_id,e.encounter_datetime,
         when 23714 then 'VASECTOMY'
         when 23714 then 'LACTATIONAL AMENORRAY METHOD'      
         else null end as type, "FICHA CLINICA"
-  from hops_cpn p
+  from hops p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
   where e.encounter_type in(6,9) and o.concept_id=374  and e.voided=0 and e.encounter_datetime=o.obs_datetime and o.obs_datetime BETWEEN startDate AND endDate
   GROUP BY p.patient_id;
 
-  /*hops_cpn_family_planning*/
-insert into hops_cpn_family_planning(patient_id,fp_date,source)
+  /*hops_family_planning*/
+insert into hops_family_planning(patient_id,fp_date,source)
 Select distinct p.patient_id,e.encounter_datetime,"FICHA CLINICA" 
-from  hops_cpn p 
+from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
 where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate
 GROUP BY p.patient_id;
 
 
-update hops_cpn_family_planning,obs,encounter 
-set  hops_cpn_family_planning.fp= case obs.value_coded
+update hops_family_planning,obs,encounter 
+set  hops_family_planning.fp= case obs.value_coded
              when 1256 then 'START DRUGS'
              when 1257 then 'CONTINUE REGIMEN'
              when 1267 then 'COMPLETED'
              else null end
-where  hops_cpn_family_planning.patient_id=obs.person_id and
-    hops_cpn_family_planning.fp_date=obs.obs_datetime and 
+where  hops_family_planning.patient_id=obs.person_id and
+    hops_family_planning.fp_date=obs.obs_datetime and 
     obs.concept_id=23725 and 
-    obs.voided=0 and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and hops_cpn_family_planning.fp_date=encounter.encounter_datetime;
+    obs.voided=0 and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and hops_family_planning.fp_date=encounter.encounter_datetime;
 
  /*hosp_cpn_last_menstrual_period*/
-insert into hops_cpn_last_menstrual_period(patient_id,hosp_cpn_last_menstrual_period_date,source)
+insert into hops_last_menstrual_period(patient_id,hosp_cpn_last_menstrual_period_date,source)
 Select distinct p.patient_id,o.value_datetime,"FICHA CLINICA" 
-from  hops_cpn p 
+from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
 where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1465
 GROUP BY p.patient_id;
 
+/*ALT */
+insert into hops_alanine_transferase(patient_id,alanine_value,alt_date)
+Select distinct p.patient_id,
+    o.value_numeric,
+    o.obs_datetime
+from  hops p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+here e.voided=0 and e.encounter_type=13 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=654
+GROUP BY p.patient_id;
+
+
+/*CREATININE*/
+insert into hops_creatinine(patient_id,creatinine_value,creatinine_date)
+Select distinct p.patient_id,
+    o.value_numeric,
+    o.obs_datetime
+from  hops p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+here e.voided=0 and e.encounter_type=13 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=790
+GROUP BY p.patient_id;
+
+/* All hemoglobin*/
+insert into hops_hemoglobin(patient_id,hemoglobin_value,hemoglobin_date)
+Select distinct p.patient_id,
+    o.value_numeric,
+    o.obs_datetime
+from  hops p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+here e.voided=0 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1692
+GROUP BY p.patient_id;
+
+/* All Blood Pressure*/
+insert into hops_blood_pressure(patient_id,blood_pressure_value,blood_pressure_date)
+Select distinct p.patient_id,
+    o.value_numeric,
+    o.obs_datetime
+from  hops p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+here e.voided=0 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1692
+GROUP BY p.patient_id;
+
+/*CTX*/
+insert into hops_ctx(patient_id,prescrition,prescrition_date)
+Select distinct p.patient_id,
+    case o.value_coded
+    when 960 then "CLOTRIMAZOLE"
+	else null end,
+    o.obs_datetime
+from  hops p  
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1719 and o.value_coded=960;
 
 
 /* Urban and Main*/
