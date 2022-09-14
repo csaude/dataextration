@@ -135,22 +135,6 @@ CREATE TABLE `community_differentiated_model` (
   `differentiated_model_status` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `community_pregnant_status`;
-CREATE TABLE `community_pregnant_status` (
-  `patient_id` int(11) DEFAULT NULL,
-  `visit_date` datetime DEFAULT NULL,
-  `status` varchar(100) DEFAULT NULL
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-DROP TABLE IF EXISTS `community_breastfeeding_status`;
-CREATE TABLE `community_breastfeeding_status` (
-  `patient_id` int(11) DEFAULT NULL,
-  `visit_date` datetime DEFAULT NULL,
-  `status` varchar(100) DEFAULT NULL
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-
-
 DROP PROCEDURE IF EXISTS `FillCOMMARV`;
 DELIMITER ;;
 CREATE DEFINER=`root`@`localhost` PROCEDURE `FillCOMMARV`(startDate date,endDate date, district varchar(100), location_id_parameter int(11))
@@ -789,22 +773,6 @@ update community_differentiated_model,
     ) final
     set community_differentiated_model.differentiated_model=final.code and community_differentiated_model.differentiated_model_status=final.status
     where community_differentiated_model.patient_id=final.patient_id;
-
-
-insert into community_pregnant_status(patient_id,visit_date,status) 
-Select distinct p.patient_id,e.encounter_datetime, if(o.value_coded=1065,"PREGNANT", "")
-from  community_arv_patient p
-    inner join encounter e on p.patient_id=e.patient_id
-    inner join obs o on o.encounter_id=e.encounter_id
-where e.voided=0 and e.encounter_type in (6,9) and o.concept_id=1892  and e.encounter_datetime BETWEEN startDate AND endDate;
-
-insert into community_breastfeeding_status(patient_id,visit_date,status)
-Select distinct p.patient_id,e.encounter_datetime, if(o.value_coded=1065,"BREASTFEEDING", "")
-from  community_arv_patient p
-    inner join encounter e on p.patient_id=e.patient_id
-    inner join obs o on o.encounter_id=e.encounter_id
-where e.voided=0 and e.encounter_type in (6,9) and o.concept_id=6332  and e.encounter_datetime BETWEEN startDate AND endDate;
-
 
 /*URBAN AND MAIN*/
 update community_arv_patient set urban='N';

@@ -178,6 +178,19 @@ CREATE TABLE `hops_ctx` (
   `prescrition_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `community_pregnant_status`;
+CREATE TABLE `community_pregnant_status` (
+  `patient_id` int(11) DEFAULT NULL,
+  `visit_date` datetime DEFAULT NULL,
+  `status` varchar(100) DEFAULT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `community_breastfeeding_status`;
+CREATE TABLE `community_breastfeeding_status` (
+  `patient_id` int(11) DEFAULT NULL,
+  `visit_date` datetime DEFAULT NULL,
+  `status` varchar(100) DEFAULT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 -- ----------------------------
 -- Procedure structure for FillTCVGAACTable
 -- ----------------------------
@@ -1081,6 +1094,21 @@ from  hops p
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type=6 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1719 and o.value_coded=960;
 
+/*Pregnant status*/
+insert into community_pregnant_status(patient_id,visit_date,status) 
+Select distinct p.patient_id,e.encounter_datetime, if(o.value_coded=1065,"PREGNANT", "")
+from  hops p
+    inner join encounter e on p.patient_id=e.patient_id
+    inner join obs o on o.encounter_id=e.encounter_id
+where e.voided=0 and e.encounter_type in (6,9) and o.concept_id=1892  and e.encounter_datetime BETWEEN startDate AND endDate;
+
+/*Pregnant breastfeeding status*/
+insert into community_breastfeeding_status(patient_id,visit_date,status)
+Select distinct p.patient_id,e.encounter_datetime, if(o.value_coded=1065,"BREASTFEEDING", "")
+from  hops p
+    inner join encounter e on p.patient_id=e.patient_id
+    inner join obs o on o.encounter_id=e.encounter_id
+where e.voided=0 and e.encounter_type in (6,9) and o.concept_id=6332  and e.encounter_datetime BETWEEN startDate AND endDate;
 
 /* Urban and Main*/
 update hops set urban='N';
