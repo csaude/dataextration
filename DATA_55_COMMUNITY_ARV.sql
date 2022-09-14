@@ -588,14 +588,21 @@ insert into community_arv_art_pick_up(patient_id,regime,art_date)
         when 23789 then 'TDF+AZT+LPV/r'
         when 23788 then 'TDF+ABC+3TC+LPV/r'
         when 165330 then 'ATV/r+TDF+3TC+DTG'
-        
-        else null end,
+                else null end,
         encounter_datetime
   from community_arv_patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
   where   encounter_type=18 and o.concept_id=1088  and e.voided=0 
   and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and o.obs_datetime < endDate; /*por confirmar*/
+
+update community_arv_art_pick_up,obs
+set  community_arv_art_pick_up.next_art_date=obs.value_datetime
+where   community_arv_art_pick_up.patient_id=obs.person_id and
+    community_arv_art_pick_up.art_date=obs.obs_datetime and
+    obs.concept_id=5096 and
+    obs.voided=0;
+
 
 
 /*Weight*/
