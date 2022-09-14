@@ -135,6 +135,21 @@ CREATE TABLE `community_differentiated_model` (
   `differentiated_model_status` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `community_pregnant_status`;
+CREATE TABLE `community_pregnant_status` (
+  `patient_id` int(11) DEFAULT NULL,
+  `visit_date` datetime DEFAULT NULL,
+  `status` varchar(100) DEFAULT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `community_breastfeeding_status`;
+CREATE TABLE `community_breastfeeding_status` (
+  `patient_id` int(11) DEFAULT NULL,
+  `visit_date` datetime DEFAULT NULL,
+  `status` varchar(100) DEFAULT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
 
 DROP PROCEDURE IF EXISTS `FillCOMMARV`;
 DELIMITER ;;
@@ -627,7 +642,7 @@ from  community_arv_patient p
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type=13 
-and o.concept_id=856 and o.obs_datetime < endDate;
+and o.concept_id in(1518,856) and o.obs_datetime < endDate;
 
 /*DMC CARGA VIRAL SEGUIMENTO*/
 insert into community_arv_cv(patient_id,copies_cv,cv_date,source)
@@ -636,14 +651,14 @@ from  community_arv_patient p
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type=9
-and o.concept_id=1518 and  o.obs_datetime < endDate;
+and o.concept_id in(1518,856) and  o.obs_datetime < endDate;
 
 /*DMC CARGA VIRAL LOGS*/
 update community_arv_cv,obs 
 set  community_arv_cv.logs_cv=obs.value_numeric
 where  community_arv_cv.patient_id=obs.person_id and
     community_arv_cv.cv_date=obs.obs_datetime and 
-    obs.concept_id=1518 and 
+    obs.concept_id in(1518,856) and 
     obs.voided=0;
 
  /*CD4 absolute*/
@@ -774,6 +789,22 @@ update community_differentiated_model,
     ) final
     set community_differentiated_model.differentiated_model=final.code and community_differentiated_model.differentiated_model_status=final.status
     where community_differentiated_model.patient_id=final.patient_id;
+
+
+insert into community_pregnant_status(patient_id,visit_date,status) 
+Select distinct p.patient_id,e.encounter_datetime, if(o.value_coded=1065,"PREGNANT", "")
+from  community_arv_patient p
+    inner join encounter e on p.patient_id=e.patient_id
+    inner join obs o on o.encounter_id=e.encounter_id
+where e.voided=0 and e.encounter_type in (6,9) and o.concept_id=1892  and e.encounter_datetime BETWEEN startDate AND endDate;
+
+insert into community_breastfeeding_status(patient_id,visit_date,status)
+Select distinct p.patient_id,e.encounter_datetime, if(o.value_coded=1065,"BREASTFEEDING", "")
+from  community_arv_patient p
+    inner join encounter e on p.patient_id=e.patient_id
+    inner join obs o on o.encounter_id=e.encounter_id
+where e.voided=0 and e.encounter_type in (6,9) and o.concept_id=6332  and e.encounter_datetime BETWEEN startDate AND endDate;
+
 
 /*URBAN AND MAIN*/
 update community_arv_patient set urban='N';
