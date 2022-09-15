@@ -135,6 +135,24 @@ CREATE TABLE `community_differentiated_model` (
   `differentiated_model_status` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `community_support_groups_visit`;
+CREATE TABLE `community_support_groups_visit` (
+  `patient_id` int(11) DEFAULT NULL,
+  `elegibbly_support_groups` varchar(100) DEFAULT NULL,
+  `date_elegibbly_support_groups` datetime DEFAULT NULL,
+  `type_support_groups` varchar(100) DEFAULT NULL,
+  `value_support_groups` varchar(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `community_dmc_type_of_dispensation_visit`;
+CREATE TABLE `community_dmc_type_of_dispensation_visit` (
+  `patient_id` int(11) DEFAULT NULL,
+  `elegibbly_dmc` varchar(100) DEFAULT NULL,
+  `date_elegibbly_dmc` datetime DEFAULT NULL,
+  `type_dmc` varchar(100) DEFAULT NULL,
+  `value_dmc` varchar(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 DROP PROCEDURE IF EXISTS `FillCOMMARV`;
 DELIMITER ;;
 CREATE DEFINER=`root`@`localhost` PROCEDURE `FillCOMMARV`(startDate date,endDate date, district varchar(100), location_id_parameter int(11))
@@ -152,6 +170,9 @@ TRUNCATE TABLE community_arv_visit;
 TRUNCATE TABLE community_arv_posology;
 TRUNCATE TABLE community_type_arv_dispensation;
 TRUNCATE TABLE community_differentiated_model;
+TRUNCATE TABLE community_support_groups_visit;
+TRUNCATE TABLE community_dmc_type_of_dispensation_visit;
+
 
 SET @location:=location_id_parameter;
 
@@ -720,32 +741,34 @@ where community_arv_posology.patient_id=obs.person_id and
     obs.concept_id=23742 and obs.voided=0
     and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_arv_posology.visit_date=encounter.encounter_datetime;
 
-
 /* ARV Dispensation*/
+insert into community_type_arv_dispensation(patient_id,visit_date)
 Select distinct p.patient_id,e.encounter_datetime
 from  community_arv_patient p
     inner join encounter e on p.patient_id=e.patient_id
 where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
 update community_type_arv_dispensation,
     (
-    select p.patient_id,case o.value_coded when 1098  then 'DM' when 23720 then 'DT' when 23888 then 'DS' else null end  as code from patient p
+    select p.patient_id,e.encounter_datetime,case o.value_coded when 1098  then 'DM' when 23720 then 'DT' when 23888 then 'DS' else null end  as code from community_arv_patient p
     inner join encounter e on e.patient_id=p.patient_id
     inner join obs o on o.encounter_id=e.encounter_id
-    where e.encounter_type=6 and e.encounter_datetime BETWEEN startDate AND endDate and p.voided=0 and e.voided=0 and o.voided=0 and o.concept_id=23739
+    where e.encounter_type=6 and e.voided=0 and o.voided=0 and o.concept_id=23739
     ) final
     set community_type_arv_dispensation.dispensation_type=final.code
-    where community_type_arv_dispensation.patient_id=final.patient_id;
+    where community_type_arv_dispensation.patient_id=final.patient_id
+-- 	and community_type_arv_dispensation.patient_id=community_arv_patient.patient_id
+    and community_type_arv_dispensation.visit_date=final.encounter_datetime;
 
-insert into community_differentiated_model(patient_id,visit_date) /*ask Eusebiu*/
+ /* community model*/  
+insert into community_differentiated_model(patient_id,visit_date) 
 Select distinct p.patient_id,e.encounter_datetime
 from  community_arv_patient p
     inner join encounter e on p.patient_id=e.patient_id
 where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
 update community_differentiated_model,
     (
-    select p.patient_id,
+    select p.patient_id,e.encounter_datetime,
     case o.value_coded
-    when 23730  then 'QUARTERLY DISPENSATION (DT)'
     when 23888  then 'SEMESTER ARV PICKUP (DS)'
     when 165314 then 'ARV ANUAL DISPENSATION (DA)'
     when 165315 then 'DESCENTRALIZED ARV DISPENSATION (DD)'
@@ -767,19 +790,247 @@ update community_differentiated_model,
     when 165177 then 'FARMAC/PRIVATE PHARMACY (FARMAC)'
     when 23731  then 'COMMUNITY DISPENSATION (DC)'
     when 23732  then 'OTHER'
-    else null end  as code,
+     when 23730  then 'QUARTERLY DISPENSATION (DT)'
+    else null end  as code
+    from community_arv_patient p
+    inner join encounter e on e.patient_id=p.patient_id
+    inner join obs o on o.encounter_id=e.encounter_id
+    inner join obs obsEstado on obsEstado.encounter_id=e.encounter_id
+    where e.encounter_type=6 and e.voided=0 and o.voided=0
+    and o.concept_id=165174  and obsEstado.concept_id=165322 and obsEstado.voided=0
+    ) final
+    set community_differentiated_model.differentiated_model=final.code
+    where community_differentiated_model.patient_id=final.patient_id
+    and community_differentiated_model.visit_date=final.encounter_datetime;
+
+    update community_differentiated_model,
+    (
+    select p.patient_id,e.encounter_datetime,
     case obsEstado.value_coded
     when 1256  then 'START DRUGS'
     when 1257  then 'CONTINUE REGIMEN'
     when 1267  then 'COMPLETED' else null end  status
-    from patient p
+    from community_arv_patient p
     inner join encounter e on e.patient_id=p.patient_id
     inner join obs o on o.encounter_id=e.encounter_id
     inner join obs obsEstado on obsEstado.encounter_id=e.encounter_id
-    where e.encounter_type=6 and e.encounter_datetime  BETWEEN startDate AND endDate and p.voided=0 and e.voided=0 and o.voided=0 and o.concept_id=165174  and obsEstado.concept_id=165322 and obsEstado.voided=0
+    where e.encounter_type=6 and e.voided=0 and o.voided=0
+    and o.concept_id=165174  and obsEstado.concept_id=165322 and obsEstado.voided=0
     ) final
-    set community_differentiated_model.differentiated_model=final.code and community_differentiated_model.differentiated_model_status=final.status
-    where community_differentiated_model.patient_id=final.patient_id;
+    set community_differentiated_model.differentiated_model_status=final.status
+    where community_differentiated_model.patient_id=final.patient_id
+    and community_differentiated_model.visit_date=final.encounter_datetime;
+
+
+    
+/*DMC DISPENSATION VISIT GROUP*/
+insert into community_support_groups_visit(patient_id,date_elegibbly_support_groups)
+Select distinct p.patient_id,e.encounter_datetime 
+from  community_arv_patient p 
+    inner join encounter e on p.patient_id=e.patient_id 
+where e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
+
+/*ELEGIBLE DMC SUPPORT GROUP*/
+update community_support_groups_visit,obs,encounter 
+set community_support_groups_visit.elegibbly_support_groups=case obs.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end
+where  community_support_groups_visit.patient_id=obs.person_id and obs.concept_id=23764 and obs.voided=0 and
+        obs.obs_datetime=community_support_groups_visit.date_elegibbly_support_groups
+        and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_support_groups_visit.date_elegibbly_support_groups=encounter.encounter_datetime;
+
+/*TYPE SUPPORT GROUP CRIANCAS REVELADAS*/
+update community_support_groups_visit,obs,encounter 
+set  community_support_groups_visit.type_support_groups="CR", 
+community_support_groups_visit.value_support_groups= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
+where   community_support_groups_visit.patient_id=obs.person_id and
+    community_support_groups_visit.date_elegibbly_support_groups=obs.obs_datetime and 
+    obs.concept_id=23753 and 
+    obs.voided=0 and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_support_groups_visit.date_elegibbly_support_groups=encounter.encounter_datetime;
+
+/*TYPE SUPPORT GROUP PAIS E CUIDADORES*/
+update community_support_groups_visit,obs,encounter 
+set  community_support_groups_visit.type_support_groups="PC",
+community_support_groups_visit.value_support_groups= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
+where   community_support_groups_visit.patient_id=obs.person_id and
+    community_support_groups_visit.date_elegibbly_support_groups=obs.obs_datetime and 
+    obs.concept_id=23755 and obs.voided=0
+            and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_support_groups_visit.date_elegibbly_support_groups=encounter.encounter_datetime;
+ 
+ /*TYPE SUPPORT GROUP ADOLESCENTES RV*/
+update community_support_groups_visit,obs,encounter 
+set  community_support_groups_visit.type_support_groups="AR",
+community_support_groups_visit.value_support_groups= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
+where   community_support_groups_visit.patient_id=obs.person_id and
+    community_support_groups_visit.date_elegibbly_support_groups=obs.obs_datetime and 
+    obs.concept_id=23757 and obs.voided=0
+            and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_support_groups_visit.date_elegibbly_support_groups=encounter.encounter_datetime;
+
+ /*TYPE SUPPORT GROUP MAE PARA MAE*/
+update community_support_groups_visit,obs,encounter 
+set  community_support_groups_visit.type_support_groups="MPM",
+community_support_groups_visit.value_support_groups= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
+where   community_support_groups_visit.patient_id=obs.person_id and
+    community_support_groups_visit.date_elegibbly_support_groups=obs.obs_datetime and 
+    obs.concept_id=23759 and obs.voided=0
+            and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_support_groups_visit.date_elegibbly_support_groups=encounter.encounter_datetime;
+
+          
+/*PROXIMO OUTRO DE APOIO*/
+update community_support_groups_visit,obs,encounter 
+set  community_support_groups_visit.type_support_groups=obs.value_text
+where   community_support_groups_visit.patient_id=obs.person_id and
+    community_support_groups_visit.date_elegibbly_support_groups=obs.obs_datetime and 
+    obs.concept_id=23772 and obs.voided=0
+  and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_support_groups_visit.date_elegibbly_support_groups=encounter.encounter_datetime;
+
+
+/*DMC DISPENSATION VISIT*/
+insert into community_dmc_type_of_dispensation_visit(patient_id,date_elegibbly_dmc) /*ask Eusebiu*/
+Select distinct p.patient_id,e.encounter_datetime 
+from  community_arv_patient p 
+    inner join encounter e on p.patient_id=e.patient_id 
+where e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
+
+/*ELEGIBLE DMC*/
+update community_dmc_type_of_dispensation_visit,obs,encounter 
+set community_dmc_type_of_dispensation_visit.elegibbly_dmc=case obs.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end
+where  community_dmc_type_of_dispensation_visit.patient_id=obs.person_id and obs.concept_id=23765 and obs.voided=0 and
+        obs.obs_datetime=community_dmc_type_of_dispensation_visit.date_elegibbly_dmc
+        and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=encounter.encounter_datetime;
+
+/*PROXIMO GAAC*/
+update community_dmc_type_of_dispensation_visit,obs,encounter 
+set  community_dmc_type_of_dispensation_visit.type_dmc="GAAC", 
+community_dmc_type_of_dispensation_visit.value_dmc= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
+where   community_dmc_type_of_dispensation_visit.patient_id=obs.person_id and
+    community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=obs.obs_datetime and 
+    obs.concept_id=23724 and 
+    obs.voided=0 and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=encounter.encounter_datetime;
+
+    /*PROXIMO AF*/
+update community_dmc_type_of_dispensation_visit,obs,encounter 
+set  community_dmc_type_of_dispensation_visit.type_dmc="AF",
+community_dmc_type_of_dispensation_visit.value_dmc= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
+where   community_dmc_type_of_dispensation_visit.patient_id=obs.person_id and
+    community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=obs.obs_datetime and 
+    obs.concept_id=23725 and obs.voided=0
+            and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=encounter.encounter_datetime;
+
+        /*PROXIMO CA*/
+update community_dmc_type_of_dispensation_visit,obs,encounter 
+set  community_dmc_type_of_dispensation_visit.type_dmc="CA",
+community_dmc_type_of_dispensation_visit.value_dmc= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
+where   community_dmc_type_of_dispensation_visit.patient_id=obs.person_id and
+    community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=obs.obs_datetime and 
+    obs.concept_id=23726 and obs.voided=0
+        and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=encounter.encounter_datetime;
+
+            /*PROXIMO PU*/
+update community_dmc_type_of_dispensation_visit,obs,encounter 
+set  community_dmc_type_of_dispensation_visit.type_dmc="PU",
+community_dmc_type_of_dispensation_visit.value_dmc= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
+where community_dmc_type_of_dispensation_visit.patient_id=obs.person_id and
+    community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=obs.obs_datetime and obs.concept_id=23727 and obs.voided=0 
+    and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=encounter.encounter_datetime;
+
+
+            /*PROXIMO FR*/
+update community_dmc_type_of_dispensation_visit,obs,encounter 
+set  community_dmc_type_of_dispensation_visit.type_dmc="FR",
+community_dmc_type_of_dispensation_visit.value_dmc= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
+where   community_dmc_type_of_dispensation_visit.patient_id=obs.person_id and
+    community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=obs.obs_datetime and 
+    obs.concept_id=23729 and obs.voided=0
+    and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=encounter.encounter_datetime;
+
+                /*PROXIMO DT*/
+update community_dmc_type_of_dispensation_visit,obs,encounter 
+set  community_dmc_type_of_dispensation_visit.type_dmc="DT",
+community_dmc_type_of_dispensation_visit.value_dmc= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
+where   community_dmc_type_of_dispensation_visit.patient_id=obs.person_id and
+    community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=obs.obs_datetime and 
+    obs.concept_id=23730 and obs.voided=0
+            and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=encounter.encounter_datetime;
+
+                    /*PROXIMO DT*/
+update community_dmc_type_of_dispensation_visit,obs,encounter 
+set  community_dmc_type_of_dispensation_visit.type_dmc="DC",
+community_dmc_type_of_dispensation_visit.value_dmc= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
+where   community_dmc_type_of_dispensation_visit.patient_id=obs.person_id and
+    community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=obs.obs_datetime and 
+    obs.concept_id=23731 and obs.voided=0
+    and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=encounter.encounter_datetime;
+
+
+                    /*PROXIMO DS*/
+update community_dmc_type_of_dispensation_visit,obs,encounter 
+set  community_dmc_type_of_dispensation_visit.type_dmc="DS",
+community_dmc_type_of_dispensation_visit.value_dmc= case obs.value_coded
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end
+where   community_dmc_type_of_dispensation_visit.patient_id=obs.person_id and
+    community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=obs.obs_datetime and 
+    obs.concept_id=23888 and obs.voided=0
+    and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=encounter.encounter_datetime;
+
+                        /*PROXIMO OUTRO*/
+update community_dmc_type_of_dispensation_visit,obs,encounter 
+set  community_dmc_type_of_dispensation_visit.type_dmc=obs.value_text
+where   community_dmc_type_of_dispensation_visit.patient_id=obs.person_id and
+    community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=obs.obs_datetime and 
+    obs.concept_id=23732 and obs.voided=0
+  and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=encounter.encounter_datetime;
 
 /*URBAN AND MAIN*/
 update community_arv_patient set urban='N';
