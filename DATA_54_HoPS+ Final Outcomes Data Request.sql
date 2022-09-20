@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS `hops` (
   `hemoglobin` int(11)  DEFAULT NULL,
   `hemoglobin_date` datetime DEFAULT NULL,
   `blood_pressure` varchar(255) DEFAULT NULL,
+  `abusive_use_alcool_drugs` varchar(3) DEFAULT NULL,
+  `consume_alcool_other_drugs` varchar(3) DEFAULT NULL,
   `patient_status_6_months` varchar(225) DEFAULT NULL,
   `patient_status_6_months_date_` datetime DEFAULT NULL,
   `patient_status_12_months` varchar(225) DEFAULT NULL,
@@ -470,6 +472,43 @@ else null end as cod
 set hops.blood_pressure=updateBP.cod
 where hops.patient_id=updateBP.patient_id;
 
+/*Consumo de Alcool e outras drogas*/
+ update hops,
+(
+SELECT concept_id, case obs.value_coded 
+when 1603 then 'YES'
+else null end as cod FROM obs where obs.concept_id=6193 and value_coded=1603
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+    where   p.voided=0 and e.voided=0 and e.encounter_type in (34)
+    group by p.patient_id
+  ) cpn
+  inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
+  where   obs.voided=0 and obs.concept_id=6379 
+)updateCD
+set hops.abusive_use_alcool_drugs=obs.value_coded
+where hops.patient_id=updateCD.patient_id;
+
+/*Consumo de alcool e outras drogas*/
+ update hops,
+(
+SELECT concept_id, case obs.value_coded 
+when 1065 then 'YES'
+when 1066 then 'NO'
+else null end as cod FROM obs where obs.concept_id=6321
+  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
+    from  patient p
+        inner join encounter e on p.patient_id=e.patient_id
+    where   p.voided=0 and e.voided=0 and e.encounter_type in (34)
+    group by p.patient_id
+  ) cpn
+  inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
+  where   obs.voided=0 and obs.concept_id=6379 
+)updateCD
+set hops.consume_alcool_other_drugs=obs.value_coded
+where hops.patient_id=updateCD.patient_id;
+
  /*ESTADO ACTUAL TARV 6 MESES*/
 update hops,
     (select   pg.patient_id,ps.start_date,
@@ -712,7 +751,7 @@ set  hops_art_pick_up_reception_art.next_art_date=DATE_ADD(hops_art_pick_up_rece
 insert into hops_art_regimes(patient_id,regime,regime_date)
   select distinct p.patient_id,
   case   o.value_coded     
-                when 1651 then 'AZT+3TC+NVP'
+                  when 1651 then 'AZT+3TC+NVP'
         when 6324 then 'TDF+3TC+EFV'
         when 1703 then 'AZT+3TC+EFV'
         when 6243 then 'TDF+3TC+NVP'
@@ -781,6 +820,7 @@ insert into hops_art_regimes(patient_id,regime,regime_date)
         when 23787 then 'ABC+AZT+LPV/r'
         when 23789 then 'TDF+AZT+LPV/r'
         when 23788 then 'TDF+ABC+3TC+LPV/r'
+        when 165330 then 'ATV/r+TDF+3TC+DTG'
         else null end,
         encounter_datetime
   from hops p
