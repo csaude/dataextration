@@ -1,5 +1,6 @@
 SET FOREIGN_KEY_CHECKS=0;
 
+DROP TABLE IF EXISTS `hops`;
 CREATE TABLE IF NOT EXISTS `hops` (
   `id` int(11) DEFAULT NULL AUTO_INCREMENT,
   `district`varchar(100) DEFAULT NULL,
@@ -14,6 +15,7 @@ CREATE TABLE IF NOT EXISTS `hops` (
   `openmrs_gender` varchar(1) DEFAULT NULL,
   `enrollment_date` datetime DEFAULT NULL,
   `occupation_at_enrollment` varchar(100) DEFAULT NULL,
+  `marital_status` varchar(100) DEFAULT NULL,
   `pregnancy_status_at_enrollment` varchar(100) DEFAULT NULL,
   `art_initiation_date` datetime DEFAULT NULL,
   `last_clinic_visit` datetime DEFAULT NULL,
@@ -31,8 +33,11 @@ CREATE TABLE IF NOT EXISTS `hops` (
   `hemoglobin` int(11)  DEFAULT NULL,
   `hemoglobin_date` datetime DEFAULT NULL,
   `blood_pressure` varchar(255) DEFAULT NULL,
-  `abusive_use_alcool_drugs` varchar(3) DEFAULT NULL,
-  `consume_alcool_other_drugs` varchar(3) DEFAULT NULL,
+  `WHO_clinical_stage_at_enrollment` varchar(10) DEFAULT NULL,
+  `WHO_clinical_stage_at_enrollment_date` datetime DEFAULT NULL,
+  `current_enrollment_tb` varchar(100) DEFAULT NULL,
+  `current_enrollment_tb_date` datetime DEFAULT NULL,
+  `current_status_in_DMC` varchar(225) DEFAULT NULL, 
   `patient_status_6_months` varchar(225) DEFAULT NULL,
   `patient_status_6_months_date_` datetime DEFAULT NULL,
   `patient_status_12_months` varchar(225) DEFAULT NULL,
@@ -52,6 +57,7 @@ CREATE TABLE IF NOT EXISTS `hops` (
 -- ----------------------------
 -- Table structure for cd4
 -- ----------------------------
+DROP TABLE IF EXISTS `hops_cd4`;
 CREATE TABLE IF NOT EXISTS `hops_cd4` (
   `patient_id` int(11) DEFAULT NULL,
   `cd4` double DEFAULT NULL,
@@ -68,6 +74,7 @@ CREATE TABLE `hops_cv` (
   KEY `cv_date` (`cv_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `hops_art_pick_up`;
 CREATE TABLE IF NOT EXISTS `hops_art_pick_up` (
   `patient_id` int(11) DEFAULT NULL,
   `regime` varchar(255) DEFAULT NULL,
@@ -76,6 +83,7 @@ CREATE TABLE IF NOT EXISTS `hops_art_pick_up` (
   `number_of_pills` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `hops_art_pick_up_reception_art`;
 CREATE TABLE IF NOT EXISTS `hops_art_pick_up_reception_art` (
   `patient_id` int(11) DEFAULT NULL,
   `art_date` datetime DEFAULT NULL,
@@ -85,29 +93,33 @@ CREATE TABLE IF NOT EXISTS `hops_art_pick_up_reception_art` (
 DROP TABLE IF EXISTS `hops_art_regimes`;
 CREATE TABLE `hops_art_regimes` (
   `patient_id` int(11) DEFAULT NULL,
-  `regime` decimal(12,2) DEFAULT NULL,
+  `regime` varchar(255) DEFAULT NULL,
   `regime_date` datetime DEFAULT NULL,
   KEY `patient_id` (`patient_id`),
   KEY `regime_date` (`regime_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `hops_visit`;
 CREATE TABLE IF NOT EXISTS `hops_visit` (
   `patient_id` int(11) DEFAULT NULL,
   `visit_date`   datetime DEFAULT NULL,
   `next_visit_date`   datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `hops_tb_investigation`;
 CREATE TABLE IF NOT EXISTS `hops_tb_investigation` (
   `patient_id` int(11) DEFAULT NULL,
   `tb` varchar(255) DEFAULT NULL,
   `tb_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `hops_start_tb_treatment`;
 CREATE TABLE IF NOT EXISTS `hops_start_tb_treatment` (
   `patient_id` int(11) DEFAULT NULL,
   `start_tb_treatment` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `hops_end_tb_treatment`;
 CREATE TABLE IF NOT EXISTS `hops_end_tb_treatment` (
   `patient_id` int(11) DEFAULT NULL,
   `end_tb_treatment` datetime DEFAULT NULL
@@ -180,19 +192,39 @@ CREATE TABLE `hops_ctx` (
   `prescrition_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `community_pregnant_status`;
-CREATE TABLE `community_pregnant_status` (
+DROP TABLE IF EXISTS `hops_community_pregnant_status`;
+CREATE TABLE `hops_community_pregnant_status` (
   `patient_id` int(11) DEFAULT NULL,
   `visit_date` datetime DEFAULT NULL,
   `status` varchar(100) DEFAULT NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `community_breastfeeding_status`;
-CREATE TABLE `community_breastfeeding_status` (
+DROP TABLE IF EXISTS `hops_community_breastfeeding_status`;
+CREATE TABLE `hops_community_breastfeeding_status` (
   `patient_id` int(11) DEFAULT NULL,
   `visit_date` datetime DEFAULT NULL,
   `status` varchar(100) DEFAULT NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `hops_abusive_use_alcool_drugs`;
+CREATE TABLE `hops_abusive_use_alcool_drugs` (
+  `patient_id` int(11) DEFAULT NULL,
+  `visit_date` datetime DEFAULT NULL,
+  `status` varchar(100) DEFAULT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `hops_consume_alcool_other_drugs`;
+CREATE TABLE `hops_consume_alcool_other_drugs` (
+  `patient_id` int(11) DEFAULT NULL,
+  `visit_date` datetime DEFAULT NULL,
+  `status` varchar(100) DEFAULT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+ 
+
+
+
 -- ----------------------------
 -- Procedure structure for FillTCVGAACTable
 -- ----------------------------
@@ -203,15 +235,27 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `FillHOPS`(startDate date,endDate da
 begin
 
 truncate table hops_cd4;
-truncate table hops_visit;
 truncate table hops_cv;
+truncate table hops_art_pick_up;
+truncate table hops_art_pick_up_reception_art;
+truncate table hops_art_regimes;
+truncate table hops_visit;
 truncate table hops_tb_investigation;
 truncate table hops_start_tb_treatment;
 truncate table hops_end_tb_treatment;
-truncate table hops_art_regimes;
 truncate table hops_type_of_dispensation_visit;
-truncate table hops_art_pick_up;
-truncate table hops_art_pick_up_reception_art;
+truncate table hops_type_of_method;
+truncate table hops_family_planning;
+truncate table hops_last_menstrual_period;
+truncate table hops_alanine_transferase;
+truncate table hops_creatinine;
+truncate table hops_hemoglobin;
+truncate table hops_blood_pressure;
+truncate table hops_ctx;
+truncate table hops_community_pregnant_status;
+truncate table hops_community_breastfeeding_status;
+truncate table hops_abusive_use_alcool_drugs;
+truncate table hops_consume_alcool_other_drugs;
 
 SET @location:=location_id_parameter;
 
@@ -402,6 +446,18 @@ update hops,obs
 set hops.occupation_at_enrollment= obs.value_text
 where obs.person_id=hops.patient_id and obs.concept_id=1459 and voided=0;
 
+/*ESTADO CIVIL*/
+update hops,obs
+set hops.marital_status_at_enrollment= case obs.value_coded
+             when 1057 then 'SINGLE'
+             when 5555 then 'MARRIED'
+             when 1059 then 'WIDOWED'
+             when 1060 then 'LIVING WITH PARTNER'
+             when 1056 then 'SEPARATED'
+             when 1058 then 'DIVORCED'
+             else null end
+where obs.person_id=hops.patient_id and obs.concept_id=1054 and obs.voided=0; 
+
 /*PREGNANCY STATUS AT TIME OF ART ENROLLMENT*/
 update hops,obs
 set hops.pregnancy_status_at_enrollment= if(obs.value_coded=44,'YES',null)
@@ -453,8 +509,7 @@ and obs.concept_id=21 and hops.hemoglobin is null;
 
 /*BLOOD PRESSURE AT FIRST ANC VISIT*/
 update hops,
-(
-Select cpn.patient_id, cpn.data_cpn, case obs.value_coded 
+(Select cpn.patient_id, cpn.data_cpn, case obs.value_coded 
 when 1065 then 'YES'
 when 1066 then 'NO' 
 when 1118 then 'NOT DONE'  
@@ -472,42 +527,68 @@ else null end as cod
 set hops.blood_pressure=updateBP.cod
 where hops.patient_id=updateBP.patient_id;
 
-/*Consumo de Alcool e outras drogas*/
- update hops,
-(
-SELECT concept_id, case obs.value_coded 
-when 1603 then 'YES'
-else null end as cod FROM obs where obs.concept_id=6193 and value_coded=1603
-  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
-    from  patient p
-        inner join encounter e on p.patient_id=e.patient_id
-    where   p.voided=0 and e.voided=0 and e.encounter_type in (34)
-    group by p.patient_id
-  ) cpn
-  inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
-  where   obs.voided=0 and obs.concept_id=6379 
-)updateCD
-set hops.abusive_use_alcool_drugs=obs.value_coded
-where hops.patient_id=updateCD.patient_id;
+/*ESTADIO OMS AT ENROLLMENT*/
+update hops,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      case o.value_coded
+      when 1204 then 'I'
+      when 1205 then 'II'
+      when 1206 then 'III'
+      when 1207 then 'IV'
+      else null end as cod
+  from hops p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type in(6,53) and o.obs_datetime=e.encounter_datetime 
+  and o.concept_id=5356
+  group by p.patient_id
+)stage,obs
+set hops.WHO_clinical_stage_at_enrollment=stage.cod,
+hops.WHO_clinical_stage_at_enrollment_date=stage.encounter_datetime
+where hops.patient_id=stage.patient_id 
+and hops.patient_id=obs.person_id 
+and obs.voided=0 
+and obs.obs_datetime=stage.encounter_datetime
+and obs.concept_id=5356;
 
-/*Consumo de alcool e outras drogas*/
- update hops,
-(
-SELECT concept_id, case obs.value_coded 
-when 1065 then 'YES'
-when 1066 then 'NO'
-else null end as cod FROM obs where obs.concept_id=6321
-  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
-    from  patient p
-        inner join encounter e on p.patient_id=e.patient_id
-    where   p.voided=0 and e.voided=0 and e.encounter_type in (34)
-    group by p.patient_id
-  ) cpn
-  inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
-  where   obs.voided=0 and obs.concept_id=6379 
-)updateCD
-set hops.consume_alcool_other_drugs=obs.value_coded
-where hops.patient_id=updateCD.patient_id;
+/*TB DIAGNOSTIC*/   
+update hops,
+    (select p.patient_id,
+         e.encounter_datetime,
+        case o.value_coded
+        when 664 then 'NEGATIVE'
+        when 703 then 'POSITIVE'
+        when 1065 then 'YES'
+        when 1066 then 'NO'
+        else null end as cod
+    from  hops p 
+        inner join encounter e on e.patient_id=p.patient_id
+        inner join obs o on o.encounter_id=e.encounter_id
+    where   o.voided=0 and o.concept_id in (23761) and e.encounter_type in (6,9) and e.voided=0 
+    ) tb
+set hops.current_enrollment_tb= tb.cod, hops.current_enrollment_tb_date=tb.encounter_datetime
+where tb.patient_id=hops.patient_id;
+
+ /*ESTADO ACTUAL DO STATUS DMC*/
+update hops,
+		(select 	pg.patient_id,ps.start_date,
+				case ps.state
+					when 7 then 'TRASFERRED OUT'
+					when 8 then 'SUSPENDED'
+					when 9 then 'ART LTFU'
+					when 10 then 'DEAD'
+				else null end as codeestado
+		from 	patient p 
+				inner join patient_program pg on p.patient_id=pg.patient_id
+				inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+		where 	pg.voided=0 and ps.voided=0 and  
+				pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and 
+				ps.start_date<=endDate
+		) saida
+set 	hops.current_status_in_DMC=saida.codeestado
+/*hops.patient_status_date=saida.start_date*/
+where saida.patient_id=hops.patient_id;
 
  /*ESTADO ACTUAL TARV 6 MESES*/
 update hops,
@@ -638,7 +719,7 @@ where   e.voided=0 and o.voided=0 and e.encounter_type in (6,9,13) and o.concept
 insert into hops_art_pick_up(patient_id,regime,art_date)
   select distinct p.patient_id,
   case   o.value_coded     
-             when 1651 then 'AZT+3TC+NVP'
+               when 1651 then 'AZT+3TC+NVP'
         when 6324 then 'TDF+3TC+EFV'
         when 1703 then 'AZT+3TC+EFV'
         when 6243 then 'TDF+3TC+NVP'
@@ -707,6 +788,7 @@ insert into hops_art_pick_up(patient_id,regime,art_date)
         when 23787 then 'ABC+AZT+LPV/r'
         when 23789 then 'TDF+AZT+LPV/r'
         when 23788 then 'TDF+ABC+3TC+LPV/r'
+        when 165330 then 'ATV/r+TDF+3TC+DTG'
         else null end,
         encounter_datetime
   from  hops p
@@ -751,7 +833,7 @@ set  hops_art_pick_up_reception_art.next_art_date=DATE_ADD(hops_art_pick_up_rece
 insert into hops_art_regimes(patient_id,regime,regime_date)
   select distinct p.patient_id,
   case   o.value_coded     
-                  when 1651 then 'AZT+3TC+NVP'
+                when 1651 then 'AZT+3TC+NVP'
         when 6324 then 'TDF+3TC+EFV'
         when 1703 then 'AZT+3TC+EFV'
         when 6243 then 'TDF+3TC+NVP'
@@ -1041,7 +1123,10 @@ select distinct p.patient_id,e.encounter_datetime,
         when 5275  then 'INTRAUTERINE DEVICE'
         when 5276  then 'FEMALE STERILIZATION'
         when 23714 then 'VASECTOMY'
-        when 23714 then 'LACTATIONAL AMENORRAY METHOD'      
+        when 23714 then 'LACTATIONAL AMENORRAY METHOD'  
+        when 5278 then 'DIAPHRAGM'
+        when 5277 then 'NATURAL FAMILY PLANNING'
+        when 21928 then 'Implant'    
         else null end as type, "FICHA CLINICA"
   from hops p
       inner join encounter e on p.patient_id=e.patient_id
@@ -1086,7 +1171,7 @@ Select distinct p.patient_id,
 from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-here e.voided=0 and e.encounter_type=6 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=654
+where e.voided=0  and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=654
 GROUP BY p.patient_id;
 
 /*CREATININE*/
@@ -1097,7 +1182,7 @@ Select distinct p.patient_id,
 from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-here e.voided=0 and e.encounter_type=6 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=790
+where e.voided=0 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=790
 GROUP BY p.patient_id;
 
 /* All hemoglobin*/
@@ -1108,7 +1193,7 @@ Select distinct p.patient_id,
 from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-here e.voided=0 and e.encounter_type in (6,13) and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1692
+where e.voided=0 and e.encounter_type in (6,13) and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1692
 GROUP BY p.patient_id;
 
 /* All Blood Pressure*/
@@ -1119,7 +1204,7 @@ Select distinct p.patient_id,
 from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-here e.voided=0 and e.encounter_type=6 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1692
+where e.voided=0 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1692
 GROUP BY p.patient_id;
 
 /*CTX*/
@@ -1135,7 +1220,7 @@ from  hops p
 where   e.voided=0 and o.voided=0 and e.encounter_type=6 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1719 and o.value_coded=960;
 
 /*Pregnant status*/
-insert into community_pregnant_status(patient_id,visit_date,status) 
+insert into hops_community_pregnant_status(patient_id,visit_date,status) 
 Select distinct p.patient_id,e.encounter_datetime, if(o.value_coded=1065,"PREGNANT", "")
 from  hops p
     inner join encounter e on p.patient_id=e.patient_id
@@ -1143,12 +1228,39 @@ from  hops p
 where e.voided=0 and e.encounter_type in (6,9) and o.concept_id=1982  and e.encounter_datetime BETWEEN startDate AND endDate;
 
 /*Pregnant breastfeeding status*/
-insert into community_breastfeeding_status(patient_id,visit_date,status)
+insert into hops_community_breastfeeding_status(patient_id,visit_date,status)
 Select distinct p.patient_id,e.encounter_datetime, if(o.value_coded=1065,"BREASTFEEDING", "")
 from  hops p
     inner join encounter e on p.patient_id=e.patient_id
     inner join obs o on o.encounter_id=e.encounter_id
 where e.voided=0 and e.encounter_type in (6,9) and o.concept_id=6332  and e.encounter_datetime BETWEEN startDate AND endDate;
+
+
+/*Uso abusive_use_alcool_drugs*/
+insert into hops_abusive_use_alcool_drugs(patient_id,visit_date,status) 
+Select distinct p.patient_id,e.encounter_datetime,
+    case o.value_coded
+    when 1603 then "YES"
+	else null end
+    from  hops p  
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=6193 and o.value_coded=1603;
+
+
+/*Uso abusive_use_alcool_drugs*/
+insert into hops_consume_alcool_other_drugs (patient_id,visit_date,status) 
+Select distinct p.patient_id,e.encounter_datetime,
+    case o.value_coded
+    when 1065 then 'YES'
+    when 1066 then 'NO'
+	else null end
+    from  hops p  
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=6321;
+
+
 
 /* Urban and Main*/
 update hops set urban='N';
