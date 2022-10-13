@@ -15,9 +15,12 @@ CREATE TABLE IF NOT EXISTS `hops` (
   `openmrs_gender` varchar(1) DEFAULT NULL,
   `enrollment_date` datetime DEFAULT NULL,
   `occupation_at_enrollment` varchar(100) DEFAULT NULL,
-  `marital_status` varchar(100) DEFAULT NULL,
+  `marital_status_at_enrollment` varchar(100) DEFAULT NULL,
   `pregnancy_status_at_enrollment` varchar(100) DEFAULT NULL,
   `art_initiation_date` datetime DEFAULT NULL,
+  `last_adress1` varchar(100) DEFAULT null,
+  `last_adress2` varchar(100) DEFAULT null,
+  `last_city_village` varchar(100) DEFAULT null,
   `last_clinic_visit` datetime DEFAULT NULL,
   `scheduled_clinic_visit` datetime DEFAULT NULL,
   `last_artpickup` datetime DEFAULT NULL,
@@ -33,6 +36,7 @@ CREATE TABLE IF NOT EXISTS `hops` (
   `hemoglobin` int(11)  DEFAULT NULL,
   `hemoglobin_date` datetime DEFAULT NULL,
   `blood_pressure` varchar(255) DEFAULT NULL,
+  `tobacco_use` varchar(255) DEFAULT NULL,
   `WHO_clinical_stage_at_enrollment` varchar(10) DEFAULT NULL,
   `WHO_clinical_stage_at_enrollment_date` datetime DEFAULT NULL,
   `current_enrollment_tb` varchar(100) DEFAULT NULL,
@@ -351,6 +355,18 @@ WHERE hops.patient_id=inicio_real.patient_id;
 /*Data de Nascimento*/
 update hops,person set hops.openmrs_age=round(datediff(hops.art_initiation_date,person.birthdate)/365)
 where  person_id=hops.patient_id;
+
+/*Adress1*/
+update hops,person set hops.address1=person_address.address1
+where person_id=hops.patient_id;
+
+/*Adress2*/
+update hops,person set hops.address2=person_address.address2
+where person_id=hops.patient_id;
+
+/*city_village*/
+update hops,person set hops.city_village=person_address.city_village
+where person_id=hops.patient_id;
 
 /*INSCRICAO*/
 UPDATE hops,
@@ -813,7 +829,7 @@ where   hops_art_pick_up.patient_id=obs.person_id and
     obs.concept_id=1715 and 
     obs.voided=0;
 
-    /*LEVANTAMENTO ARV RECEPTION*/
+/*LEVANTAMENTO ARV RECEPTION*/
 insert into hops_art_pick_up_reception_art(patient_id,art_date)
   select distinct p.patient_id,
         o.value_datetime
@@ -1151,8 +1167,7 @@ set  hops_family_planning.fp= case obs.value_coded
              else null end
 where  hops_family_planning.patient_id=obs.person_id and
     hops_family_planning.fp_date=obs.obs_datetime and 
-    obs.concept_id=23725 and 
-    obs.voided=0 and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and hops_family_planning.fp_date=encounter.encounter_datetime;
+    obs.concept_id=23725 and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and hops_family_planning.fp_date=encounter.encounter_datetime;
 
  /*hosp_cpn_last_menstrual_period*/
 insert into hops_last_menstrual_period(patient_id,hosp_cpn_last_menstrual_period_date,source)
