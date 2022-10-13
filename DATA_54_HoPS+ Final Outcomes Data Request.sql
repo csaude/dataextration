@@ -357,15 +357,15 @@ update hops,person set hops.openmrs_age=round(datediff(hops.art_initiation_date,
 where  person_id=hops.patient_id;
 
 /*Adress1*/
-update hops,person set hops.address1=person_address.address1
+update hops,person_address set hops.last_adress1=person_address.address1
 where person_id=hops.patient_id;
 
 /*Adress2*/
-update hops,person set hops.address2=person_address.address2
+update hops,person_address set hops.last_adress2=person_address.address2
 where person_id=hops.patient_id;
 
-/*city_village*/
-update hops,person set hops.city_village=person_address.city_village
+/*last_city_village*/
+update hops,person_address set hops.last_city_village=person_address.city_village
 where person_id=hops.patient_id;
 
 /*INSCRICAO*/
