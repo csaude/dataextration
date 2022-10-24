@@ -1,14 +1,14 @@
 SET FOREIGN_KEY_CHECKS=0;
 
-DROP TABLE IF EXISTS `children`;
-CREATE TABLE  `children` (
+DROP TABLE IF EXISTS `nuic_children`;
+CREATE TABLE  `nuic_children` (
   `id` int(11) DEFAULT NULL AUTO_INCREMENT,
   `patient_id` int(11) DEFAULT NULL,
-  `nid` int(11) DEFAULT NULL, 
-  `nuic` int(11) DEFAULT NULL, /*missing*/
-  `first_name`varchar(100) DEFAULT NULL, /*codified name*/
-  `middle_name`varchar(100) DEFAULT NULL, /*codified name*/
-  `family_name`varchar(100) DEFAULT NULL, /*codified name*/
+  `nid` varchar(100) DEFAULT NULL, 
+  `nuic` varchar(100) DEFAULT NULL, /*missing*/
+  `first_name`varchar(3) DEFAULT NULL, /*codified name*/
+  `middle_name`varchar(3) DEFAULT NULL, /*codified name*/
+  `family_name`varchar(3) DEFAULT NULL, /*codified name*/
   `district`varchar(100) DEFAULT NULL,
   `health_facility` varchar(100) DEFAULT NULL,
   `location_id` int(11) DEFAULT NULL,
@@ -16,7 +16,9 @@ CREATE TABLE  `children` (
   `age_enrollment` int(11) DEFAULT NULL,
   `sex` varchar(1) DEFAULT NULL,
   `enrollment_date` datetime DEFAULT NULL,
-  `date_of_ART_initiation` datetime DEFAULT NULL,
+  `art_initiation_date` datetime DEFAULT NULL,
+  `patient_status` varchar(100) DEFAULT NULL,
+  `patient_status_date` datetime DEFAULT NULL,
   `urban` varchar(1) DEFAULT NULL,
   `main` varchar(1) DEFAULT NULL,
    PRIMARY KEY (id),
@@ -24,65 +26,69 @@ CREATE TABLE  `children` (
   ) ENGINE=InnoDB AUTO_INCREMENT=32768 DEFAULT CHARSET=utf8;
 
 -- ----------------------------
--- Procedure structure for Fillchildren
+-- Procedure structure for Fillnuic_children
 -- ----------------------------
 DROP PROCEDURE IF EXISTS `FillNUIC`;
 DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` PROCEDURE `FillNUIC`(startDate date,endDate date,district varchar(100))
+CREATE DEFINER=`root`@`localhost` PROCEDURE `FillNUIC`(startDate date,endDate date, district varchar(100), location_id_parameter int(11))
     READS SQL DATA
 begin
 
+SET @location:=location_id_parameter;
 
-insert into children(patient_id,nuic,location_id)
+insert into nuic_children(patient_id,nuic,location_id)
    select pi.patient_id,pi.identifier,pi.location_id  from patient_identifier pi where pi.identifier_type=14;
 
 
 /*BUSCAR ID DO PACIENTE E LOCATION*/
-UPDATE children,
+UPDATE nuic_children,
        patient_identifier
-SET children.patient_id = patient_identifier.patient_id, children.location_id=patient_identifier.location_id
+SET nuic_children.patient_id = patient_identifier.patient_id, nuic_children.location_id=patient_identifier.location_id
 WHERE patient_identifier.identifier_type=2
-  AND patient_identifier.identifier=children.nid;
+  AND patient_identifier.identifier=nuic_children.nid;
 
-UPDATE children, location SET children.health_facility=location.name where location.location_id=children.location_id;
+UPDATE nuic_children, location SET nuic_children.health_facility=location.name where location.location_id=nuic_children.location_id;
 
+/*NID TARV*/
+UPDATE nuic_children, patient_identifier
+SET nuic_children.nid=patient_identifier.identifier where nuic_children.patient_id=patient_identifier.patient_id and patient_identifier.identifier_type=2;
 
   /*FIRST NAME*/
-UPDATE children,
+UPDATE nuic_children,
        person_name
-SET children.first_name=person_name.given_name
-WHERE children.patient_id=person_name.person_id;
+SET nuic_children.first_name=person_name.given_name 
+WHERE nuic_children.patient_id=person_name.person_id;
 
 /*middle_name NAME*/
-UPDATE children,
+UPDATE nuic_children,
        person_name
-SET children.middle_name=person_name.middle_name
-WHERE children.patient_id=person_name.person_id;
+SET nuic_children.middle_name=person_name.middle_name
+WHERE nuic_children.patient_id=person_name.person_id;
 
 
 /*FAMILY NAME*/
-UPDATE children,
+UPDATE nuic_children,
        person_name
-SET children.family_name=person_name.family_name
-WHERE children.patient_id=person_name.person_id;
+SET nuic_children.family_name=person_name.family_name
+WHERE nuic_children.patient_id=person_name.person_id;
 
-/*DATA DE NAICIMENTO*/
-UPDATE children,
+/*DATA DE NASCIMENTO*/
+UPDATE nuic_children,
        person
-SET children.date_of_birth=person.birthdate
-WHERE children.patient_id=person.person_id;
+SET nuic_children.date_of_birth=person.birthdate
+WHERE nuic_children.patient_id=person.person_id;
 
 /*SEXO*/
-update children,person set children.sex=person.gender where  person_id=children.patient_id;
+update nuic_children,person set nuic_children.sex=person.gender where  person_id=nuic_children.patient_id;
 
 
 /*IDADE NA INSCRICAO*/
-update children,person set children.age_enrollment=round(datediff(children.enrollment_date,person.birthdate)/365)
-where  person_id=children.patient_id;
+update nuic_children,person set nuic_children.age_enrollment=round(datediff(nuic_children.enrollment_date,person.birthdate)/365)
+where  person_id=nuic_children.patient_id;
 
 
 /*INSCRICAO*/
-UPDATE children,
+UPDATE nuic_children,
 
   (SELECT e.patient_id,
           min(encounter_datetime) data_abertura
@@ -94,116 +100,126 @@ UPDATE children,
      AND e.voided=0
      AND pe.voided=0
    GROUP BY p.patient_id) enrollment
-SET children.enrollment_date=enrollment.data_abertura
-WHERE children.patient_id=enrollment.patient_id;
+SET nuic_children.enrollment_date=enrollment.data_abertura
+WHERE nuic_children.patient_id=enrollment.patient_id;
 
 /*INICIO TARV*/
+UPDATE nuic_children,
 
-/*INICIO TARV*/
-UPDATE children,
+  (SELECT patient_id,
+          min(data_inicio) data_inicio
+   FROM
+     (SELECT p.patient_id,
+             min(e.encounter_datetime) data_inicio
+      FROM nuic_children p
+      INNER JOIN encounter e ON p.patient_id=e.patient_id
+      INNER JOIN obs o ON o.encounter_id=e.encounter_id
+      WHERE e.voided=0
+        AND o.voided=0
+        AND e.encounter_type IN (18,
+                                 6,
+                                 9)
+        AND o.concept_id=1255
+        AND o.value_coded=1256
+      GROUP BY p.patient_id
+      UNION SELECT p.patient_id,
+                   min(value_datetime) data_inicio
+      FROM nuic_children p
+      INNER JOIN encounter e ON p.patient_id=e.patient_id
+      INNER JOIN obs o ON e.encounter_id=o.encounter_id
+      WHERE e.voided=0
+        AND o.voided=0
+        AND e.encounter_type IN (18,
+                                 6,
+                                 9)
+        AND o.concept_id=1190
+        AND o.value_datetime IS NOT NULL
+      GROUP BY p.patient_id
+      UNION SELECT pg.patient_id,
+                   date_enrolled data_inicio
+      FROM nuic_children p
+      INNER JOIN patient_program pg ON p.patient_id=pg.patient_id
+      WHERE pg.voided=0
+        AND program_id=2
+      UNION SELECT e.patient_id,
+                   MIN(e.encounter_datetime) AS data_inicio
+      FROM nuic_children p
+      INNER JOIN encounter e ON p.patient_id=e.patient_id
+      WHERE e.encounter_type=18
+        AND e.voided=0
+      GROUP BY p.patient_id 
+      ) inicio
+   GROUP BY patient_id 
+   )inicio_real
+SET nuic_children.art_initiation_date=inicio_real.data_inicio
+WHERE nuic_children.patient_id=inicio_real.patient_id;
 
-  (
-  Select patient_id,min(data_inicio) data_inicio                                        
-               from                                                            
-                 (                                                           
-            /* Patients on ART who initiated the ARV DRUGS: ART Regimen Start Date */
-                   Select  p.patient_id,min(e.encounter_datetime) data_inicio                              
-                   from  patient p                                                   
-                       inner join person pe on pe.person_id = p.patient_id                             
-                       inner join encounter e on p.patient_id=e.patient_id                             
-                       inner join obs o on o.encounter_id=e.encounter_id                             
-                   where   e.voided=0 and o.voided=0 and p.voided=0 and pe.voided = 0 and                        
-                       e.encounter_type in (18,6,9) and o.concept_id=1255 and o.value_coded=1256                    
-                   group by p.patient_id                                               
-                   union                                                       
-            /* Patients on ART who have art start date: ART Start date */
-                   Select  p.patient_id,min(value_datetime) data_inicio                                
-                   from  patient p                                                 
-                       inner join person pe on pe.person_id = p.patient_id                             
-                       inner join encounter e on p.patient_id=e.patient_id                             
-                       inner join obs o on e.encounter_id=o.encounter_id                             
-                   where   p.voided=0 and pe.voided = 0 and e.voided=0 and o.voided=0 and e.encounter_type in (18,6,9,53) and      
-                       o.concept_id=1190 and o.value_datetime is not null                            
-                   group by p.patient_id                                               
-                   union                                                       
-            /* Patients enrolled in ART Program: OpenMRS Program */
-                   select  pg.patient_id,min(date_enrolled) data_inicio                                
-                   from  patient p                                                   
-                     inner join person pe on pe.person_id = p.patient_id                               
-                     inner join patient_program pg on p.patient_id=pg.patient_id                           
-                   where   pg.voided=0 and p.voided=0 and pe.voided = 0 and program_id=2 
-                   group by pg.patient_id                                                
-                   union                                                       
-            /*
-             * Patients with first drugs pick up date set in Pharmacy: First ART Start Date
-             */
-                     SELECT  e.patient_id, MIN(e.encounter_datetime) AS data_inicio                          
-                     FROM    patient p                                               
-                         inner join person pe on pe.person_id = p.patient_id                           
-                         inner join encounter e on p.patient_id=e.patient_id                           
-                     WHERE   p.voided=0 and pe.voided = 0 and e.encounter_type=18 AND e.voided=0   
-                     GROUP BY  p.patient_id                                                    
-                   union                                                             
-            /* Patients with first drugs pick up date set: Recepcao Levantou ARV */
-                   Select  p.patient_id,min(value_datetime) data_inicio                                      
-                   from  patient p                                                       
-                       inner join person pe on pe.person_id = p.patient_id                                   
-                       inner join encounter e on p.patient_id=e.patient_id                                   
-                       inner join obs o on e.encounter_id=o.encounter_id                                   
-                   where   p.voided=0 and pe.voided = 0 and e.voided=0 and o.voided=0 and e.encounter_type=52 and                  
-                       o.concept_id=23866 and o.value_datetime is not null                                    
-                   group by p.patient_id                                                     
-      )inicio_real
-      )inicio_real
-SET children.date_of_ART_initiation=inicio_real.data_inicio
-WHERE children.patient_id=inicio_real.patient_id;
+/*Estado Actual TARV*/
+update nuic_children,
+		(select 	pg.patient_id,ps.start_date,
+				case ps.state
+					when 7 then 'TRASFERRED OUT'
+					when 8 then 'SUSPENDED'
+					when 9 then 'ART LTFU'
+					when 10 then 'DEAD'
+				else null end as codeestado
+		from 	nuic_children p 
+				inner join patient_program pg on p.patient_id=pg.patient_id
+				inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+		where 	pg.voided=0 and ps.voided=0 and  
+				pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and 
+				ps.start_date BETWEEN startDate AND endDate
+		) saida
+set 	nuic_children.patient_status=saida.codeestado,
+nuic_children.patient_status_date=saida.start_date
+where saida.patient_id=nuic_children.patient_id;
 
-/*Remove children with Null NUIC*/
-delete from children where children.age_enrollment<=13 and children.nuic is null;
+/*Remove nuic_children with Null NUIC*/
+delete from nuic_children where nuic_children.age_enrollment<=13 and nuic_children.nuic is null;
 
 /*Urban e Main*/
-update children set urban='N';
+update nuic_children set urban='N';
 
-update children set main='N';
+update nuic_children set main='N';
 
 if district='Quelimane' then
-  update children set urban='Y'; 
+  update nuic_children set urban='Y'; 
 end if;
 
 if district='Namacurra' then
-    update children set main='Y' where location_id=5; 
+    update nuic_children set main='Y' where location_id=5; 
   end if;
 
 -- if district='Maganja' then
---   update children set main='Y' where location_id=15; 
+--   update nuic_children set main='Y' where location_id=15; 
 -- end if;
 
 if district='Pebane' then
-  update children set main='Y' where location_id=16; 
+  update nuic_children set main='Y' where location_id=16; 
 end if;
 
 if district='Gile' then
-  update children set main='Y' where location_id=6; 
+  update nuic_children set main='Y' where location_id=6; 
 end if;
 
 if district='Molocue' then
-  update children set main='Y' where location_id=3; 
+  update nuic_children set main='Y' where location_id=3; 
 end if;
 
 if district='Mocubela' then
-  update children set main='Y' where location_id=62; 
+  update nuic_children set main='Y' where location_id=62; 
 end if;
 
 if district='Inhassunge' then
-  update children set main='Y' where location_id=7; 
+  update nuic_children set main='Y' where location_id=7; 
 end if;
 
 if district='Ile' then
-  update children set main='Y' where location_id in (4,55); 
+  update nuic_children set main='Y' where location_id in (4,55); 
 end if;
 
 if district='Namarroi' then
-  update children set main='Y' where location_id in (252);
+  update nuic_children set main='Y' where location_id in (252);
 end if;
 
 end

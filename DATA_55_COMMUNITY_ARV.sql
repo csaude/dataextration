@@ -156,8 +156,7 @@ DROP TABLE IF EXISTS `community_apss_visit`;
 CREATE TABLE `community_apss_visit` (
   `patient_id` int(11) DEFAULT NULL,
   `visit_date` datetime DEFAULT NULL,
-  `next_visit_date` datetime DEFAULT NULL,
-
+  `next_visit_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -1040,21 +1039,20 @@ where   community_dmc_type_of_dispensation_visit.patient_id=obs.person_id and
     obs.concept_id=23732 and obs.voided=0
   and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=encounter.encounter_datetime;
 
-
 /*VISITAS*/
 insert into community_apss_visit(patient_id,visit_date)
 Select distinct p.patient_id,e.encounter_datetime 
 from  community_arv_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
-where   e.voided=0 and e.encounter_type in (34) and e.encounter_datetime BETWEEN startDate AND endDate;
+where   e.voided=0 and e.encounter_type in (35) and e.encounter_datetime BETWEEN startDate AND endDate;
 
 /*PROXIMA VISITAS*/
-update community_apss_visit,obs 
+update community_apss_visit,obs,encounter 
 set  community_apss_visit.next_visit_date=obs.value_datetime
 where   community_apss_visit.patient_id=obs.person_id and
     community_apss_visit.visit_date=obs.obs_datetime and 
-    obs.concept_id=1410 and 
-    obs.voided=0 and e.encounter_type in (34);
+    obs.concept_id=6310 and 
+    obs.voided=0 and encounter.encounter_type in (35);
 
 /*URBAN AND MAIN*/
 update community_arv_patient set urban='N';
