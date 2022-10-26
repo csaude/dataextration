@@ -1219,7 +1219,7 @@ Select distinct p.patient_id,
 from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where e.voided=0 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=1692
+where e.voided=0 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id in (5086,5085)
 GROUP BY p.patient_id;
 
 /*CTX*/
