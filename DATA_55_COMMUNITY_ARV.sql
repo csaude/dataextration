@@ -235,7 +235,7 @@ update community_arv_patient,person set community_arv_patient.age_enrollment=rou
 where  person_id=community_arv_patient.patient_id;
 
 /*Exclusion criteria*/
-delete from community_arv_patient where age_enrollment<3;
+delete from community_arv_patient where age_enrollment<2;
 
   /*Sexo*/
 update community_arv_patient,person set community_arv_patient.sex=.person.gender
