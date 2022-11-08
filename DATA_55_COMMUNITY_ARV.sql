@@ -211,9 +211,8 @@ insert into community_arv_patient(patient_id, enrollment_date, location_id)
               ) preTarv 
              GROUP BY preTarv.patient_id
         ) 
-      preTarvFinal where preTarvFinal.initialDate BETWEEN startDate AND endDate
+      preTarvFinal where preTarvFinal.initialDate <= endDate
       GROUP BY preTarvFinal.patient_id;
-
 
 Update community_arv_patient set community_arv_patient.district=district;
 
