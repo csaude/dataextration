@@ -82,11 +82,6 @@ WHERE nuic_children.patient_id=person.person_id;
 update nuic_children,person set nuic_children.sex=person.gender where  person_id=nuic_children.patient_id;
 
 
-/*IDADE NA INSCRICAO*/
-update nuic_children,person set nuic_children.age_enrollment=round(datediff(nuic_children.enrollment_date,person.birthdate)/365)
-where  person_id=nuic_children.patient_id;
-
-
 /*INSCRICAO*/
 UPDATE nuic_children,
 
@@ -102,6 +97,13 @@ UPDATE nuic_children,
    GROUP BY p.patient_id) enrollment
 SET nuic_children.enrollment_date=enrollment.data_abertura
 WHERE nuic_children.patient_id=enrollment.patient_id;
+
+
+/*IDADE NA INSCRICAO*/
+update nuic_children,person set nuic_children.age_enrollment=FLOOR(datediff(nuic_children.enrollment_date,person.birthdate)/365)
+where  person_id=nuic_children.patient_id;
+
+
 
 /*INICIO TARV*/
 UPDATE nuic_children,
