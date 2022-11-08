@@ -13,6 +13,7 @@ CREATE TABLE  `nuic_children` (
   `health_facility` varchar(100) DEFAULT NULL,
   `location_id` int(11) DEFAULT NULL,
   `date_of_birth` datetime DEFAULT NULL,
+  `openmrs_age` int(11) DEFAULT NULL,
   `age_enrollment` int(11) DEFAULT NULL,
   `sex` varchar(1) DEFAULT NULL,
   `enrollment_date` datetime DEFAULT NULL,
@@ -36,22 +37,60 @@ begin
 
 SET @location:=location_id_parameter;
 
-insert into nuic_children(patient_id,nuic,location_id)
-   select pi.patient_id,pi.identifier,pi.location_id  from patient_identifier pi where pi.identifier_type=14;
+/*INSCRICAO*/
+insert into nuic_children(patient_id, enrollment_date, location_id)
+        SELECT preTarvFinal.patient_id,preTarvFinal.initialDate,preTarvFinal.location FROM
+         
+         (   
+              SELECT p.patient_id, MIN(e.encounter_datetime) initialDate,e.location_id FROM patient p 
+              INNER JOIN encounter e ON p.patient_id=e.patient_id 
+              INNER JOIN obs o ON o.encounter_id=e.encounter_id 
+              WHERE e.voided=0 AND o.voided=0 AND p.voided=0 AND e.encounter_type in (18,6,9) 
+              AND o.concept_id=1255 AND o.value_coded=1256 AND e.encounter_datetime<=endDate 
+              GROUP BY p.patient_id 
+              UNION 
+              SELECT p.patient_id, MIN(value_datetime) initialDate,e.location_id FROM patient p 
+              INNER JOIN encounter e ON p.patient_id=e.patient_id 
+              INNER JOIN obs o ON e.encounter_id=o.encounter_id WHERE p.voided=0 AND e.voided=0 AND o.voided=0 AND e.encounter_type IN (18,6,9,53) 
+              AND o.concept_id=1190 AND o.value_datetime is NOT NULL AND o.value_datetime<=endDate
+              GROUP BY p.patient_id 
+              UNION 
+              SELECT pg.patient_id, MIN(date_enrolled) initialDate,pg.location_id FROM patient p 
+              INNER JOIN patient_program pg ON p.patient_id=pg.patient_id 
+              WHERE pg.voided=0 AND p.voided=0 AND program_id=2 AND date_enrolled<=:endDate 
+              GROUP BY pg.patient_id 
+              UNION SELECT e.patient_id, MIN(e.encounter_datetime) AS initialDate,e.location_id FROM patient p 
+              INNER JOIN encounter e ON p.patient_id=e.patient_id 
+              WHERE p.voided=0 AND e.encounter_type=18 AND e.voided=0 AND e.encounter_datetime<=endDate 
+              GROUP BY p.patient_id 
+              UNION 
+              SELECT p.patient_id, MIN(value_datetime) initialDate,e.location_id FROM patient p 
+              INNER JOIN encounter e ON p.patient_id=e.patient_id 
+              INNER JOIN obs o ON e.encounter_id=o.encounter_id 
+              WHERE p.voided=0 AND e.voided=0 AND o.voided=0 AND e.encounter_type=52 
+              AND o.concept_id=23866 AND o.value_datetime is NOT NULL AND o.value_datetime<=endDate 
+              GROUP BY p.patient_id 
+        ) 
+         preTarvFinal 
+         where preTarvFinal.initialDate <= endDate
+         GROUP BY preTarvFinal.patient_id;
 
 
-/*BUSCAR ID DO PACIENTE E LOCATION*/
-UPDATE nuic_children,
-       patient_identifier
-SET nuic_children.patient_id = patient_identifier.patient_id, nuic_children.location_id=patient_identifier.location_id
-WHERE patient_identifier.identifier_type=2
-  AND patient_identifier.identifier=nuic_children.nid;
+Update nuic_children set nuic_children.district=district;
 
-UPDATE nuic_children, location SET nuic_children.health_facility=location.name where location.location_id=nuic_children.location_id;
+update nuic_children,location
+set nuic_children.health_facility=location.name
+where nuic_children.location_id=location.location_id;
+
+/*NUIC */
+UPDATE nuic_children, patient_identifier
+SET nuic_children.nuic=patient_identifier.identifier where nuic_children.patient_id=patient_identifier.patient_id and patient_identifier.identifier_type=14;
 
 /*NID TARV*/
 UPDATE nuic_children, patient_identifier
 SET nuic_children.nid=patient_identifier.identifier where nuic_children.patient_id=patient_identifier.patient_id and patient_identifier.identifier_type=2;
+
+
 
   /*FIRST NAME*/
 UPDATE nuic_children,
@@ -78,11 +117,6 @@ UPDATE nuic_children,
 SET nuic_children.date_of_birth=person.birthdate
 WHERE nuic_children.patient_id=person.person_id;
 
-/*SEXO*/
-update nuic_children,person set nuic_children.sex=person.gender where  person_id=nuic_children.patient_id;
-
-
-/*INSCRICAO*/
 UPDATE nuic_children,
 
   (SELECT e.patient_id,
@@ -100,8 +134,12 @@ WHERE nuic_children.patient_id=enrollment.patient_id;
 
 
 /*IDADE NA INSCRICAO*/
-update nuic_children,person set nuic_children.age_enrollment=FLOOR(datediff(nuic_children.enrollment_date,person.birthdate)/365)
+update nuic_children,person set nuic_children.openmrs_age=FLOOR(datediff(nuic_children.enrollment_date,person.birthdate)/365)
 where  person_id=nuic_children.patient_id;
+
+
+/*Remove nuic_children with Null NUIC*/
+delete from nuic_children where nuic_children.openmrs_age>14;
 
 
 
@@ -158,26 +196,25 @@ WHERE nuic_children.patient_id=inicio_real.patient_id;
 
 /*Estado Actual TARV*/
 update nuic_children,
-		(select 	pg.patient_id,ps.start_date,
-				case ps.state
-					when 7 then 'TRASFERRED OUT'
-					when 8 then 'SUSPENDED'
-					when 9 then 'ART LTFU'
-					when 10 then 'DEAD'
-				else null end as codeestado
-		from 	nuic_children p 
-				inner join patient_program pg on p.patient_id=pg.patient_id
-				inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
-		where 	pg.voided=0 and ps.voided=0 and  
-				pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and 
-				ps.start_date BETWEEN startDate AND endDate
-		) saida
-set 	nuic_children.patient_status=saida.codeestado,
+    (select   pg.patient_id,ps.start_date,
+        case ps.state
+          when 7 then 'TRASFERRED OUT'
+          when 8 then 'SUSPENDED'
+          when 9 then 'ART LTFU'
+          when 10 then 'DEAD'
+        else null end as codeestado
+    from  nuic_children p 
+        inner join patient_program pg on p.patient_id=pg.patient_id
+        inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+    where   pg.voided=0 and ps.voided=0 and  
+        pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and 
+        ps.start_date BETWEEN startDate AND endDate
+    ) saida
+set   nuic_children.patient_status=saida.codeestado,
 nuic_children.patient_status_date=saida.start_date
 where saida.patient_id=nuic_children.patient_id;
 
-/*Remove nuic_children with Null NUIC*/
-delete from nuic_children where nuic_children.age_enrollment<=13 and nuic_children.nuic is null;
+
 
 /*Urban e Main*/
 update nuic_children set urban='N';
