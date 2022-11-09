@@ -538,7 +538,7 @@ insert into community_arv_WHO_clinical_stage (patient_id, who_stage,who_stage_da
       inner join obs o on o.encounter_id=e.encounter_id
   where   e.voided=0 and e.encounter_type in(6,53) and o.obs_datetime=e.encounter_datetime 
   AND p.patient_id IN (SELECT patient_id FROM community_arv_patient)
-  and o.concept_id=5356;
+  and o.concept_id=5356 and o.obs_datetime   BETWEEN startDate AND endDate;
 
 
 /*LEVANTAMENTO AMC_ART*/
@@ -641,7 +641,7 @@ o.value_numeric,
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
   where   e.voided=0 and e.encounter_type in(1,6) AND p.patient_id 	in (select patient_id from community_arv_patient)
-  and o.obs_datetime=e.encounter_datetime and o.concept_id=5089;
+  and o.obs_datetime=e.encounter_datetime and o.concept_id=5089 and o.obs_datetime   BETWEEN startDate AND endDate;
 
 /*Height*/
 insert into community_arv_height (patient_id, height, height_date)
@@ -651,7 +651,7 @@ select  p.patient_id as patient_id, o.value_numeric,
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
   where   e.voided=0 and e.encounter_type in(1,6) and o.obs_datetime=e.encounter_datetime and o.concept_id=5090 
-  AND p.patient_id in (select patient_id from community_arv_patient);
+  AND p.patient_id in (select patient_id from community_arv_patient) and o.obs_datetime   BETWEEN startDate AND endDate;
 
 /*DMC CARGA VIRAL LABORATORIO*/
 insert into community_arv_cv(patient_id,copies_cv,cv_date,source)
