@@ -457,7 +457,7 @@ and obs.concept_id=5090;
 /*DMC DISPENSATION VISIT*/
 insert into pharmacy_dmc_type_of_dispensation_visit(patient_id,date_elegibbly_dmc) /*ask Eusebiu*/
 Select distinct p.patient_id,e.encounter_datetime 
-from  community_arv_patient p 
+from  pharmacy_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
 where e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
 
@@ -703,25 +703,25 @@ where   pharmacy_support_groups_visit.patient_id=obs.person_id and
   /* ARV Dispensation*/
 insert into pharmacy_type_arv_dispensation(patient_id,visit_date)
 Select distinct p.patient_id,e.encounter_datetime
-from  community_arv_patient p
+from  pharmacy_patient p
     inner join encounter e on p.patient_id=e.patient_id
 where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
 update pharmacy_type_arv_dispensation,
     (
-    select p.patient_id,e.encounter_datetime,case o.value_coded when 1098  then 'DM' when 23720 then 'DT' when 23888 then 'DS' else null end  as code from community_arv_patient p
+    select p.patient_id,e.encounter_datetime,case o.value_coded when 1098  then 'DM' when 23720 then 'DT' when 23888 then 'DS' else null end  as code from pharmacy_patient p
     inner join encounter e on e.patient_id=p.patient_id
     inner join obs o on o.encounter_id=e.encounter_id
     where e.encounter_type=6 and e.voided=0 and o.voided=0 and o.concept_id=23739
     ) final
     set pharmacy_type_arv_dispensation.dispensation_type=final.code
     where pharmacy_type_arv_dispensation.patient_id=final.patient_id
--- 	and pharmacy_type_arv_dispensation.patient_id=community_arv_patient.patient_id
+-- 	and pharmacy_type_arv_dispensation.patient_id=pharmacy_patient.patient_id
     and pharmacy_type_arv_dispensation.visit_date=final.encounter_datetime;
 
 /* community model*/  
 insert into pharmacy_differentiated_model(patient_id,visit_date) 
 Select distinct p.patient_id,e.encounter_datetime
-from  community_arv_patient p
+from  pharmacy_patient p
     inner join encounter e on p.patient_id=e.patient_id
 where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
 update pharmacy_differentiated_model,
@@ -751,7 +751,7 @@ update pharmacy_differentiated_model,
     when 23732  then 'OTHER'
      when 23730  then 'QUARTERLY DISPENSATION (DT)'
     else null end  as code
-    from community_arv_patient p
+    from pharmacy_patient p
     inner join encounter e on e.patient_id=p.patient_id
     inner join obs o on o.encounter_id=e.encounter_id
     inner join obs obsEstado on obsEstado.encounter_id=e.encounter_id
@@ -769,7 +769,7 @@ update pharmacy_differentiated_model,
     when 1256  then 'START DRUGS'
     when 1257  then 'CONTINUE REGIMEN'
     when 1267  then 'COMPLETED' else null end  status
-    from community_arv_patient p
+    from pharmacy_patient p
     inner join encounter e on e.patient_id=p.patient_id
     inner join obs o on o.encounter_id=e.encounter_id
     inner join obs obsEstado on obsEstado.encounter_id=e.encounter_id
@@ -783,7 +783,7 @@ update pharmacy_differentiated_model,
   /*VISITAS*/
 insert into pharmacy_visit(patient_id,visit_date)
 Select distinct p.patient_id,e.encounter_datetime 
-from  community_arv_patient p 
+from  pharmacy_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
 where   e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
 
@@ -809,7 +809,7 @@ insert into pharmacy_WHO_clinical_stage (patient_id, who_stage,who_stage_date)
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
   where   e.voided=0 and e.encounter_type in(6,53) and o.obs_datetime=e.encounter_datetime 
-  AND p.patient_id IN (SELECT patient_id FROM community_arv_patient)
+  AND p.patient_id IN (SELECT patient_id FROM pharmacy_patient)
   and o.concept_id=5356 and o.obs_datetime   BETWEEN startDate AND endDate;
 
 *LEVANTAMENTO AMC_ART*/
@@ -888,7 +888,7 @@ insert into pharmacy_art_pick_up(patient_id,regime,art_date)
         when 165330 then 'ATV/r+TDF+3TC+DTG'
                 else null end,
         encounter_datetime
-  from community_arv_patient p
+  from pharmacy_patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
   where   encounter_type=18 and o.concept_id=1088  and e.voided=0 
@@ -904,7 +904,7 @@ where   pharmacy_art_pick_up.patient_id=obs.person_id and
      /*CD4 absolute*/
 insert into pharmacy_cd4_absolute(patient_id,cd4,cd4_date)
 Select distinct p.patient_id,o.value_numeric, o.obs_datetime
-from  community_arv_patient p 
+from  pharmacy_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=5497  and o.obs_datetime   BETWEEN startDate AND endDate;
@@ -912,7 +912,7 @@ where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=5497 
 /*CD4 percentage*/
 insert into pharmacy_cd4_percentage(patient_id,cd4,cd4_date)
 Select distinct p.patient_id,o.value_numeric, o.obs_datetime
-from  community_arv_patient p 
+from  pharmacy_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=730   and o.obs_datetime   BETWEEN startDate AND endDate;
