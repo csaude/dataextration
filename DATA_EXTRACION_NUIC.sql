@@ -26,6 +26,17 @@ CREATE TABLE  `nuic_children` (
   KEY `patient_id` (`patient_id`)
   ) ENGINE=InnoDB AUTO_INCREMENT=32768 DEFAULT CHARSET=utf8;
 
+
+  DROP TABLE IF EXISTS `nuic_children_visit`;
+CREATE TABLE `nuic_children_visit` (
+  `patient_id` int(11) DEFAULT NULL,
+  `visit_date` datetime DEFAULT NULL,
+  `next_visit_date` datetime DEFAULT NULL,
+  KEY `patient_id` (`patient_id`),
+  KEY `visit_date` (`visit_date`),
+  KEY `next_visit_date` (`next_visit_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 -- ----------------------------
 -- Procedure structure for Fillnuic_children
 -- ----------------------------
@@ -34,6 +45,9 @@ DELIMITER ;;
 CREATE DEFINER=`root`@`localhost` PROCEDURE `FillNUIC`(startDate date,endDate date, district varchar(100), location_id_parameter int(11))
     READS SQL DATA
 begin
+
+TRUNCATE TABLE nuic_children_visit;
+
 
 SET @location:=location_id_parameter;
 
@@ -219,7 +233,20 @@ set   nuic_children.patient_status=saida.codeestado,
 nuic_children.patient_status_date=saida.start_date
 where saida.patient_id=nuic_children.patient_id;
 
+/*VISITAS*/
+insert into nuic_children_visit(patient_id,visit_date)
+Select distinct p.patient_id,e.encounter_datetime 
+from  nuic_children p 
+    inner join encounter e on p.patient_id=e.patient_id 
+where   e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
 
+/*PROXIMA VISITAS*/
+update nuic_children_visit,obs 
+set  nuic_children_visit.next_visit_date=obs.value_datetime
+where   nuic_children_visit.patient_id=obs.person_id and
+    nuic_children_visit.visit_date=obs.obs_datetime and 
+    obs.concept_id=1410 and 
+    obs.voided=0;
 
 /*Urban e Main*/
 update nuic_children set urban='N';
