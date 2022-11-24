@@ -203,6 +203,9 @@ WHERE pharmacy_patient.patient_id=person.person_id;
 update pharmacy_patient,person set pharmacy_patient.age_enrollment=round(datediff(pharmacy_patient.enrollment_date,person.birthdate)/365)
 where  person_id=pharmacy_patient.patient_id;
 
+/*Exclusion criteria*/
+delete from pharmacy_patient where age_enrollment<5;
+
   /*Sexo*/
 update pharmacy_patient,person set pharmacy_patient.sex=.person.gender
 where  person.person_id=pharmacy_patient.patient_id;

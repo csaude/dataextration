@@ -766,16 +766,17 @@ update community_type_arv_dispensation,
     and community_type_arv_dispensation.visit_date=final.encounter_datetime;
 
  /* community model*/  
-insert into community_differentiated_model(patient_id,visit_date) 
-Select distinct p.patient_id,e.encounter_datetime
-from  community_arv_patient p
-    inner join encounter e on p.patient_id=e.patient_id
-where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
-update community_differentiated_model,
-    (
-    select p.patient_id,e.encounter_datetime,
+   insert into community_differentiated_model(patient_id,visit_date,differentiated_model) 
+
+   select o.person_id,e.encounter_datetime,
     case o.value_coded
     when 23888  then 'SEMESTER ARV PICKUP (DS)'
+    when 165175 then 'NORMAL EXPEDIENT SCHEDULE'
+    when 165176 then 'OUT OF TIME'
+    when 165180 then 'DAILY MOBILE BRIGADES'
+    when 165181 then 'DAILY MOBILE BRIGADES (HOTSPOTS)'
+    when 165182 then 'DAILY MOBILE CLINICS'
+    when 165183 then 'NIGHT MOBILE BRIGADES (HOTSPOTS)'
     when 165314 then 'ARV ANUAL DISPENSATION (DA)'
     when 165315 then 'DESCENTRALIZED ARV DISPENSATION (DD)'
     when 165178 then 'COMMUNITY DISPENSE VIA PROVIDER (DCP)'
@@ -798,16 +799,11 @@ update community_differentiated_model,
     when 23732  then 'OTHER'
      when 23730  then 'QUARTERLY DISPENSATION (DT)'
     else null end  as code
-    from community_arv_patient p
-    inner join encounter e on e.patient_id=p.patient_id
-    inner join obs o on o.encounter_id=e.encounter_id
-    inner join obs obsEstado on obsEstado.encounter_id=e.encounter_id
-    where e.encounter_type=6 and e.voided=0 and o.voided=0
-    and o.concept_id=165174  and obsEstado.concept_id=165322 and obsEstado.voided=0
-    ) final
-    set community_differentiated_model.differentiated_model=final.code
-    where community_differentiated_model.patient_id=final.patient_id
-    and community_differentiated_model.visit_date=final.encounter_datetime;
+    from obs o
+    inner join encounter e on e.encounter_id=o.encounter_id
+        where e.voided=0 and o.voided=0
+    and o.concept_id=165174 and e.encounter_datetime BETWEEN startDate AND endDate
+        and person_id IN (select patient_id from community_arv_patient);
 
     update community_differentiated_model,
     (
@@ -820,7 +816,7 @@ update community_differentiated_model,
     inner join encounter e on e.patient_id=p.patient_id
     inner join obs o on o.encounter_id=e.encounter_id
     inner join obs obsEstado on obsEstado.encounter_id=e.encounter_id
-    where e.encounter_type=6 and e.voided=0 and o.voided=0
+    where e.encounter_type in (6,9,18) and e.voided=0 and o.voided=0
     and o.concept_id=165174  and obsEstado.concept_id=165322 and obsEstado.voided=0
     ) final
     set community_differentiated_model.differentiated_model_status=final.status
