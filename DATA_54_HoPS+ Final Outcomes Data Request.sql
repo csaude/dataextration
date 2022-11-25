@@ -234,7 +234,7 @@ CREATE TABLE `hops_consume_alcool_other_drugs` (
 -- ----------------------------
 DROP PROCEDURE IF EXISTS `FillHOPS`;
 DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` PROCEDURE `FillHOPS`(startDate date,endDate date, district varchar(100), location_id_parameter int(11))
+CREATE DEFINER=`root`@`localhost` PROCEDURE `FillHOPS`(startDate date,endDate date, district varchar(100)/*, location_id_parameter int(11)*/)
     READS SQL DATA
 begin
 
@@ -261,7 +261,7 @@ truncate table hops_community_breastfeeding_status;
 truncate table hops_abusive_use_alcool_drugs;
 truncate table hops_consume_alcool_other_drugs;
 
-SET @location:=location_id_parameter;
+/*SET @location:=location_id_parameter;*/
 
 /*BUSCAR ID DO PACIENTE E LOCATION*/
 UPDATE hops,
@@ -270,7 +270,7 @@ SET hops.patient_id=patient_identifier.patient_id, hops.location_id=patient_iden
 WHERE  patient_identifier.identifier=hops.nid;
 
 /*Apagar todos fora desta localização*/
-delete from hops where location_id not in (@location);
+/*delete from hops where location_id not in (@location);*/
 
 /*DATA DE NASCIMENTO*/
 UPDATE hops,
@@ -689,7 +689,7 @@ Select distinct p.patient_id,
 from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=856 and e.encounter_datetime  < endDate;
+where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=856 and e.encounter_datetime  between startDate and endDate;
 
 
 
@@ -811,7 +811,7 @@ insert into hops_art_pick_up(patient_id,regime,art_date)
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
   where   encounter_type in (18,52) and o.concept_id=1088  and e.voided=0 
-  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and e.encounter_datetime  < endDate;
+  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and e.encounter_datetime between startDate and endDate;
 
 /*PROXIMO LEVANTAMENTO*/
 update hops_art_pick_up,obs 

@@ -128,9 +128,8 @@ CREATE TABLE `pharmacy_cd4_percentage` (
 DROP TABLE IF EXISTS `pharmacy_pharmacy_viral_load`;
 CREATE TABLE `pharmacy_pharmacy_viral_load` (
   `patient_id` int(11) DEFAULT NULL,
-  `viral_load` double DEFAULT NULL,
-  `viral_load_date` datetime DEFAULT NULL,
-  `uuid` varchar(255) DEFAULT NULL
+  `cv` double DEFAULT NULL,
+  `cv_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 DROP PROCEDURE IF EXISTS `FillPHARMACY`;
@@ -439,7 +438,6 @@ set 	pharmacy_patient.patient_status=saida.codeestado,
 pharmacy_patient.patient_status_date=saida.start_date
 where saida.patient_id=pharmacy_patient.patient_id;
 
-
 /*ALTURA AT TIME OF ART ENROLLMENT*/
 update pharmacy_patient,
 ( select  p.patient_id as patient_id,
@@ -455,7 +453,6 @@ where pharmacy_patient.patient_id=obs.person_id
 and pharmacy_patient.patient_id=altura.patient_id 
 and obs.voided=0 and obs.obs_datetime=altura.encounter_datetime
 and obs.concept_id=5090;
-
 
 /*DMC DISPENSATION VISIT*/
 insert into pharmacy_dmc_type_of_dispensation_visit(patient_id,date_elegibbly_dmc) /*ask Eusebiu*/
@@ -525,7 +522,6 @@ where pharmacy_dmc_type_of_dispensation_visit.patient_id=obs.person_id and
     pharmacy_dmc_type_of_dispensation_visit.date_elegibbly_dmc=obs.obs_datetime and obs.concept_id=23727 and obs.voided=0 
     and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and pharmacy_dmc_type_of_dispensation_visit.date_elegibbly_dmc=encounter.encounter_datetime;
 
-
             /*PROXIMO FR*/
 update pharmacy_dmc_type_of_dispensation_visit,obs,encounter 
 set  pharmacy_dmc_type_of_dispensation_visit.type_dmc="FR",
@@ -564,7 +560,6 @@ where   pharmacy_dmc_type_of_dispensation_visit.patient_id=obs.person_id and
     pharmacy_dmc_type_of_dispensation_visit.date_elegibbly_dmc=obs.obs_datetime and 
     obs.concept_id=23731 and obs.voided=0
     and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and pharmacy_dmc_type_of_dispensation_visit.date_elegibbly_dmc=encounter.encounter_datetime;
-
 
                     /*PROXIMO DS*/
 update pharmacy_dmc_type_of_dispensation_visit,obs,encounter 
@@ -612,7 +607,6 @@ where pharmacy_dispensation_therapeutic_line_posology.patient_id=obs.person_id a
     pharmacy_dispensation_therapeutic_line_posology.visit_date=obs.obs_datetime and 
     obs.concept_id=1711 and obs.voided=0
             and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and pharmacy_dispensation_therapeutic_line_posology.visit_date=encounter.encounter_datetime;
-
 
 update pharmacy_dispensation_therapeutic_line_posology,obs,encounter 
 set pharmacy_dispensation_therapeutic_line_posology.therapeutic_line= case obs.value_coded
@@ -693,7 +687,6 @@ where   pharmacy_support_groups_visit.patient_id=obs.person_id and
     pharmacy_support_groups_visit.date_elegibbly_support_groups=obs.obs_datetime and 
     obs.concept_id=23759 and obs.voided=0
             and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and pharmacy_support_groups_visit.date_elegibbly_support_groups=encounter.encounter_datetime;
-
           
 /*PROXIMO OUTRO DE APOIO*/
 update pharmacy_support_groups_visit,obs,encounter 
@@ -722,16 +715,16 @@ update pharmacy_type_arv_dispensation,
     and pharmacy_type_arv_dispensation.visit_date=final.encounter_datetime;
 
 /* community model*/  
-insert into pharmacy_differentiated_model(patient_id,visit_date) 
-Select distinct p.patient_id,e.encounter_datetime
-from  pharmacy_patient p
-    inner join encounter e on p.patient_id=e.patient_id
-where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
-update pharmacy_differentiated_model,
-    (
-    select p.patient_id,e.encounter_datetime,
+   insert into pharmacy_differentiated_model(patient_id,visit_date,differentiated_model) 
+   select o.person_id,e.encounter_datetime,
     case o.value_coded
     when 23888  then 'SEMESTER ARV PICKUP (DS)'
+    when 165175 then 'NORMAL EXPEDIENT SCHEDULE'
+    when 165176 then 'OUT OF TIME'
+    when 165180 then 'DAILY MOBILE BRIGADES'
+    when 165181 then 'DAILY MOBILE BRIGADES (HOTSPOTS)'
+    when 165182 then 'DAILY MOBILE CLINICS'
+    when 165183 then 'NIGHT MOBILE BRIGADES (HOTSPOTS)'
     when 165314 then 'ARV ANUAL DISPENSATION (DA)'
     when 165315 then 'DESCENTRALIZED ARV DISPENSATION (DD)'
     when 165178 then 'COMMUNITY DISPENSE VIA PROVIDER (DCP)'
@@ -754,16 +747,11 @@ update pharmacy_differentiated_model,
     when 23732  then 'OTHER'
      when 23730  then 'QUARTERLY DISPENSATION (DT)'
     else null end  as code
-    from pharmacy_patient p
-    inner join encounter e on e.patient_id=p.patient_id
-    inner join obs o on o.encounter_id=e.encounter_id
-    inner join obs obsEstado on obsEstado.encounter_id=e.encounter_id
-    where e.encounter_type=6 and e.voided=0 and o.voided=0
-    and o.concept_id=165174  and obsEstado.concept_id=165322 and obsEstado.voided=0
-    ) final
-    set pharmacy_differentiated_model.differentiated_model=final.code
-    where pharmacy_differentiated_model.patient_id=final.patient_id
-    and pharmacy_differentiated_model.visit_date=final.encounter_datetime;
+    from obs o
+    inner join encounter e on e.encounter_id=o.encounter_id
+        where e.voided=0 and o.voided=0
+    and o.concept_id=165174 and e.encounter_datetime BETWEEN startDate AND endDate
+        and person_id IN (select patient_id from community_arv_patient);
 
     update pharmacy_differentiated_model,
     (
@@ -772,11 +760,11 @@ update pharmacy_differentiated_model,
     when 1256  then 'START DRUGS'
     when 1257  then 'CONTINUE REGIMEN'
     when 1267  then 'COMPLETED' else null end  status
-    from pharmacy_patient p
+    from community_arv_patient p
     inner join encounter e on e.patient_id=p.patient_id
     inner join obs o on o.encounter_id=e.encounter_id
     inner join obs obsEstado on obsEstado.encounter_id=e.encounter_id
-    where e.encounter_type=6 and e.voided=0 and o.voided=0
+    where e.encounter_type in (6,9,18) and e.voided=0 and o.voided=0
     and o.concept_id=165174  and obsEstado.concept_id=165322 and obsEstado.voided=0
     ) final
     set pharmacy_differentiated_model.differentiated_model_status=final.status
@@ -815,7 +803,7 @@ insert into pharmacy_WHO_clinical_stage (patient_id, who_stage,who_stage_date)
   AND p.patient_id IN (SELECT patient_id FROM pharmacy_patient)
   and o.concept_id=5356 and o.obs_datetime   BETWEEN startDate AND endDate;
 
-*LEVANTAMENTO AMC_ART*/
+/*LEVANTAMENTO AMC_ART*/
 insert into pharmacy_art_pick_up(patient_id,regime,art_date)
   select distinct p.patient_id,
   case   o.value_coded     
@@ -910,7 +898,7 @@ Select distinct p.patient_id,o.value_numeric, o.obs_datetime
 from  pharmacy_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=5497  and o.obs_datetime   BETWEEN startDate AND endDate;
+where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=5497  and o.obs_datetime BETWEEN startDate AND endDate;
 
 /*CD4 percentage*/
 insert into pharmacy_cd4_percentage(patient_id,cd4,cd4_date)
@@ -918,7 +906,18 @@ Select distinct p.patient_id,o.value_numeric, o.obs_datetime
 from  pharmacy_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=730   and o.obs_datetime   BETWEEN startDate AND endDate;
+where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=730   and o.obs_datetime BETWEEN startDate AND endDate;
+
+/*CARGA VIRAL*/
+insert into pharmacy_pharmacy_viral_load(patient_id,cv,cv_date)
+Select distinct p.patient_id,
+    o.value_numeric,
+    o.obs_datetime
+from  disa_extraction_patient p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id=856 and e.encounter_datetime  between startDate and endDate;
+
 
 /*URBAN AND MAIN*/
 update pharmacy_patient set urban='N';

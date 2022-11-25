@@ -115,7 +115,7 @@ Select distinct p.patient_id,
 from  disa_extraction_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=856 and e.encounter_datetime  between startDate and endDate;
+where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id=856 and e.encounter_datetime  between startDate and endDate;
 
 
 
