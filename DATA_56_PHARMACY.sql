@@ -751,7 +751,7 @@ update pharmacy_type_arv_dispensation,
     inner join encounter e on e.encounter_id=o.encounter_id
         where e.voided=0 and o.voided=0
     and o.concept_id=165174 and e.encounter_datetime BETWEEN startDate AND endDate
-        and person_id IN (select patient_id from community_arv_patient);
+        and person_id IN (select patient_id from pharmacy_patient);
 
     update pharmacy_differentiated_model,
     (
