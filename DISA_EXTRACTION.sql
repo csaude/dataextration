@@ -22,6 +22,7 @@ CREATE TABLE `disa_extraction_cv` (
   `patient_id` int(11) DEFAULT NULL,
   `cv` decimal(12,2) DEFAULT NULL,
   `cv_date` datetime DEFAULT NULL,
+  `request_id` varchar(30) DEFAULT NULL,
   KEY `patient_id` (`patient_id`),
   KEY `cv_date` (`cv_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -117,6 +118,11 @@ from  disa_extraction_patient p
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id=856 and e.encounter_datetime  between startDate and endDate;
 
+/*REQUEST ID*/
+update disa_extraction_cv,obs 
+set  disa_extraction_cv.request_id=obs.value_text
+where   disa_extraction_cv.patient_id=obs.person_id and
+        obs.concept_id=22771 and obs.voided=0; 
 
 
 /* Urban and Main*/

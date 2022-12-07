@@ -28,6 +28,7 @@ CREATE TABLE  `pharmacy_patient` (
   `art_initiation_date` datetime DEFAULT NULL,
    `patient_status` varchar(100) DEFAULT NULL,
   `patient_status_date` datetime DEFAULT NULL, 
+    `location_id` int(11) DEFAULT NULL,
   `urban` varchar(1) DEFAULT NULL,
   `main` varchar(1) DEFAULT NULL, 
   PRIMARY KEY (id),
@@ -125,8 +126,8 @@ CREATE TABLE `pharmacy_cd4_percentage` (
   KEY `cd4_date` (`cd4_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `pharmacy_pharmacy_viral_load`;
-CREATE TABLE `pharmacy_pharmacy_viral_load` (
+DROP TABLE IF EXISTS `pharmacy_viral_load`;
+CREATE TABLE `pharmacy_viral_load` (
   `patient_id` int(11) DEFAULT NULL,
   `cv` double DEFAULT NULL,
   `cv_date` datetime DEFAULT NULL
@@ -148,7 +149,7 @@ TRUNCATE TABLE pharmacy_WHO_clinical_stage;
 TRUNCATE TABLE pharmacy_art_pick_up;
 TRUNCATE TABLE pharmacy_cd4_absolute;
 TRUNCATE TABLE pharmacy_cd4_percentage;
-TRUNCATE TABLE pharmacy_pharmacy_viral_load;
+TRUNCATE TABLE pharmacy_viral_load;
 
 SET @location:=location_id_parameter;
 
@@ -341,13 +342,15 @@ set pharmacy_patient.tb_co_infection= tb.cod
 where tb.patient_id=pharmacy_patient.patient_id;
 
     /*Viral Load*/   
-insert into pharmacy_viral_load(patient_id,viral_load,viral_load_date,uuid)
-select p.patient_id,o.value_numeric,o.obs_datetime, uuid()
-from  patient p
-    inner join openmrs.encounter e on p.patient_id=e.patient_id
-    inner join openmrs.obs o on o.encounter_id=e.encounter_id
-where e.encounter_datetime  between startDate AND endDate and 
-       o.voided=0 and e.voided=0 and o.concept_id=856;
+insert into pharmacy_viral_load(patient_id,cv,cv_date)
+Select distinct p.patient_id,
+    o.value_numeric,
+    o.obs_datetime
+from  pharmacy_patient p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id=856 and e.encounter_datetime  between startDate and endDate;
+
 
        /*PESO AT TIME OF ART ENROLLMENT*/
 update pharmacy_patient,
@@ -586,7 +589,7 @@ where   pharmacy_dmc_type_of_dispensation_visit.patient_id=obs.person_id and
 /*DMC*/
 insert into pharmacy_dispensation_therapeutic_line_posology(patient_id,visit_date)
 Select distinct p.patient_id,e.encounter_datetime 
-from  dmc_patient p 
+from  pharmacy_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
 where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
 
@@ -622,7 +625,7 @@ where pharmacy_dispensation_therapeutic_line_posology.patient_id=obs.person_id a
 /*DMC DISPENSATION VISIT GROUP*/
 insert into pharmacy_support_groups_visit(patient_id,date_elegibbly_support_groups)
 Select distinct p.patient_id,e.encounter_datetime 
-from  dmc_patient p 
+from  pharmacy_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
 where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
 
@@ -760,7 +763,7 @@ update pharmacy_type_arv_dispensation,
     when 1256  then 'START DRUGS'
     when 1257  then 'CONTINUE REGIMEN'
     when 1267  then 'COMPLETED' else null end  status
-    from community_arv_patient p
+    from pharmacy_patient p
     inner join encounter e on e.patient_id=p.patient_id
     inner join obs o on o.encounter_id=e.encounter_id
     inner join obs obsEstado on obsEstado.encounter_id=e.encounter_id
@@ -883,7 +886,7 @@ insert into pharmacy_art_pick_up(patient_id,regime,art_date)
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
   where   encounter_type=18 and o.concept_id=1088  and e.voided=0 
-  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and o.obs_datetime < endDate; /*por confirmar*/
+  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and o.obs_datetime BETWEEN startDate AND endDate;
 
 update pharmacy_art_pick_up,obs
 set  pharmacy_art_pick_up.next_art_date=obs.value_datetime
@@ -909,11 +912,11 @@ from  pharmacy_patient p
 where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=730   and o.obs_datetime BETWEEN startDate AND endDate;
 
 /*CARGA VIRAL*/
-insert into pharmacy_pharmacy_viral_load(patient_id,cv,cv_date)
+insert into pharmacy_viral_load(patient_id,cv,cv_date)
 Select distinct p.patient_id,
     o.value_numeric,
     o.obs_datetime
-from  disa_extraction_patient p 
+from  pharmacy_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id=856 and e.encounter_datetime  between startDate and endDate;

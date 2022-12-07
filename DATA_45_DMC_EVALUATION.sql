@@ -850,8 +850,7 @@ insert into dmc_art_pick_up(patient_id,regime,art_date)
         when 23787 then 'ABC+AZT+LPV/r'
         when 23789 then 'TDF+AZT+LPV/r'
         when 23788 then 'TDF+ABC+3TC+LPV/r'
-        
-        else null end,
+                else null end,
         encounter_datetime
   from dmc_patient p
       inner join encounter e on p.patient_id=e.patient_id
