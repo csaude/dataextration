@@ -21,6 +21,7 @@ DROP TABLE IF EXISTS `disa_extraction_cv`;
 CREATE TABLE `disa_extraction_cv` (
   `patient_id` int(11) DEFAULT NULL,
   `cv` decimal(12,2) DEFAULT NULL,
+  `cv_qualit` varchar(300) DEFAULT NULL,
   `cv_date` datetime DEFAULT NULL,
   `request_id` varchar(30) DEFAULT NULL,
   KEY `patient_id` (`patient_id`),
@@ -108,21 +109,55 @@ WHERE disa_extraction_patient.patient_id=obs.person_id
   AND obs.concept_id=856;
 
 
-/*CARGA VIRAL*/
+/*CARGA VIRAL
 insert into disa_extraction_cv(patient_id,cv,cv_date)
 Select distinct p.patient_id,
     o.value_numeric,
-    o.obs_datetime
+    o.obs_datetime,
 from  disa_extraction_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id=856 and e.encounter_datetime  between startDate and endDate;
+where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id in (856) and e.encounter_datetime  between startDate and endDate;*/
 
-/*REQUEST ID*/
-update disa_extraction_cv,obs 
-set  disa_extraction_cv.request_id=obs.value_text
-where   disa_extraction_cv.patient_id=obs.person_id and
-        obs.concept_id=22771 and obs.voided=0; 
+/*CARGA VIRAL*/
+insert into disa_extraction_cv(patient_id,cv,cv_qualit,cv_date,request_id)
+select valor.patient_id,valor.value_numeric,valor.value_cod,valor.obs_datetime,requisicao.value_text
+from
+(Select p.patient_id,
+    o.value_numeric,
+    case o.value_coded
+    when 1306 then 'BEYOND DETECTABLE LIMIT'
+    when 1304 then 'POOR SAMPLE QUALITY'
+    when 23814 then 'UNDETECTABLE VIRAL LOAD'
+    when 23907 then 'LESS THAN 40 COPIES/ML'
+    when 23905 then 'LESS THAN 10 COPIES/ML'
+    when 23904 then 'LESS THAN 839 COPIES/ML'
+    when 23906 then 'LESS THAN 20 COPIES/ML'
+    when 23908 then 'LESS THAN 400 COPIES/ML'
+    when 165331 then 'LESS THAN'
+     else null end as value_cod,
+	o.obs_datetime,
+    e.encounter_id
+from  disa_extraction_patient p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id in (856,1305) and e.encounter_datetime  between startDate and endDate
+)  valor 
+
+left join
+
+(
+Select p.patient_id,
+    o.value_numeric,
+    o.obs_datetime,
+    o.value_text,
+    e.encounter_id
+from  disa_extraction_patient p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id in (22771) and e.encounter_datetime  between startDate and endDate 
+) requisicao on valor.encounter_id= requisicao.encounter_id
+group by valor.patient_id,valor.value_numeric,valor.encounter_id; 
 
 
 /* Urban and Main*/

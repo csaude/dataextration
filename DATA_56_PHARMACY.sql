@@ -911,15 +911,32 @@ from  pharmacy_patient p
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=730   and o.obs_datetime BETWEEN startDate AND endDate;
 
+
 /*CARGA VIRAL*/
-insert into pharmacy_viral_load(patient_id,cv,cv_date)
-Select distinct p.patient_id,
+insert into disa_extraction_cv(patient_id,cv,cv_qualit,cv_date)
+select valor.patient_id,valor.value_numeric,valor.value_cod,valor.obs_datetime,requisicao.value_text
+from
+(Select p.patient_id,
     o.value_numeric,
-    o.obs_datetime
-from  pharmacy_patient p 
+    case o.value_coded
+    when 1306 then 'BEYOND DETECTABLE LIMIT'
+    when 1304 then 'POOR SAMPLE QUALITY'
+    when 23814 then 'UNDETECTABLE VIRAL LOAD'
+    when 23907 then 'LESS THAN 40 COPIES/ML'
+    when 23905 then 'LESS THAN 10 COPIES/ML'
+    when 23904 then 'LESS THAN 839 COPIES/ML'
+    when 23906 then 'LESS THAN 20 COPIES/ML'
+    when 23908 then 'LESS THAN 400 COPIES/ML'
+    when 165331 then 'LESS THAN'
+     else null end as value_cod,
+	o.obs_datetime,
+    e.encounter_id
+from  disa_extraction_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id=856 and e.encounter_datetime  between startDate and endDate;
+where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id in (856,1305) and e.encounter_datetime  between startDate and endDate
+)  valor 
+group by valor.patient_id,valor.value_numeric,valor.encounter_id; 
 
 
 /*URBAN AND MAIN*/
