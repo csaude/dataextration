@@ -143,9 +143,7 @@ from  disa_extraction_patient p
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id in (856,1305) and e.encounter_datetime  between startDate and endDate
 )  valor 
-
 left join
-
 (
 Select p.patient_id,
     o.value_numeric,

@@ -16,19 +16,23 @@ CREATE TABLE  `pharmacy_patient` (
   `partner_status_at_enrollment` varchar(100) DEFAULT NULL,
   `WHO_clinical_stage_at_enrollment` varchar(10) DEFAULT NULL,
   `WHO_clinical_stage_at_enrollment_date` datetime DEFAULT NULL,
+  `pregnancy_status_at_enrollment` varchar(100) DEFAULT NULL,
   `current_status_in_DMC` varchar(225) DEFAULT NULL, 
   `pmtct_entry_date` datetime DEFAULT NULL,
   `pmtct_exit_date` datetime DEFAULT NULL,
   `tb_at_screening` varchar(255) DEFAULT NULL,
   `tb_co_infection` varchar(255) DEFAULT NULL,
+  `lactation` varchar(255) DEFAULT NULL,
+  `regime_TPT` varchar(255) DEFAULT NULL,
+  `regime_CTZ` varchar(255) DEFAULT NULL,
   `weight_enrollment` double DEFAULT NULL,
   `weight_date` datetime DEFAULT NULL,
   `height_enrollment` double DEFAULT NULL,
   `height_date` datetime DEFAULT NULL,
   `art_initiation_date` datetime DEFAULT NULL,
-   `patient_status` varchar(100) DEFAULT NULL,
+  `patient_status` varchar(100) DEFAULT NULL,
   `patient_status_date` datetime DEFAULT NULL, 
-    `location_id` int(11) DEFAULT NULL,
+  `location_id` int(11) DEFAULT NULL,
   `urban` varchar(1) DEFAULT NULL,
   `main` varchar(1) DEFAULT NULL, 
   PRIMARY KEY (id),
@@ -130,7 +134,18 @@ DROP TABLE IF EXISTS `pharmacy_viral_load`;
 CREATE TABLE `pharmacy_viral_load` (
   `patient_id` int(11) DEFAULT NULL,
   `cv` double DEFAULT NULL,
+  `cv_qualit` varchar(300) DEFAULT NULL,
   `cv_date` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `pharmacy_drugs`;
+CREATE TABLE `pharmacy_drugs` (
+  `patient_id` int(11) DEFAULT NULL,
+  `formulation` varchar(300) DEFAULT NULL,
+  `group_id` int(11) DEFAULT NULL,
+  `quantity` int(11) DEFAULT NULL,
+  `dosage` varchar(300) DEFAULT NULL,
+  `pickup_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 DROP PROCEDURE IF EXISTS `FillPHARMACY`;
@@ -150,7 +165,7 @@ TRUNCATE TABLE pharmacy_art_pick_up;
 TRUNCATE TABLE pharmacy_cd4_absolute;
 TRUNCATE TABLE pharmacy_cd4_percentage;
 TRUNCATE TABLE pharmacy_viral_load;
-
+TRUNCATE TABLE pharmacy_drugs;
 SET @location:=location_id_parameter;
 
 /*INSCRICAO*/
@@ -276,6 +291,21 @@ and obs.voided=0
 and obs.obs_datetime=stage.encounter_datetime
 and obs.concept_id=5356;
 
+
+/*PREGNANCY STATUS AT TIME OF ART ENROLLMENT*/
+update pharmacy_patient,obs
+set pharmacy_patient.pregnancy_status_at_enrollment= if(obs.value_coded=44,'YES',null)
+where pharmacy_patient.patient_id=obs.person_id and obs.concept_id=1982 and obs.obs_datetime=pharmacy_patient.enrollment_date;
+
+update pharmacy_patient,obs
+set pharmacy_patient.pregnancy_status_at_enrollment= if(obs.value_numeric is not null,'YES',null)
+where pharmacy_patient.patient_id=obs.person_id and obs.concept_id=1279 and obs.obs_datetime=pharmacy_patient.enrollment_date and pharmacy_patient.pregnancy_status_at_enrollment is null;
+
+update pharmacy_patient,patient_program
+set pharmacy_patient.pregnancy_status_at_enrollment= 'YES'
+where pharmacy_patient.patient_id=patient_program.patient_id and program_id=8 and  voided=0 and pregnancy_status_at_enrollment is null;
+
+
   /*ESTADO ACTUAL DO STATUS DMC*/
 update pharmacy_patient,
 		(select 	pg.patient_id,ps.start_date,
@@ -341,15 +371,71 @@ update pharmacy_patient,
 set pharmacy_patient.tb_co_infection= tb.cod
 where tb.patient_id=pharmacy_patient.patient_id;
 
-    /*Viral Load*/   
-insert into pharmacy_viral_load(patient_id,cv,cv_date)
-Select distinct p.patient_id,
+/*lactation*/
+update pharmacy_patient,obs
+set pharmacy_patient.lactation= case obs.value_coded 
+             when 1065 then 'Yes'
+             when 1066 then 'No'
+             when 1067 then 'Unknown'
+                       else null end        
+where obs.person_id=pharmacy_patient.patient_id and obs.concept_id=6332 and voided=0;
+
+
+/*Regime TPT*/
+update pharmacy_patient,obs
+set pharmacy_patient.regime_TPT= case obs.value_coded 
+             when 656 then 'ISONIAZID'
+             when 23982 then 'Isoniazide + Piridoxina'
+             when 755 then 'LEVOFLOXACIN'
+             when 23983 then 'Levofloxacina + Piridoxina'
+             when 23954 then '3HP'
+             when 23984 then '3HP + Piridoxina'
+             when 165305 then '1HP'
+             when 165306 then 'LFX'
+             else null end        
+where obs.person_id=pharmacy_patient.patient_id and obs.concept_id=23985 and voided=0;
+
+/*Regime CTZ*/
+update pharmacy_patient,obs
+set pharmacy_patient.regime_CTZ= case obs.value_coded 
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end        
+where obs.person_id=pharmacy_patient.patient_id and obs.concept_id=6121 and voided=0;
+
+
+delete from pharmacy_patient where pregnancy_status_at_enrollment='Yes';
+delete from pharmacy_patient where lactation='Yes';
+delete from pharmacy_patient where regime_TPT IS NOT NULL;
+delete from pharmacy_patient where regime_CTZ='CONTINUE REGIMEN';
+delete from pharmacy_patient where regime_CTZ='START DRUGS';
+
+
+/*CARGA VIRAL*/
+insert into pharmacy_viral_load(patient_id,cv,cv_qualit,cv_date)
+select valor.patient_id,valor.value_numeric,valor.value_cod,valor.obs_datetime
+from
+(Select p.patient_id,
     o.value_numeric,
-    o.obs_datetime
+    case o.value_coded
+    when 1306 then 'BEYOND DETECTABLE LIMIT'
+    when 1304 then 'POOR SAMPLE QUALITY'
+    when 23814 then 'UNDETECTABLE VIRAL LOAD'
+    when 23907 then 'LESS THAN 40 COPIES/ML'
+    when 23905 then 'LESS THAN 10 COPIES/ML'
+    when 23904 then 'LESS THAN 839 COPIES/ML'
+    when 23906 then 'LESS THAN 20 COPIES/ML'
+    when 23908 then 'LESS THAN 400 COPIES/ML'
+    when 165331 then 'LESS THAN'
+     else null end as value_cod,
+	o.obs_datetime,
+    e.encounter_id
 from  pharmacy_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id=856 and e.encounter_datetime  between startDate and endDate;
+where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id in (856,1305) and e.encounter_datetime  between startDate and endDate
+)  valor group by valor.patient_id,valor.value_numeric,valor.encounter_id; 
 
 
        /*PESO AT TIME OF ART ENROLLMENT*/
@@ -911,33 +997,72 @@ from  pharmacy_patient p
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=730   and o.obs_datetime BETWEEN startDate AND endDate;
 
-
-/*CARGA VIRAL*/
-insert into disa_extraction_cv(patient_id,cv,cv_qualit,cv_date)
-select valor.patient_id,valor.value_numeric,valor.value_cod,valor.obs_datetime,requisicao.value_text
-from
-(Select p.patient_id,
-    o.value_numeric,
-    case o.value_coded
-    when 1306 then 'BEYOND DETECTABLE LIMIT'
-    when 1304 then 'POOR SAMPLE QUALITY'
-    when 23814 then 'UNDETECTABLE VIRAL LOAD'
-    when 23907 then 'LESS THAN 40 COPIES/ML'
-    when 23905 then 'LESS THAN 10 COPIES/ML'
-    when 23904 then 'LESS THAN 839 COPIES/ML'
-    when 23906 then 'LESS THAN 20 COPIES/ML'
-    when 23908 then 'LESS THAN 400 COPIES/ML'
-    when 165331 then 'LESS THAN'
-     else null end as value_cod,
-	o.obs_datetime,
-    e.encounter_id
-from  disa_extraction_patient p 
-    inner join encounter e on p.patient_id=e.patient_id 
+/*Formulação FILA*/
+insert into pharmacy_drugs(patient_id,formulation,pickup_date, group_id)
+select  p.patient_id, case d.drug_id     
+when 11 then ' [TDF/3TC/DTG] Tenofovir 300mg/Lamivudina 300mg/Dolutegravir 50mg TLD30'
+when 12 then '[TDF/3TC/DTG] Tenofovir 300mg/Lamivudina 300mg/Dolutegravir 50mg TLD90'
+when 13 then '[TDF/3TC/DTG] Tenofovir 300mg/Lamivudina 300mg/Dolutegravir 50mg TLD180'
+when 17 then '[LPV/RTV] Lopinavir/Ritonavir -Aluvia 200mg/50mg'
+when 18 then '[ABC/3TC] Abacavir 600mg/Lamivudina 300mg'
+when 19 then '[DTG] Dolutegravir 50mg'
+when 20 then '[ABC/3TC] Abacavir 120mg/Lamivudina 60mg'
+when 21 then '[ABC/3TC] Abacavir 60 and Lamivudina 30mg'
+when 22 then '[3TC/AZT] Lamivudina 150mg/ Zidovudina 300mg'
+when 23 then '[3TC/AZT] Lamivudina 30mg/ Zidovudina 60mg'
+when 24 then '[TDF/3TC] Tenofovir 300mg/Lamivudina 300mg'
+when 25 then '[RAL] Raltegravir 400mg'
+when 26 then '[LPV/RTV] Lopinavir/Ritonavir 400mg/100mg'
+when 27 then '[LPV/RTV] Lopinavir/Ritonavir -Aluvia 100mg/25mg'
+when 28 then '[LPV/RTV] Lopinavir/Ritonavir 200mg/50mg'
+when 29 then '[LPV/RTV] Lopinavir/Ritornavir 40mg/10mg Pellets/Granulos'
+when 30 then '[LPV/RTV]  Lopinavir/Ritonavir-Kaletra 80/20 mg/ml'
+when 31 then '[ATV/RTV] Atazanavir 300mg/Ritonavir 100mg'
+when 32 then '[NVP] Nevirapine 200mg'
+when 33 then '[NVP]  Nevirapina 50mg'
+when 34 then '[NVP] Nevirapine 50mg/5ml'
+when 35 then '[AZT] Zidovudine 50mg/5ml'
+when 36 then '[AZT] Zidovudine 300mg'
+when 37 then '[ABC] Abacavir 300mg'
+when 38 then '[ABC] Abacavir 60mg'
+when 39 then '[EFV] Efavirenz 600mg'
+when 40 then '[EFV] Efavirenz 200mg'
+when 41 then '[3TC] Lamivudine150mg'
+when 42 then '[TDF] Tenofovir 300mg'
+when 43 then '[TDF/3TC/EFV] Tenofovir 300mg/Lamivudina 300mg/Efavirenze 400mg TLE90'
+when 44 then '[TDF/3TC/EFV] Tenofovir 300mg/Lamivudina 300mg/Efavirenze 400mg TLE30'
+when 45 then '[TDF/3TC/EFV] Tenofovir 300mg/Lamivudina 300mg/Efavirenze 400mg TLE180'
+when 46 then '[TDF/3TC/EFV] Tenofovir 300mg/Lamivudina 300mg/Efavirenze 600mg'
+when 47 then '[3TC/AZT/NVP] Lamivudina 150mg/Zidovudina 300mg/Nevirapina 200mg'
+when 48 then '[3TC/AZT/NVP] Lamivudina 30mg/Zidovudina 60mg/Nevirapina 50mg'
+when 49 then '[3TC/AZT/ABC] Lamivudina 150mg/Zidovudina 300mg/Abacavir 300mg'
+when 50 then '[TDF/FTC] Tenofovir 300mg/Emtricitabina 200mg'
+when 51 then '[DTG] Dolutegravir 10 mg 90 Comp'
+when 52 then '[DTG] Dolutegravir 10 mg 30 Comp'
+when 53 then '[ABC/3TC] Abacavir 120mg/Lamivudina 60mg 30 Comp'				
+   else null end,                  
+   encounter_datetime, obs_group_id
+from  pharmacy_patient p
+inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id in (856,1305) and e.encounter_datetime  between startDate and endDate
-)  valor 
-group by valor.patient_id,valor.value_numeric,valor.encounter_id; 
+    inner join drug d on o.value_drug=d.drug_id
+where   e.voided=0 and o.voided=0 and d.retired=0 and e.encounter_type=18 and o.concept_id=165256 and o.obs_datetime BETWEEN startDate AND endDate;
 
+update pharmacy_drugs,obs
+set  pharmacy_drugs.quantity=obs.value_numeric
+where   pharmacy_drugs.patient_id=obs.person_id and
+    pharmacy_drugs.pickup_date=obs.obs_datetime and 
+    pharmacy_drugs.group_id=obs.obs_group_id and
+    obs.concept_id=1715 and
+    obs.voided=0;
+
+update pharmacy_drugs,obs
+set  pharmacy_drugs.dosage=obs.value_text
+where   pharmacy_drugs.patient_id=obs.person_id and
+    pharmacy_drugs.pickup_date=obs.obs_datetime and
+    pharmacy_drugs.group_id=obs.obs_group_id and
+    obs.concept_id=1711 and
+    obs.voided=0;
 
 /*URBAN AND MAIN*/
 update pharmacy_patient set urban='N';
