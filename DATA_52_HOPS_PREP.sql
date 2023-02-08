@@ -10,61 +10,50 @@ CREATE TABLE IF NOT EXISTS `hops_prep` (
     `location_id` int(11) DEFAULT NULL,
     `patient_id` int(11) DEFAULT NULL,
     `openmrs_gender` varchar(1) DEFAULT NULL,
+    `openmrs_birth_date` datetime DEFAULT NULL,
     `previous_art_enrollment` varchar(3) DEFAULT NULL,
-    `previous_art_regimen_before_lftu` varchar(100) DEFAULT NULL,
-    `art_regimen_initiation` varchar(100) DEFAULT NULL,
-    `art_regimen_re_initiation` varchar(100) DEFAULT NULL,
     `enrollment_date` datetime DEFAULT NULL,
     `art_initiation_date` datetime DEFAULT NULL,
     `WHO_clinical_stage_at_art_initiation` varchar(4) DEFAULT NULL,
     `WHO_clinical_stage_at_art_initiation_date` datetime DEFAULT NULL,
-    `previous_date_enrollment_tb` datetime DEFAULT NULL,
-    `previous_tb_treatment` varchar(3) DEFAULT NULL,
-    `current_enrollment_tb` varchar(100) DEFAULT NULL,
-    `current_enrollment_tb_date` datetime DEFAULT NULL,
-    `prep_enrollment_date` datetime DEFAULT NULL,
+    `tb_active_last` varchar(3) DEFAULT NULL,
+    `tb_treatment_last` varchar(100) DEFAULT NULL,
+    `tb_at_screening` varchar(255) DEFAULT NULL,
+    `prep_first_visit_date` datetime DEFAULT NULL,
     `prep_initiation_date` datetime DEFAULT NULL,
+    `weight` double DEFAULT NULL,
+    `weight_date` datetime DEFAULT NULL,
     `height` double DEFAULT NULL,
-    `date_height` date DEFAULT NULL,
-    `weight_enr` double DEFAULT NULL,
-    `date_weight_enr` date DEFAULT NULL,
-    `weight_art` double DEFAULT NULL,
-    `date_weight_art` date DEFAULT NULL,
-    `bmi_enr` double DEFAULT NULL,
-    `date_bmi_enr` datetime DEFAULT NULL,
-    `bmi_art` double DEFAULT NULL,
-    `date_bmi_art` datetime DEFAULT NULL,
-    `hemoglobin_enr` double DEFAULT NULL,
-    `date_hemoglobin_enr` datetime DEFAULT NULL,
-    `hemoglobin_art` double DEFAULT NULL,
-    `date_hemoglobin_art` datetime DEFAULT NULL,
-    `blood_pressure_enrollment` int(11)  DEFAULT NULL,
-    `alt_enrollment` varchar(100)  DEFAULT NULL,
-    `alt_date` datetime  DEFAULT NULL,
-    `creatinine_enrollment` varchar(100)  DEFAULT NULL,
-    `creatinine_date` datetime  DEFAULT NULL,
-    `alt_enrollment` varchar(100)  DEFAULT NULL,
+    `height_date` datetime DEFAULT NULL,
+    `imc_ini`    decimal(5,2) DEFAULT NULL,
+    `imc_date_ini` datetime DEFAULT NULL,
+    `hemoglobin_ini`  decimal(5,2) DEFAULT NULL,
+    `hemoglobin_date_ini` datetime DEFAULT NULL,
+    `blood_pressure_SBP_ini` int(255) DEFAULT NULL,
+    `blood_pressure_DBP_ini` int(255) DEFAULT NULL,
+    `blood_pressure_date` datetime DEFAULT NULL,
     `patient_status_1_months` varchar(225) DEFAULT NULL,
-    `patient_status_1_months_date_` datetime DEFAULT NULL,
+    `patient_status_1_months_date` datetime DEFAULT NULL,
     `patient_status_2_months` varchar(225) DEFAULT NULL,
-    `patient_status_2_months_date_` datetime DEFAULT NULL,
+    `patient_status_2_months_date` datetime DEFAULT NULL,
     `patient_status_3_months` varchar(225) DEFAULT NULL,
-    `patient_status_3_months_date_` datetime DEFAULT NULL,
+    `patient_status_3_months_date` datetime DEFAULT NULL,
     `patient_status_4_months` varchar(225) DEFAULT NULL,
-    `patient_status_4_months_date_` datetime DEFAULT NULL,
+    `patient_status_4_months_date` datetime DEFAULT NULL,
+    `patient_status_5_months` varchar(225) DEFAULT NULL,
+    `patient_status_5_months_date` datetime DEFAULT NULL,
     `patient_status_6_months` varchar(225) DEFAULT NULL,
-    `patient_status_6_months_date_` datetime DEFAULT NULL,
-    `ctx_date` datetime DEFAULT NULL,
-    `patient_report_use_intravenous` varchar(100) DEFAULT NULL,
-    `patient_report_use_tobacco` varchar(100) DEFAULT NULL,
-    `patient_report_use_alcohol` varchar(100) DEFAULT NULL,
-    `estimated_pregnant_date`datetime DEFAULT NULL,
-    `initiation_familiy_planning_method`varchar(100) DEFAULT NULL,
-    `initiation_familiy_planning_method_date`datetime DEFAULT NULL,
-    `continuation_familiy_planning_method`varchar(100) DEFAULT NULL,
-    `continuation_familiy_planning_method`datetime DEFAULT NULL,
-    `patient_outcome_status`varchar(100) DEFAULT NULL,
-    `patient_outcome_status_date`datetime DEFAULT NULL,
+    `patient_status_6_months_date` datetime DEFAULT NULL,
+    `last_clinic_visit` datetime DEFAULT NULL,
+    `last_artpickup` datetime DEFAULT NULL,
+    `scheduled_artpickp` datetime DEFAULT NULL,
+    `tobacco_use` varchar(255) DEFAULT NULL,
+    `alcohol_use` varchar(100) DEFAULT NULL,
+    `intravenous_drug_use` varchar(100) DEFAULT NULL,
+    `family_planning_first` varchar(50) DEFAULT NULL,
+    `family_planning_date_first` varchar(50) DEFAULT NULL,
+    `patient_status` varchar(100) DEFAULT NULL,
+    `patient_status_date` datetime DEFAULT NULL,
   `urban` varchar(1) DEFAULT NULL,
   `main` varchar(1) DEFAULT NULL,
    PRIMARY KEY (id)
@@ -73,6 +62,7 @@ CREATE TABLE IF NOT EXISTS `hops_prep` (
 -- ----------------------------
 -- Table structure for cd4
 -- ----------------------------
+DROP TABLE IF EXISTS `hops_prep_cd4`;
 CREATE TABLE IF NOT EXISTS `hops_prep_cd4` (
   `patient_id` int(11) DEFAULT NULL,
   `cd4` double DEFAULT NULL,
@@ -80,16 +70,7 @@ CREATE TABLE IF NOT EXISTS `hops_prep_cd4` (
   `uuid` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `hops_prep_cv`;
-CREATE TABLE `hops_prep_cv` (
-  `patient_id` int(11) DEFAULT NULL,
-  `cv` decimal(12,2) DEFAULT NULL,
-  `cv_date` datetime DEFAULT NULL,
-  KEY `patient_id` (`patient_id`),
-  KEY `cv_date` (`cv_date`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-
+DROP TABLE IF EXISTS `hops_prep_art_pick_up`;
 CREATE TABLE IF NOT EXISTS `hops_prep_art_pick_up` (
   `patient_id` int(11) DEFAULT NULL,
   `regime` varchar(255) DEFAULT NULL,
@@ -98,82 +79,167 @@ CREATE TABLE IF NOT EXISTS `hops_prep_art_pick_up` (
   `number_of_pills` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `hops_prep_art_pick_up_reception_art`;
 CREATE TABLE IF NOT EXISTS `hops_prep_art_pick_up_reception_art` (
   `patient_id` int(11) DEFAULT NULL,
   `art_date` datetime DEFAULT NULL,
   `next_art_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `hops_prep_type_of_dispensation_visit`;
+CREATE TABLE `hops_prep_type_of_dispensation_visit` (
+  `patient_id` int(11) DEFAULT NULL,
+  `elegibbly_dmc` varchar(100) DEFAULT NULL,
+  `date_elegibbly_dmc` datetime DEFAULT NULL,
+  `type_dmc` varchar(100) DEFAULT NULL,
+  `value_dmc` varchar(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 DROP TABLE IF EXISTS `hops_prep_art_regimes`;
 CREATE TABLE `hops_prep_art_regimes` (
   `patient_id` int(11) DEFAULT NULL,
-  `regime` decimal(12,2) DEFAULT NULL,
+  `regime` varchar (250) DEFAULT NULL,
   `regime_date` datetime DEFAULT NULL,
   KEY `patient_id` (`patient_id`),
   KEY `regime_date` (`regime_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-CREATE TABLE IF NOT EXISTS `hops_viral_results` (
+DROP TABLE IF EXISTS `hops_prep_visit`;
+CREATE TABLE IF NOT EXISTS `hops_prep_visit` (
   `patient_id` int(11) DEFAULT NULL,
-  `viral_results_date`   datetime DEFAULT NULL,
-  `sample_collection_date`   datetime DEFAULT NULL
+  `visit_date`   datetime DEFAULT NULL,
+  `next_visit_date`   datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+
+DROP TABLE IF EXISTS `hops_prep_cv`;
+CREATE TABLE `hops_prep_cv` (
+  `patient_id` int(11) DEFAULT NULL,
+  `cv` decimal(12,2) DEFAULT NULL,
+  `cv_qualit` varchar(300) DEFAULT NULL,
+  `cv_date` datetime DEFAULT NULL,
+  `request_id` varchar(30) DEFAULT NULL,
+  KEY `patient_id` (`patient_id`),
+  KEY `cv_date` (`cv_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `hops_prep_start_tb_treatment`;
 CREATE TABLE IF NOT EXISTS `hops_prep_start_tb_treatment` (
   `patient_id` int(11) DEFAULT NULL,
-  `start_tb_treatment` datetime DEFAULT NULL
+  `start_tb_treatment` datetime DEFAULT NULL,
+  KEY `patient_id` (`patient_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `hops_prep_end_tb_treatment`;
 CREATE TABLE IF NOT EXISTS `hops_prep_end_tb_treatment` (
   `patient_id` int(11) DEFAULT NULL,
-  `end_tb_treatment` datetime DEFAULT NULL
+  `end_tb_treatment` datetime DEFAULT NULL,
+  KEY `patient_id` (`patient_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-CREATE TABLE IF NOT EXISTS `hops_prep_art_pick_ups` (
-  `patient_id` int(11) DEFAULT NULL,
-  `art_pick_up_date` datetime DEFAULT NULL,
-  `next_art_scheduled_date` datetime DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-CREATE TABLE IF NOT EXISTS `hops_prep_art_clinic_visit` (
-  `patient_id` int(11) DEFAULT NULL,
-  `art_visit_date` datetime DEFAULT NULL,
-  `next_art_visit_date` datetime DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-CREATE TABLE IF NOT EXISTS `hops_prep_prep_pick_ups` (
-  `patient_id` int(11) DEFAULT NULL,
-  `prep_pick_up_date` datetime DEFAULT NULL,
-  `next_prep_pick_up_date` datetime DEFAULT NULL,) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
+DROP TABLE IF EXISTS `hops_prep_clinic_visit`;
 CREATE TABLE IF NOT EXISTS `hops_prep_clinic_visit` (
   `patient_id` int(11) DEFAULT NULL,
   `prep_visit_date` datetime DEFAULT NULL,
-  `next_prep_visit_date` datetime DEFAULT NULL
+  `next_prep_visit_date` datetime DEFAULT NULL,
+  KEY `patient_id` (`patient_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+
+DROP TABLE IF EXISTS `hops_prep_alanine_transferase`;
+CREATE TABLE `hops_prep_alanine_transferase` (
+  `patient_id` int(11) DEFAULT NULL,
+  `alanine_value` decimal(10,2) DEFAULT NULL,
+  `alt_date` datetime DEFAULT NULL,
+  KEY `patient_id` (`patient_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `hops_prep_creatinine`;
+CREATE TABLE `hops_prep_creatinine` (
+  `patient_id` int(11) DEFAULT NULL,
+  `creatinine_value` varchar(100)  DEFAULT NULL,
+  `creatinine_date` datetime DEFAULT NULL,
+  KEY `patient_id` (`patient_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `hops_prep_ctx`;
+CREATE TABLE `hops_prep_ctx` (
+  `patient_id` int(11) DEFAULT NULL,
+  `prescrition` varchar(100)  DEFAULT NULL,
+  `prescrition_date` datetime DEFAULT NULL,
+  KEY `patient_id` (`patient_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `hops_prep_initial_situation`;
+CREATE TABLE `hops_prep_initial_situation` (
+  `patient_id` int(11) DEFAULT NULL,
+  `prep_patient_situation` varchar(100)  DEFAULT NULL,
+  `prep_patient_situation_date` datetime DEFAULT NULL,
+  KEY `patient_id` (`patient_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `hops_prep_clinical_visit`;
+CREATE TABLE `hops_prep_clinical_visit` (
+  `patient_id` int(11) DEFAULT NULL,
+  `clinical_visit_date` varchar(100)  DEFAULT NULL,
+  `next_clinical_visit_date` datetime DEFAULT NULL,
+  KEY `patient_id` (`patient_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `hops_prep_pills_left`;
+CREATE TABLE `hops_prep_pills_left` (
+  `patient_id` int(11) DEFAULT NULL,
+  `pills_left_over` decimal(10,2)  DEFAULT NULL,
+  `visit_date` datetime DEFAULT NULL,
+  KEY `patient_id` (`patient_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `hops_prep_drug_repeat_prescrition`;
+CREATE TABLE `hops_prep_drug_repeat_prescrition` (
+  `patient_id` int(11) DEFAULT NULL,
+  `arv_prescribed` varchar(100)  DEFAULT NULL,
+  `nr_bottles` decimal(10,2)  DEFAULT NULL,
+  `clinical_visit_date` datetime DEFAULT NULL,
+  `next_clinical_visit_date` datetime DEFAULT NULL,
+  KEY `patient_id` (`patient_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+DROP TABLE IF EXISTS `hops_prep_family_planning`;
+CREATE TABLE `hops_prep_family_planning` (
+  `patient_id` int(11) DEFAULT NULL,
+  `family_planning` varchar(100)  DEFAULT NULL,
+  `family_planning_date` datetime DEFAULT NULL,
+  KEY `patient_id` (`patient_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- ----------------------------
 -- Procedure structure for FillTCVGAACTable
 -- ----------------------------
 DROP PROCEDURE IF EXISTS `Fillhops_prep`;
 DELIMITER ;;
-CREATE DEFINER=`root`@`localhost` PROCEDURE `Fillhops_prep`(startDate date,endDate date, district varchar(100), location_id_parameter int(11))
+CREATE DEFINER=`root`@`localhost` PROCEDURE `Fillhops_prep`(startDate date,endDate date, district varchar(100)/*, location_id_parameter int(11)*/)
     READS SQL DATA
 begin
 
-/*truncate table hops_prep_cd4;
-truncate table hops_prep_visit;
+truncate table hops_prep_cd4;
+truncate table hops_prep_art_pick_up;
+truncate table hops_prep_art_pick_up_reception_art;
+truncate table hops_prep_art_regimes;
 truncate table hops_prep_cv;
-truncate table hops_prep_tb_investigation;
 truncate table hops_prep_start_tb_treatment;
 truncate table hops_prep_end_tb_treatment;
-truncate table hops_prep_art_regimes;
-truncate table hops_prep_type_of_dispensation_visit;
-truncate table hops_prep_art_pick_up;
-truncate table hops_prep_art_pick_up_reception_art;*/
+truncate table hops_prep_clinic_visit;
+truncate table hops_prep_alanine_transferase;
+truncate table hops_prep_creatinine;
+truncate table hops_prep_ctx;
+truncate table hops_prep_initial_situation;
+truncate table hops_prep_clinical_visit;
+truncate table hops_prep_pills_left;
+truncate table hops_prep_drug_repeat_prescrition;
+truncate table hops_prep_family_planning;
 
-SET @location:=location_id_parameter;
+/*SET @location:=location_id_parameter;*/
 
 /*BUSCAR ID DO PACIENTE E LOCATION*/
 UPDATE hops_prep,
@@ -182,7 +248,7 @@ SET hops_prep.patient_id=patient_identifier.patient_id, hops_prep.location_id=pa
 WHERE  patient_identifier.identifier=hops_prep.nid;
 
 /*Apagar todos fora desta localização*/
-delete from hops_prep where location_id not in (@location);
+/*delete from hops_prep where location_id not in (@location);*/
 
 /*DATA DE NASCIMENTO*/
 UPDATE hops_prep,
@@ -228,49 +294,49 @@ UPDATE hops_prep,
      (
             /* Patients on ART who initiated the ARV DRUGS: ART Regimen Start Date */
                    Select  p.patient_id,min(e.encounter_datetime) data_inicio
-                   from  patient p
+                   from  hops_prep p
                        inner join person pe on pe.person_id = p.patient_id
                        inner join encounter e on p.patient_id=e.patient_id
                        inner join obs o on o.encounter_id=e.encounter_id
-                   where   e.voided=0 and o.voided=0 and p.voided=0 and pe.voided = 0 and
+                   where   e.voided=0 and o.voided=0 and pe.voided=0  and
                        e.encounter_type in (18,6,9) and o.concept_id=1255 and o.value_coded=1256
                    group by p.patient_id
                    union
             /* Patients on ART who have art start date: ART Start date */
                    Select  p.patient_id,min(value_datetime) data_inicio
-                   from  patient p
+                   from  hops_prep p
                        inner join person pe on pe.person_id = p.patient_id
                        inner join encounter e on p.patient_id=e.patient_id
                        inner join obs o on e.encounter_id=o.encounter_id
-                   where   p.voided=0 and pe.voided = 0 and e.voided=0 and o.voided=0 and e.encounter_type in (18,6,9,53) and
+                   where   pe.voided = 0 and e.voided=0 and o.voided=0 and e.encounter_type in (18,6,9,53) and
                        o.concept_id=1190 and o.value_datetime is not null
                    group by p.patient_id
                    union
             /* Patients enrolled in ART Program: OpenMRS Program */
                    select  pg.patient_id,min(date_enrolled) data_inicio
-                   from  patient p
+                   from  hops_prep p
                      inner join person pe on pe.person_id = p.patient_id
                      inner join patient_program pg on p.patient_id=pg.patient_id
-                   where   pg.voided=0 and p.voided=0 and pe.voided = 0 and program_id=2
+                   where   pg.voided=0  and pe.voided = 0 and program_id=2
                    group by pg.patient_id
                    union
             /*
              * Patients with first drugs pick up date set in Pharmacy: First ART Start Date
              */
                      SELECT  e.patient_id, MIN(e.encounter_datetime) AS data_inicio
-                     FROM    patient p
+                     FROM    hops_prep p
                          inner join person pe on pe.person_id = p.patient_id
                          inner join encounter e on p.patient_id=e.patient_id
-                     WHERE   p.voided=0 and pe.voided = 0 and e.encounter_type=18 AND e.voided=0
+                     WHERE   pe.voided = 0 and e.encounter_type=18 AND e.voided=0
                      GROUP BY  p.patient_id
                    union
             /* Patients with first drugs pick up date set: Recepcao Levantou ARV */
                    Select  p.patient_id,min(value_datetime) data_inicio
-                   from  patient p
+                   from  hops_prep p
                        inner join person pe on pe.person_id = p.patient_id
                        inner join encounter e on p.patient_id=e.patient_id
                        inner join obs o on e.encounter_id=o.encounter_id
-                   where   p.voided=0 and pe.voided = 0 and e.voided=0 and o.voided=0 and e.encounter_type=52 and
+                   where    pe.voided = 0 and e.voided=0 and o.voided=0 and e.encounter_type=52 and
                        o.concept_id=23866 and o.value_datetime is not null
                    group by p.patient_id
       ) inicio
@@ -281,230 +347,586 @@ SET hops_prep.previous_art_enrollment=f.estado
 WHERE hops_prep.patient_id=f.patient_id;
 
 
-/*Data de Nascimento*/
-update hops_prep,person set hops_prep.openmrs_age=round(datediff(hops_prep.art_initiation_date,person.birthdate)/365)
-where  person_id=hops_prep.patient_id;
-
 /*INSCRICAO*/
 UPDATE hops_prep,
 
   (SELECT e.patient_id,
           min(encounter_datetime) data_abertura
-   FROM patient p
+   FROM hops_prep p
    INNER JOIN encounter e ON e.patient_id=p.patient_id
    INNER JOIN person pe ON pe.person_id=p.patient_id
-   WHERE p.voided=0
-     AND e.encounter_type IN (5,
-                              7,53)
+   WHERE e.encounter_type IN (5,7,53,80)
      AND e.voided=0
      AND pe.voided=0
    GROUP BY p.patient_id) enrollment
 SET hops_prep.enrollment_date=enrollment.data_abertura
 WHERE hops_prep.patient_id=enrollment.patient_id;
 
+/*INICIO TARV*/
+UPDATE hops_prep,
+
+  (SELECT patient_id,
+          min(data_inicio) data_inicio
+   FROM
+     (SELECT p.patient_id,
+             min(e.encounter_datetime) data_inicio
+      FROM hops_prep p
+      INNER JOIN encounter e ON p.patient_id=e.patient_id
+      INNER JOIN obs o ON o.encounter_id=e.encounter_id
+      WHERE e.voided=0
+        AND o.voided=0
+        AND e.encounter_type IN (18,
+                                 6,
+                                 9)
+        AND o.concept_id=1255
+        AND o.value_coded=1256
+      GROUP BY p.patient_id
+      UNION SELECT p.patient_id,
+                   min(value_datetime) data_inicio
+      FROM hops_prep p
+      INNER JOIN encounter e ON p.patient_id=e.patient_id
+      INNER JOIN obs o ON e.encounter_id=o.encounter_id
+      WHERE e.voided=0
+        AND o.voided=0
+        AND e.encounter_type IN (18,
+                                 6,
+                                 9)
+        AND o.concept_id=1190
+        AND o.value_datetime IS NOT NULL
+      GROUP BY p.patient_id
+      UNION SELECT pg.patient_id,
+                   date_enrolled data_inicio
+      FROM hops_prep p
+      INNER JOIN patient_program pg ON p.patient_id=pg.patient_id
+      WHERE pg.voided=0
+        AND program_id=2
+      UNION SELECT e.patient_id,
+                   MIN(e.encounter_datetime) AS data_inicio
+      FROM hops_prep p
+      INNER JOIN encounter e ON p.patient_id=e.patient_id
+      WHERE e.encounter_type=18
+        AND e.voided=0
+      GROUP BY p.patient_id 
+      ) inicio
+   GROUP BY patient_id 
+   )inicio_real
+SET hops_prep.art_initiation_date=inicio_real.data_inicio
+WHERE hops_prep.patient_id=inicio_real.patient_id;
+
 /*ESTADIO OMS AT ART INITIATION*/
 update hops_prep,
 ( select  p.patient_id,
-      encounter_datetime encounter_datetime,
+      min(encounter_datetime) encounter_datetime,
       case o.value_coded
       when 1204 then 'I'
       when 1205 then 'II'
       when 1206 then 'III'
       when 1207 then 'IV'
       else null end as cod
-  from patient p
+  from hops_prep p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
-  where   e.voided=0 and e.encounter_type in(6,53) and o.obs_datetime=e.encounter_datetime
+  where   e.voided=0 and e.encounter_type in(6,53) and o.obs_datetime=e.encounter_datetime 
   and o.concept_id=5356
+  group by p.patient_id
 )stage,obs
 set hops_prep.WHO_clinical_stage_at_art_initiation=stage.cod,
 hops_prep.WHO_clinical_stage_at_art_initiation_date=stage.encounter_datetime
 where hops_prep.patient_id=stage.patient_id 
-and stage.encounter_datetime=hops_prep.art_initiation_date
 and hops_prep.patient_id=obs.person_id 
 and obs.voided=0 
 and obs.obs_datetime=stage.encounter_datetime
 and obs.concept_id=5356;
 
-/*ALTURA*/
+
+/*Tb Active*/
 update hops_prep,
-	(	select 	person_id,max(obs_datetime) data_peso
-		from 	openmrs.obs
-		where 	voided=0 and concept_id=5090 and 
-				obs_datetime between dataInicial and dataFinal
-		group by person_id
-	) altura
-set hops_prep.date_height=altura.data_peso
-where hops_prep.id=altura.person_id;
+( select  p.patient_id,
+      max(encounter_datetime) encounter_datetime,
+      case o.value_coded
+      when 1065 then 'YES'
+      when 1066 then 'NO'
+       else null end as cod
+  from hops_prep p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type in(6,53) and o.obs_datetime=e.encounter_datetime
+  and o.concept_id=23761) obs
+set hops_prep.tb_active_last=obs.cod
+where hops_prep.patient_id=obs.patient_id;
 
-update hops_prep,openmrs.obs
-set hops_prep.height=obs.value_numeric
-where hops_prep.id=obs.person_id and hops_prep.date_height=obs.obs_datetime and obs.voided=0 and obs.concept_id=5090;
-
-/*Peso Na Abertura de Processo*/
-update 	hops_prep,openmrs.obs 
-set 	hops_prep.weight_enr=obs.value_numeric,
-		hops_prep.date_weight_enr=obs.obs_datetime
-where 	hops_prep.id=obs.person_id and obs.obs_datetime=hops_prep.date_first_followup and obs.concept_id=5089 and obs.voided=0;
-
-/*Peso no inicio de TARV*/
+/*Tb Treatment*/
 update hops_prep,
-(	select 	e.hops_prep_id,
-			max(encounter_datetime) encounter_datetime
-	from 	hops_prep p
-			inner join openmrs.encounter e on p.id=e.hops_prep_id
-			inner join openmrs.obs o on o.encounter_id=e.encounter_id
-	where 	e.voided=0 and e.encounter_type in (6,9) and 
-			e.encounter_datetime between dataInicial and p.date_art_initiation and o.concept_id=5089 and 
-			p.date_art_initiation is not null
-	group by p.id
-)seguimento
-set hops_prep.date_weight_art=seguimento.encounter_datetime
-where hops_prep.id=seguimento.hops_prep_id;
+( select  p.patient_id,
+      max(encounter_datetime) encounter_datetime,
+      case o.value_coded
+    when 1257 then 'CONTINUE REGIMEN'
+    when 1107 then 'NONE'
+    when 1256 then 'STARTDRUGS'
+    when 1260 then 'STOPALL'
+    when 1259 then 'CHANGE'
+    when 981  then 'DOSINGCHANGE'
+    when 1369 then 'TRANSFER FROM OTHER FACILITY'
+    when 843  then 'REGIMEN FAILURE'
+    when 1705 then 'RESTART'
+    when 5622 then 'Other'
+    when 2055 then 'TREATMENT AFTER DROP'
+    when 1065 then 'Yes'
+    when 1066 then 'No'
+    when 1267 then 'COMPLETED'
+       else null end as cod
+  from hops_prep p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type in(6,53) and o.obs_datetime=e.encounter_datetime
+  and o.concept_id=1268) obs
+set hops_prep.tb_treatment_last=obs.cod
+where hops_prep.patient_id=obs.patient_id;
 
-update 	hops_prep,openmrs.obs 
-set 	hops_prep.weight_art=obs.value_numeric
-where 	hops_prep.id=obs.person_id and obs.obs_datetime=hops_prep.date_weight_art and obs.concept_id=5089 and obs.voided=0;
-
-/*IMC Na Abertura de Processo*/
-update 	hops_prep,openmrs.obs 
-set 	hops_prep.bmi_enr=obs.value_numeric,
-		hops_prep.date_bmi_enr=obs.obs_datetime
-where 	hops_prep.id=obs.person_id and obs.obs_datetime=hops_prep.date_first_followup and obs.concept_id=1342 and obs.voided=0;
-
-/*PRIMEIRO HEMOGLOBINA*/
+/*TB Screening*/
 update hops_prep,
-(	select 	e.hops_prep_id,
-			min(encounter_datetime) encounter_datetime
-	from 	hops_prep p
-			inner join openmrs.encounter e on p.id=e.hops_prep_id
-			inner join openmrs.obs o on o.encounter_id=e.encounter_id
-	where 	e.voided=0 and e.encounter_type=13 and 
-			e.encounter_datetime between dataInicial and dataFinal and o.concept_id=21
-	group by p.id
-)seguimento
-set hops_prep.date_hemoglobin_enr=seguimento.encounter_datetime
-where hops_prep.id=seguimento.hops_prep_id;
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime
+  from  hops_prep p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type in(6,9) and o.obs_datetime=e.encounter_datetime 
+  and o.concept_id in(6257,23758)
+  group by p.patient_id
+)tb, obs
+set hops_prep.tb_at_screening=if(obs.value_coded=1065,'YES',if(obs.value_coded=1066,'NO',null))
+where hops_prep.patient_id=obs.person_id 
+and hops_prep.patient_id=tb.patient_id 
+and obs.voided=0 and obs.obs_datetime=tb.encounter_datetime
+and obs.concept_id in(6257,23758) ;
 
-update 	hops_prep,openmrs.obs 
-set 	hops_prep.hemoglobin_enr=obs.value_numeric
-where 	hops_prep.id=obs.person_id and obs.obs_datetime=hops_prep.date_hemoglobin_enr and obs.concept_id=21 and obs.voided=0;
 
+/*Prep first visit*/
+update hops_prep,encounter
+set hops_prep.prep_first_visit_date=encounter.encounter_datetime 
+where encounter.encounter_type=80 and hops_prep.patient_id=encounter.patient_id;
 
-/*HEMOGLOBINA NO INICIO DE TARV*/
+/*Prep Inicial*/
+update hops_prep,obs
+set hops_prep.prep_initiation_date=obs.value_datetime 
+where obs.concept_id=165211 and hops_prep.patient_id=obs.person_id;
+
+/*Peso*/
 update hops_prep,
-(	select 	e.hops_prep_id,
-			max(encounter_datetime) encounter_datetime
-	from 	hops_prep p
-			inner join openmrs.encounter e on p.id=e.hops_prep_id
-			inner join openmrs.obs o on o.encounter_id=e.encounter_id
-	where 	e.voided=0 and e.encounter_type=13 and 
-			e.encounter_datetime between dataInicial and p.date_art_initiation and o.concept_id=21 and p.date_art_initiation is not null
-	group by p.id
-)seguimento
-set hops_prep.date_hemoglobin_art=seguimento.encounter_datetime
-where hops_prep.id=seguimento.hops_prep_id;
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      o.value_numeric
+  from  hops_prep p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type in(1,6) 
+  and o.obs_datetime=e.encounter_datetime and o.concept_id=5089
+  group by p.patient_id
+)peso,obs
+set hops_prep.weight=obs.value_numeric, hops_prep.weight_date=peso.encounter_datetime
+where hops_prep.patient_id=obs.person_id 
+and hops_prep.patient_id=peso.patient_id 
+and obs.voided=0 and obs.obs_datetime=peso.encounter_datetime
+and obs.concept_id=5089;
 
-update 	hops_prep,openmrs.obs 
-set 	hops_prep.hemoglobin_art=obs.value_numeric
-where 	hops_prep.id=obs.person_id and obs.obs_datetime=hops_prep.date_hemoglobin_art and obs.concept_id=21 and obs.voided=0;
-
-/*IMC no inicio de TARV*/
+/*ALTURA AT TIME OF ART ENROLLMENT*/
 update hops_prep,
-(	select 	e.hops_prep_id,
-			max(encounter_datetime) encounter_datetime
-	from 	hops_prep p
-			inner join openmrs.encounter e on p.id=e.hops_prep_id
-			inner join openmrs.obs o on o.encounter_id=e.encounter_id
-	where 	e.voided=0 and e.encounter_type in (6,9) and 
-			e.encounter_datetime between dataInicial and p.date_art_initiation and o.concept_id=1342 and 
-			p.date_art_initiation is not null
-	group by p.id
-)seguimento
-set hops_prep.date_bmi_art=seguimento.encounter_datetime
-where hops_prep.id=seguimento.hops_prep_id;
+( select  p.patient_id as patient_id,
+      min(encounter_datetime) encounter_datetime
+      from  hops_prep p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type in(1,6) and o.obs_datetime=e.encounter_datetime and o.concept_id=5090 
+  group by p.patient_id
+)altura,obs
+set hops_prep.height=obs.value_numeric, hops_prep.height_date=altura.encounter_datetime
+where hops_prep.patient_id=obs.person_id 
+and hops_prep.patient_id=altura.patient_id 
+and obs.voided=0 and obs.obs_datetime=altura.encounter_datetime
+and obs.concept_id=5090;
 
-update 	hops_prep,openmrs.obs 
-set 	hops_prep.bmi_art=obs.value_numeric
-where 	hops_prep.id=obs.person_id and obs.obs_datetime=hops_prep.date_bmi_art and obs.concept_id=1342 and obs.voided=0;
-
-/*BLOOD PRESSURE AT FIRST ANC VISIT*/
+/* IMC*/
 update hops_prep,
+(select  p.patient_id,
+	min(encounter_datetime) encounter_datetime
+  from  hops_prep p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and  o.obs_datetime=e.encounter_datetime and o.concept_id=1342 and o.voided=0 and e.encounter_datetime 
+group by p.patient_id
+) imcdate
+
+inner join
+
 (
-Select cpn.patient_id, cpn.data_cpn, case obs.value_coded 
-when 1065 then 'YES'
-when 1066 then 'NO' 
-when 1118 then 'NOT DONE'  
-else null end as cod
-  from
-  ( Select  p.patient_id,min(e.encounter_datetime) data_cpn
-    from  patient p
-        inner join encounter e on p.patient_id=e.patient_id
-    where   p.voided=0 and e.voided=0 and e.encounter_type in (11)
-    group by p.patient_id
-  ) cpn
-  inner join obs on obs.person_id=cpn.patient_id and obs.obs_datetime=cpn.data_cpn
-  where   obs.voided=0 and obs.concept_id=6379 
-)updateBP
-set hops_prep.blood_pressure_enrollment=updateBP.cod
-where hops_prep.patient_id=updateBP.patient_id;
+select e.encounter_id,obs.value_numeric,e.encounter_datetime,e.patient_id
+from obs, encounter e, hops_prep p
+where obs.encounter_id=e.encounter_id and p.patient_id=e.patient_id and obs.concept_id=1342 and e.voided=0 and obs.voided=0 
+) enc
 
+on enc.encounter_datetime=imcdate.encounter_datetime and
+imcdate.patient_id=enc.patient_id
+set hops_prep.imc_ini=enc.value_numeric, hops_prep.imc_date_ini=imcdate.encounter_datetime
+where hops_prep.patient_id=imcdate.patient_id 
+and hops_prep.patient_id=enc.patient_id;
+
+
+
+/*HEMOGLOBINA NO ENROLLMENT */
+update hops_prep,
+(select  p.patient_id,
+	min(encounter_datetime) encounter_datetime
+  from  hops_prep p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and  o.obs_datetime=e.encounter_datetime and o.concept_id=1692 and o.voided=0 
+group by p.patient_id
+) hemodate
+
+inner join
+
+(
+select e.encounter_id,obs.value_numeric,e.encounter_datetime,e.patient_id
+from obs, encounter e, hops_prep p
+where obs.encounter_id=e.encounter_id and p.patient_id=e.patient_id and obs.concept_id=1692 and e.voided=0 and obs.voided=0  
+) hemo
+
+on hemo.encounter_datetime=hemodate.encounter_datetime and
+hemodate.patient_id=hemo.patient_id
+set hops_prep.hemoglobin_ini=hemo.value_numeric, hops_prep.hemoglobin_date_ini=hemodate.encounter_datetime
+where hops_prep.patient_id=hemodate.patient_id 
+and hops_prep.patient_id=hemo.patient_id;
+
+
+/*HEMOGLOBINA LAB 
+update hops_prep,
+(   select  p.patient_id,
+      min(encounter_datetime) encounter_datetime      
+  from    patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=13 and o.obs_datetime=e.encounter_datetime and e.encounter_datetime between startDate and endDate 
+      and o.concept_id=21
+  group by p.patient_id
+)hemoglobin_ini,
+obs 
+set  hops_prep.hemoglobin_ini=obs.value_numeric, hops_prep.hemoglobin_date_ini=hemoglobin_ini.encounter_datetime
+where hops_prep.patient_id=obs.person_id
+and hops_prep.patient_id=hemoglobin_ini.patient_id 
+and obs.voided=0 and obs.obs_datetime=hemoglobin_ini.encounter_datetime
+and obs.concept_id=21 and hops_prep.hemoglobin_ini is null;*/
+
+/*BLOOD PRESSURE*/
+update hops_prep,
+(select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      o.value_numeric
+  from  hops_prep p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type in(1,6) 
+  and o.obs_datetime=e.encounter_datetime and o.concept_id=5085
+  group by p.patient_id)sbp,obs
+set hops_prep.blood_pressure_sbp_ini=obs.value_numeric, hops_prep.blood_pressure_date=sbp.encounter_datetime
+where hops_prep.patient_id=obs.person_id 
+and hops_prep.patient_id=sbp.patient_id 
+and obs.voided=0 and obs.obs_datetime=sbp.encounter_datetime
+and obs.concept_id=5085;
+
+
+/*blood pressure*/
+  update hops_prep,
+(select  p.patient_id,
+      min(encounter_datetime) encounter_datetime,
+      o.value_numeric
+  from  hops_prep p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type in(1,6) 
+  and o.obs_datetime=e.encounter_datetime and o.concept_id=5086
+  group by p.patient_id)dbp,obs
+set hops_prep.blood_pressure_DBP_ini=obs.value_numeric, hops_prep.blood_pressure_date=dbp.encounter_datetime
+where hops_prep.patient_id=obs.person_id 
+and hops_prep.patient_id=dbp.patient_id 
+and obs.voided=0 and obs.obs_datetime=dbp.encounter_datetime
+and obs.concept_id=5086;
+
+
+ /*ESTADO ACTUAL TARV 1 MES*/
+update hops_prep,
+   (select   pg.patient_id,ps.start_date,
+        case ps.state
+        when 6 then 'ACTIVE ON PROGRAM (SERVIÇO TARV-TRATAMENTO)'
+					when 7 then 'TRASFERRED OUT (SERVIÇO TARV-TRATAMENTO)'
+					when 8 then 'SUSPENDED (SERVIÇO TARV-TRATAMENTO)'
+					when 9 then 'ART LTFU (SERVIÇO TARV-TRATAMENTO)'
+					when 10 then 'DEAD (SERVIÇO TARV-TRATAMENTO)'
+          when 29 then 'TRANSFER FROM OTHER FACILITY'
+          when 75 then 'ACTIVE ON PROGRAM (PREP)'
+          when 76 then 'TRANSFER FROM OTHER FACILITY (PREP)'
+          when 77 then 'TRANSFERRED OUT TO ANOTHER FACILITY (PREP)'
+          when 78 then 'PATIENT HAS DIED (PREP)'
+          when 79 then 'EXIT - HIV POSITIVE TESTED (PREP)'
+          when 80 then 'EXIT - NO MORE SUBSTANTIAL RISKS (PREP)'
+          when 81 then 'EXIT- SIDE EFFECTS (PREP)'
+          when 82 then 'EXIT - USER PREFERENCE (PREP)'
+        else null end as codeestado
+    from  hops_prep p 
+        inner join patient_program pg on p.patient_id=pg.patient_id
+        inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+    where   pg.voided=0 and ps.voided=0 and  
+        	pg.program_id in (2,25) and ps.state in (6,7,8,9,10,29,75,76,77,78,79,80,81,82) and ps.end_date is null and  ps.start_date between case when art_initiation_date is null then enrollment_date else art_initiation_date end and DATE_ADD(case when art_initiation_date is null then enrollment_date else art_initiation_date end, INTERVAL 1 MONTH)
+    
+    ) out_state
+set   hops_prep.patient_status_1_months=out_state.codeestado, hops_prep.patient_status_1_months_date=out_state.start_date
+where hops_prep.patient_id=out_state.patient_id;
+
+ /*ESTADO ACTUAL TARV 2 MES*/
+update hops_prep,
+   (select   pg.patient_id,ps.start_date,
+        case ps.state
+        when 6 then 'ACTIVE ON PROGRAM (SERVIÇO TARV-TRATAMENTO)'
+					when 7 then 'TRASFERRED OUT (SERVIÇO TARV-TRATAMENTO)'
+					when 8 then 'SUSPENDED (SERVIÇO TARV-TRATAMENTO)'
+					when 9 then 'ART LTFU (SERVIÇO TARV-TRATAMENTO)'
+					when 10 then 'DEAD (SERVIÇO TARV-TRATAMENTO)'
+          when 29 then 'TRANSFER FROM OTHER FACILITY'
+          when 75 then 'ACTIVE ON PROGRAM (PREP)'
+          when 76 then 'TRANSFER FROM OTHER FACILITY (PREP)'
+          when 77 then 'TRANSFERRED OUT TO ANOTHER FACILITY (PREP)'
+          when 78 then 'PATIENT HAS DIED (PREP)'
+          when 79 then 'EXIT - HIV POSITIVE TESTED (PREP)'
+          when 80 then 'EXIT - NO MORE SUBSTANTIAL RISKS (PREP)'
+          when 81 then 'EXIT- SIDE EFFECTS (PREP)'
+          when 82 then 'EXIT - USER PREFERENCE (PREP)'
+        else null end as codeestado
+    from  hops_prep p 
+        inner join patient_program pg on p.patient_id=pg.patient_id
+        inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+    where   pg.voided=0 and ps.voided=0 and  
+        	pg.program_id in (2,25) and ps.state in (6,7,8,9,10,29,75,76,77,78,79,80,81,82) and ps.end_date is null and  ps.start_date between    DATE_ADD(case when art_initiation_date is null then enrollment_date else art_initiation_date end, INTERVAL 1 MONTH) and DATE_ADD(case when art_initiation_date is null then enrollment_date else art_initiation_date end, INTERVAL 2 MONTH)
+    ) out_state
+set   hops_prep.patient_status_2_months=out_state.codeestado, hops_prep.patient_status_2_months_date=out_state.start_date
+where hops_prep.patient_id=out_state.patient_id;
+
+ /*ESTADO ACTUAL TARV 3 MES*/
+update hops_prep,
+   (select   pg.patient_id,ps.start_date,
+        case ps.state
+        when 6 then 'ACTIVE ON PROGRAM (SERVIÇO TARV-TRATAMENTO)'
+					when 7 then 'TRASFERRED OUT (SERVIÇO TARV-TRATAMENTO)'
+					when 8 then 'SUSPENDED (SERVIÇO TARV-TRATAMENTO)'
+					when 9 then 'ART LTFU (SERVIÇO TARV-TRATAMENTO)'
+					when 10 then 'DEAD (SERVIÇO TARV-TRATAMENTO)'         
+          when 29 then 'TRANSFER FROM OTHER FACILITY'
+          when 75 then 'ACTIVE ON PROGRAM (PREP)'
+          when 76 then 'TRANSFER FROM OTHER FACILITY (PREP)'
+          when 77 then 'TRANSFERRED OUT TO ANOTHER FACILITY (PREP)'
+          when 78 then 'PATIENT HAS DIED (PREP)'
+          when 79 then 'EXIT - HIV POSITIVE TESTED (PREP)'
+          when 80 then 'EXIT - NO MORE SUBSTANTIAL RISKS (PREP)'
+          when 81 then 'EXIT- SIDE EFFECTS (PREP)'
+          when 82 then 'EXIT - USER PREFERENCE (PREP)'
+        else null end as codeestado
+    from  hops_prep p 
+        inner join patient_program pg on p.patient_id=pg.patient_id
+        inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+    where   pg.voided=0 and ps.voided=0 and  
+        	pg.program_id in (2,25) and ps.state in (6,7,8,9,10,29,75,76,77,78,79,80,81,82) and ps.end_date is null and  ps.start_date between DATE_ADD(enrollment_date, INTERVAL 2 MONTH) and DATE_ADD(enrollment_date, INTERVAL 3 MONTH)
+    ) out_state
+set   hops_prep.patient_status_3_months=out_state.codeestado, hops_prep.patient_status_3_months_date=out_state.start_date
+where hops_prep.patient_id=out_state.patient_id;
+
+ /*ESTADO ACTUAL TARV 4 MES*/
+update hops_prep,
+   (select   pg.patient_id,ps.start_date,
+        case ps.state
+        when 6 then 'ACTIVE ON PROGRAM (SERVIÇO TARV-TRATAMENTO)'
+					when 7 then 'TRASFERRED OUT (SERVIÇO TARV-TRATAMENTO)'
+					when 8 then 'SUSPENDED (SERVIÇO TARV-TRATAMENTO)'
+					when 9 then 'ART LTFU (SERVIÇO TARV-TRATAMENTO)'
+					when 10 then 'DEAD (SERVIÇO TARV-TRATAMENTO)'
+          when 29 then 'TRANSFER FROM OTHER FACILITY'
+          when 75 then 'ACTIVE ON PROGRAM (PREP)'
+          when 76 then 'TRANSFER FROM OTHER FACILITY (PREP)'
+          when 77 then 'TRANSFERRED OUT TO ANOTHER FACILITY (PREP)'
+          when 78 then 'PATIENT HAS DIED (PREP)'
+          when 79 then 'EXIT - HIV POSITIVE TESTED (PREP)'
+          when 80 then 'EXIT - NO MORE SUBSTANTIAL RISKS (PREP)'
+          when 81 then 'EXIT- SIDE EFFECTS (PREP)'
+          when 82 then 'EXIT - USER PREFERENCE (PREP)'
+        else null end as codeestado
+    from  hops_prep p 
+        inner join patient_program pg on p.patient_id=pg.patient_id
+        inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+    where   pg.voided=0 and ps.voided=0 and  
+        	pg.program_id in (2,25) and ps.state in (6,7,8,9,10,29,75,76,77,78,79,80,81,82) and ps.end_date is null and  ps.start_date between DATE_ADD(enrollment_date, INTERVAL 3 MONTH) and DATE_ADD(enrollment_date, INTERVAL 4 MONTH)
+    ) out_state
+set   hops_prep.patient_status_4_months=out_state.codeestado, hops_prep.patient_status_4_months_date=out_state.start_date
+where hops_prep.patient_id=out_state.patient_id;
+
+ /*ESTADO ACTUAL TARV 5 MES*/
+update hops_prep,
+   (select   pg.patient_id,ps.start_date,
+        case ps.state
+        when 6 then 'ACTIVE ON PROGRAM (SERVIÇO TARV-TRATAMENTO)'
+					when 7 then 'TRASFERRED OUT (SERVIÇO TARV-TRATAMENTO)'
+					when 8 then 'SUSPENDED (SERVIÇO TARV-TRATAMENTO)'
+					when 9 then 'ART LTFU (SERVIÇO TARV-TRATAMENTO)'
+					when 10 then 'DEAD (SERVIÇO TARV-TRATAMENTO)'
+          when 29 then 'TRANSFER FROM OTHER FACILITY'
+          when 75 then 'ACTIVE ON PROGRAM (PREP)'
+          when 76 then 'TRANSFER FROM OTHER FACILITY (PREP)'
+          when 77 then 'TRANSFERRED OUT TO ANOTHER FACILITY (PREP)'
+          when 78 then 'PATIENT HAS DIED (PREP)'
+          when 79 then 'EXIT - HIV POSITIVE TESTED (PREP)'
+          when 80 then 'EXIT - NO MORE SUBSTANTIAL RISKS (PREP)'
+          when 81 then 'EXIT- SIDE EFFECTS (PREP)'
+          when 82 then 'EXIT - USER PREFERENCE (PREP)'
+        else null end as codeestado
+    from  hops_prep p 
+        inner join patient_program pg on p.patient_id=pg.patient_id
+        inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+    where   pg.voided=0 and ps.voided=0 and  
+        	pg.program_id in (2,25) and ps.state in (6,7,8,9,10,29,75,76,77,78,79,80,81,82) and ps.end_date is null and  ps.start_date between DATE_ADD(enrollment_date, INTERVAL 4 MONTH) and DATE_ADD(enrollment_date, INTERVAL 5 MONTH)
+    ) out_state
+set   hops_prep.patient_status_5_months=out_state.codeestado, hops_prep.patient_status_5_months_date=out_state.start_date
+where hops_prep.patient_id=out_state.patient_id;
 
  /*ESTADO ACTUAL TARV 6 MESES*/
 update hops_prep,
-    (select   pg.patient_id,ps.start_date,
+   (select   pg.patient_id,ps.start_date,
         case ps.state
-          when 7 then 'TRASFERRED OUT'
-          when 8 then 'SUSPENDED'
-          when 9 then 'ART LTFU'
-          when 10 then 'DEAD'
+        when 6 then 'ACTIVE ON PROGRAM (SERVIÇO TARV-TRATAMENTO)'
+					when 7 then 'TRASFERRED OUT (SERVIÇO TARV-TRATAMENTO)'
+					when 8 then 'SUSPENDED (SERVIÇO TARV-TRATAMENTO)'
+					when 9 then 'ART LTFU (SERVIÇO TARV-TRATAMENTO)'
+					when 10 then 'DEAD (SERVIÇO TARV-TRATAMENTO)'
+          when 29 then 'TRANSFER FROM OTHER FACILITY'
+          when 75 then 'ACTIVE ON PROGRAM (PREP)'
+          when 76 then 'TRANSFER FROM OTHER FACILITY (PREP)'
+          when 77 then 'TRANSFERRED OUT TO ANOTHER FACILITY (PREP)'
+          when 78 then 'PATIENT HAS DIED (PREP)'
+          when 79 then 'EXIT - HIV POSITIVE TESTED (PREP)'
+          when 80 then 'EXIT - NO MORE SUBSTANTIAL RISKS (PREP)'
+          when 81 then 'EXIT- SIDE EFFECTS (PREP)'
+          when 82 then 'EXIT - USER PREFERENCE (PREP)'
         else null end as codeestado
     from  hops_prep p 
         inner join patient_program pg on p.patient_id=pg.patient_id
         inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
     where   pg.voided=0 and ps.voided=0 and  
-        pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and  ps.start_date between enrollment_date and DATE_ADD(enrollment_date, INTERVAL 6 MONTH)
+        	pg.program_id in (2,25) and ps.state in (6,7,8,9,10,29,75,76,77,78,79,80,81,82) and ps.end_date is null and  ps.start_date between DATE_ADD(enrollment_date, INTERVAL 5 MONTH) and DATE_ADD(enrollment_date, INTERVAL 6 MONTH)
     ) out_state
-set   hops_prep.patient_status_6_months=out_state.codeestado, hops_prep.patient_status_6_months_date_=out_state.start_date
+set   hops_prep.patient_status_6_months=out_state.codeestado, hops_prep.patient_status_6_months_date=out_state.start_date
 where hops_prep.patient_id=out_state.patient_id;
 
- /*ESTADO ACTUAL TARV 12 MESES*/
+/*Use TOBACCO*/
 update hops_prep,
-    (select   pg.patient_id,ps.start_date,
-        case ps.state
-          when 7 then 'TRASFERRED OUT'
-          when 8 then 'SUSPENDED'
-          when 9 then 'ART LTFU'
-          when 10 then 'DEAD'
-        else null end as codeestado
-    from  hops_prep p 
-        inner join patient_program pg on p.patient_id=pg.patient_id
-        inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
-    where   pg.voided=0 and ps.voided=0 and  
-        pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and  ps.start_date between enrollment_date and DATE_ADD(enrollment_date, INTERVAL 12 MONTH)
-    ) out_state
-set   hops_prep.patient_status_12_months=out_state.codeestado, hops_prep.patient_status_12_months_date_=out_state.start_date
-where hops_prep.patient_id=out_state.patient_id;
+( select  p.patient_id,
+      encounter_datetime encounter_datetime,
+      case o.value_coded
+      when 1388 then 'TOBACCO USE'
+       else null end as cod
+  from hops_prep p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and o.obs_datetime=e.encounter_datetime
+  and o.concept_id=1389) obs
+set hops_prep.tobacco_use=obs.cod
+where hops_prep.patient_id=obs.patient_id;
 
- /*ESTADO ACTUAL TARV 12 MESES*/
+/*Use ALCOHOL*/
 update hops_prep,
-    (select   pg.patient_id,ps.start_date,
-        case ps.state
-          when 7 then 'TRASFERRED OUT'
-          when 8 then 'SUSPENDED'
-          when 9 then 'ART LTFU'
-          when 10 then 'DEAD'
-        else null end as codeestado
-    from  hops_prep p 
-        inner join patient_program pg on p.patient_id=pg.patient_id
-        inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
-    where   pg.voided=0 and ps.voided=0 and  
-        pg.program_id=2 and ps.state in (7,8,9,10) and ps.end_date is null and  ps.start_date between enrollment_date and DATE_ADD(enrollment_date, INTERVAL 18 MONTH)
-    ) out_state
-set   hops_prep.patient_status_18_months=out_state.codeestado, hops_prep.patient_status_18_months_date_=out_state.start_date
-where hops_prep.patient_id=out_state.patient_id;
+( select  p.patient_id,
+      encounter_datetime encounter_datetime,
+      case o.value_coded
+      when 1603 then 'ALCOHOL USE'
+       else null end as cod
+  from hops_prep p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and o.obs_datetime=e.encounter_datetime
+  and o.concept_id=1389) obs
+set hops_prep.alcohol_use=obs.cod
+where hops_prep.patient_id=obs.patient_id;
 
+/*Use INTRAVENOUS DRUG USE*/
+update hops_prep,
+( select  p.patient_id,
+      encounter_datetime encounter_datetime,
+      case o.value_coded
+      when 105 then 'INTRAVENOUS DRUG USE'
+       else null end as cod
+  from hops_prep p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and o.obs_datetime=e.encounter_datetime
+  and o.concept_id=1389) obs
+set hops_prep.intravenous_drug_use=obs.cod
+where hops_prep.patient_id=obs.patient_id;
+
+/*Family planning*/
+update hops_prep,
+(
+Select  p.patient_id,  min(encounter_datetime) encounter_datetime,  
+case   o.value_coded     
+        when 5279  then 'INJECTABLE CONTRACEPTIVES'
+        when 5278  then 'DIAPHRAGM'
+        when 5275  then 'INTRAUTERINE DEVICE'
+        when 5622  then 'Other'
+        when 5276  then 'FEMALE STERILIZATION'
+        when 190   then 'CONDOMS'
+        when 780   then 'ORAL CONTRACEPTION'
+        when 5277  then 'NATURAL FAMILY PLANNING'
+        when 1107  then 'NONE'
+        when 23714 then 'VASECTOMY'
+        when 23715 then 'LACTATIONAL AMENORRAY METHOD'
+        when 21928 then 'Implant'
+        else null end as value_cod
+  from  hops_prep p
+       inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type in(1,6) 
+  and o.obs_datetime=e.encounter_datetime and o.concept_id=374
+  group by p.patient_id)
+  family,obs
+set hops_prep.family_planning_first=family.value_cod, hops_prep.family_planning_date_first=family.encounter_datetime
+where hops_prep.patient_id=obs.person_id 
+and hops_prep.patient_id=family.patient_id 
+and obs.voided=0 and obs.obs_datetime=family.encounter_datetime
+and obs.concept_id=374;
+
+
+/*Estado Actual TARV*/
+update hops_prep,
+		(select 	pg.patient_id,ps.start_date,
+				case ps.state
+          when 6 then 'ACTIVE ON PROGRAM (SERVIÇO TARV-TRATAMENTO)'
+					when 7 then 'TRASFERRED OUT (SERVIÇO TARV-TRATAMENTO)'
+					when 8 then 'SUSPENDED (SERVIÇO TARV-TRATAMENTO)'
+					when 9 then 'ART LTFU (SERVIÇO TARV-TRATAMENTO)'
+					when 10 then 'DEAD (SERVIÇO TARV-TRATAMENTO)'
+          when 29 then 'TRANSFER FROM OTHER FACILITY'
+          when 75 then 'ACTIVE ON PROGRAM (PREP)'
+          when 76 then 'TRANSFER FROM OTHER FACILITY (PREP)'
+          when 77 then 'TRANSFERRED OUT TO ANOTHER FACILITY (PREP)'
+          when 78 then 'PATIENT HAS DIED (PREP)'
+          when 79 then 'EXIT - HIV POSITIVE TESTED (PREP)'
+          when 80 then 'EXIT - NO MORE SUBSTANTIAL RISKS (PREP)'
+          when 81 then 'EXIT- SIDE EFFECTS (PREP)'
+          when 82 then 'EXIT - USER PREFERENCE (PREP)'
+				else null end as codeestado
+		from 	hops_prep p 
+				inner join patient_program pg on p.patient_id=pg.patient_id
+				inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+		where 	pg.voided=0 and ps.voided=0 and  
+				pg.program_id in (2,25) and ps.state in (6,7,8,9,10,29,75,76,77,78,79,80,81,82) and ps.end_date is null and 
+				ps.start_date BETWEEN startDate AND endDate
+		) saida
+set 	hops_prep.patient_status=saida.codeestado,
+hops_prep.patient_status_date=saida.start_date
+where saida.patient_id=hops_prep.patient_id;
 
 /*CD4*/
 insert into hops_prep_cd4(patient_id,cd4,cd4_date)
@@ -526,24 +948,12 @@ update hops_prep,
 set hops_prep.last_clinic_visit=seguimento.encounter_datetime
 where hops_prep.patient_id=seguimento.patient_id;
 
-/*CARGA VIRAL*/
-insert into hops_prep_cv(patient_id,cv,cv_date)
-Select distinct p.patient_id,
-    o.value_numeric,
-    o.obs_datetime
-from  hops_prep p 
-    inner join encounter e on p.patient_id=e.patient_id 
-    inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=856 and e.encounter_datetime  < endDate;
-
-
-
-/*NEXT CLINIC VISIT*/
+/*NEXT CLINIC VISIT
 update  hops_prep,obs
 set   scheduled_clinic_visit=value_datetime
 where   patient_id=person_id and 
     obs_datetime=last_clinic_visit and 
-    concept_id=5096 and voided=0;
+    concept_id=5096 and voided=0;*/
 
     /*LAST ART PICKUP*/
 update hops_prep,
@@ -563,7 +973,7 @@ where   patient_id=person_id and
     obs_datetime=last_artpickup and 
     concept_id=5096 and voided=0;
 
-/*TB*/
+/*TB
 insert into hops_prep_tb_investigation(patient_id,tb,tb_date)
 Select distinct p.patient_id,
     case o.value_coded
@@ -574,7 +984,7 @@ Select distinct p.patient_id,
 from  hops_prep p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type in (6,9,13) and o.concept_id=6277 and e.encounter_datetime  < endDate;
+where   e.voided=0 and o.voided=0 and e.encounter_type in (6,9,13) and o.concept_id=6277 and e.encounter_datetime  < endDate;*/
 
 /*LEVANTAMENTO ARV*/
 insert into hops_prep_art_pick_up(patient_id,regime,art_date)
@@ -767,9 +1177,48 @@ insert into hops_prep_art_regimes(patient_id,regime,regime_date)
   from hops_prep p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
-  where   encounter_type=6 and o.concept_id=1087  and e.voided=0 
+  where   encounter_type in (6,53) and o.concept_id=1087  and e.voided=0 
   and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and o.obs_datetime < endDate; 
 
+
+
+/*CARGA VIRAL*/
+insert into hops_prep_cv(patient_id,cv,cv_qualit,cv_date,request_id)
+select valor.patient_id,valor.value_numeric,valor.value_cod,valor.obs_datetime,requisicao.value_text
+from
+(Select p.patient_id,
+    o.value_numeric,
+    case o.value_coded
+    when 1306 then 'BEYOND DETECTABLE LIMIT'
+    when 1304 then 'POOR SAMPLE QUALITY'
+    when 23814 then 'UNDETECTABLE VIRAL LOAD'
+    when 23907 then 'LESS THAN 40 COPIES/ML'
+    when 23905 then 'LESS THAN 10 COPIES/ML'
+    when 23904 then 'LESS THAN 839 COPIES/ML'
+    when 23906 then 'LESS THAN 20 COPIES/ML'
+    when 23908 then 'LESS THAN 400 COPIES/ML'
+    when 165331 then 'LESS THAN'
+     else null end as value_cod,
+	o.obs_datetime,
+    e.encounter_id
+from  hops_prep p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id in (856,1305) and e.encounter_datetime  between startDate and endDate
+)  valor 
+left join
+(
+Select p.patient_id,
+    o.value_numeric,
+    o.obs_datetime,
+    o.value_text,
+    e.encounter_id
+from  hops_prep p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id in (22771) and e.encounter_datetime  between startDate and endDate 
+) requisicao on valor.encounter_id= requisicao.encounter_id
+group by valor.patient_id,valor.value_numeric,valor.encounter_id; 
 
 /*VISITAS*/
 insert into hops_prep_visit(patient_id,visit_date)
@@ -811,18 +1260,6 @@ from  hops_prep p
   where   e.voided=0 and e.encounter_type in (6,9) and o.concept_id=6120 and e.encounter_datetime  < endDate
   group by p.patient_id;
 
-
-
-update hops_prep set hops_prep.enrolled_in_GAAC='YES' where hops_prep.patient_id in (select member_id from gaac_member);
-
-/*GAAC START DATE*/
-update hops_prep,gaac_member set hops_prep.gaac_start_date=gaac_member.start_date where gaac_member.member_id=hops_prep.patient_id ;
-
-/*GAAC END DATE*/
-update hops_prep,gaac_member set hops_prep.gaac_end_date=gaac_member.end_date where gaac_member.member_id=hops_prep.patient_id; 
-
-  /*GAAC END DATE*/
-update hops_prep,gaac_member, gaac set hops_prep.gaac_identifier=gaac.gaac_identifier where gaac_member.member_id=hops_prep.patient_id and gaac_member.gaac_id=gaac.gaac_id; 
 
 
 /*DMC DISPENSATION VISIT*/
@@ -955,6 +1392,151 @@ where   hops_prep_type_of_dispensation_visit.patient_id=obs.person_id and
     obs.concept_id=23732 and obs.voided=0
   and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and hops_prep_type_of_dispensation_visit.date_elegibbly_dmc=encounter.encounter_datetime;
 
+
+
+/*ALT */
+insert into hops_prep_alanine_transferase(patient_id,alanine_value,alt_date)
+Select distinct p.patient_id,
+    o.value_numeric,
+    o.obs_datetime
+from  hops_prep p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where e.voided=0  and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=654
+GROUP BY p.patient_id;
+
+/*CREATININE*/
+insert into hops_prep_creatinine(patient_id,creatinine_value,creatinine_date)
+Select distinct p.patient_id,
+    o.value_numeric,
+    o.obs_datetime
+from  hops_prep p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where e.voided=0 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=790
+GROUP BY p.patient_id;
+
+/*CTX*/
+insert into hops_prep_ctx(patient_id,prescrition,prescrition_date)
+Select distinct p.patient_id,
+    case o.value_coded
+    when 1065 then "CLOTRIMAZOLE"
+	else null end,
+    o.obs_datetime
+from  hops_prep p  
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_type=6 and e.encounter_datetime BETWEEN startDate AND endDate and o.concept_id=6121;
+
+
+/*PREP PATIENT INICIAL SITUATION*/
+insert into hops_prep_initial_situation(patient_id,prep_patient_situation,prep_patient_situation_date)
+  select distinct p.patient_id,
+  case   o.value_coded     
+        when 1256 then 'START FIRST TIME PREP'
+        when 1705 then 'RESTART PREP'
+        when 1257 then 'CONTINUE REGIMEN PREP'
+        else null end,
+        encounter_datetime
+  from  hops_prep p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.person_id=e.patient_id
+  where   encounter_type=80 and o.concept_id=165296  and e.voided=0 
+  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and e.encounter_datetime  < endDate;
+
+
+/*VISITAS SEGUIMENTO PREP*/
+insert into hops_prep_clinical_visit(patient_id,clinical_visit_date)
+Select distinct p.patient_id,e.encounter_datetime 
+from  hops_prep p 
+    inner join encounter e on p.patient_id=e.patient_id 
+where   e.voided=0 and e.encounter_type=81 and e.encounter_datetime BETWEEN startDate AND endDate;
+
+/*PROXIMA VISITAS SEGUIMENTO PREP*/
+update hops_prep_clinical_visit,obs 
+set  hops_prep_clinical_visit.next_clinical_visit_date=obs.value_datetime
+where   hops_prep_clinical_visit.patient_id=obs.person_id and
+    hops_prep_clinical_visit.clinical_visit_date=obs.obs_datetime and 
+    obs.concept_id=165228 and 
+    obs.voided=0;
+
+/*PREP stock drug */
+insert into hops_prep_pills_left(patient_id,pills_left_over,visit_date)
+  select distinct p.patient_id, o.value_numeric, e.encounter_datetime
+  from  hops_prep p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.person_id=e.patient_id
+  where   encounter_type=81 and o.concept_id=1713  and e.voided=0 
+  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and e.encounter_datetime  < endDate;
+
+
+/*PREP DRUG REPEAT PRESCRITION*/
+insert into hops_prep_drug_repeat_prescrition(patient_id,arv_prescribed,clinical_visit_date,nr_bottles,next_clinical_visit_date)
+  select valor.patient_id, valor.value_cod, valor.encounter_datetime,requisicao.value_numeric, nextvisit.value_datetime
+  from
+  (Select p.patient_id,
+  case   o.value_coded     
+        when 165214 then 'TDF/3TC'
+        when 165215 then 'TDF/FTC'
+        when 165216 then 'OTHER DRUG PREP'
+        when 165224 then 'SEM PRESCRICAO'
+        else null end as value_cod,
+	e.encounter_datetime,
+    e.encounter_id
+  from  hops_prep p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   encounter_type=81 and o.concept_id=165213  and e.voided=0 
+  and p.patient_id=o.person_id 
+)  valor 
+left join
+(
+Select p.patient_id,
+    o.value_coded,
+    e.encounter_datetime,
+    o.value_numeric,
+    e.encounter_id
+from  hops_prep p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_type=81 and o.concept_id in (165217) 
+) requisicao on valor.encounter_id= requisicao.encounter_id
+left join
+(Select p.patient_id,
+    o.value_coded,
+    e.encounter_datetime,
+    o.value_numeric,
+    e.encounter_id,
+    o.value_datetime
+from  hops_prep p 
+    inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id
+where   e.voided=0 and o.voided=0 and e.encounter_type=81 and o.concept_id in (165228) 
+) nextvisit on valor.encounter_id= nextvisit.encounter_id;
+
+
+/*family planning*/
+insert into hops_prep_family_planning(patient_id,family_planning,family_planning_date)
+Select  p.patient_id,   
+case   o.value_coded     
+        when 5279  then 'INJECTABLE CONTRACEPTIVES'
+        when 5278  then 'DIAPHRAGM'
+        when 5275  then 'INTRAUTERINE DEVICE'
+        when 5622  then 'Other'
+        when 5276  then 'FEMALE STERILIZATION'
+        when 190   then 'CONDOMS'
+        when 780   then 'ORAL CONTRACEPTION'
+        when 5277  then 'NATURAL FAMILY PLANNING'
+        when 1107  then 'NONE'
+        when 23714 then 'VASECTOMY'
+        when 23715 then 'LACTATIONAL AMENORRAY METHOD'
+        when 21928 then 'Implant'
+        else null end as value_cod, encounter_datetime
+  from  hops_prep p
+       inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type in(1,6) 
+  and o.obs_datetime=e.encounter_datetime and o.concept_id=374 and e.encounter_datetime  < endDate;
 
 /* Urban and Main*/
 update hops_prep set urban='N';

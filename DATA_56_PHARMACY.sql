@@ -166,6 +166,7 @@ TRUNCATE TABLE pharmacy_cd4_absolute;
 TRUNCATE TABLE pharmacy_cd4_percentage;
 TRUNCATE TABLE pharmacy_viral_load;
 TRUNCATE TABLE pharmacy_drugs;
+
 SET @location:=location_id_parameter;
 
 /*INSCRICAO*/

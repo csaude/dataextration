@@ -686,7 +686,7 @@ insert into hops_cv(patient_id,cv,cv_date)
 Select distinct p.patient_id,
     o.value_numeric,
     o.obs_datetime
-from  disa_extraction_patient p 
+from  hops p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id=856 and e.encounter_datetime  between startDate and endDate;
@@ -923,7 +923,7 @@ insert into hops_art_regimes(patient_id,regime,regime_date)
   from hops p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
-  where   encounter_type=6 and o.concept_id=1087  and e.voided=0 
+  where   encounter_type=6 and e.voided=0 
   and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and o.obs_datetime < endDate; 
 
 
