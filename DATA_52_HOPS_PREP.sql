@@ -137,13 +137,13 @@ CREATE TABLE IF NOT EXISTS `hops_prep_end_tb_treatment` (
   KEY `patient_id` (`patient_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `hops_prep_clinic_visit`;
+/*DROP TABLE IF EXISTS `hops_prep_clinic_visit`;
 CREATE TABLE IF NOT EXISTS `hops_prep_clinic_visit` (
   `patient_id` int(11) DEFAULT NULL,
   `prep_visit_date` datetime DEFAULT NULL,
   `next_prep_visit_date` datetime DEFAULT NULL,
   KEY `patient_id` (`patient_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;*/
 
 
 DROP TABLE IF EXISTS `hops_prep_alanine_transferase`;
@@ -229,7 +229,7 @@ truncate table hops_prep_art_regimes;
 truncate table hops_prep_cv;
 truncate table hops_prep_start_tb_treatment;
 truncate table hops_prep_end_tb_treatment;
-truncate table hops_prep_clinic_visit;
+/*truncate table hops_prep_clinic_visit;*/
 truncate table hops_prep_alanine_transferase;
 truncate table hops_prep_creatinine;
 truncate table hops_prep_ctx;
@@ -238,6 +238,8 @@ truncate table hops_prep_clinical_visit;
 truncate table hops_prep_pills_left;
 truncate table hops_prep_drug_repeat_prescrition;
 truncate table hops_prep_family_planning;
+truncate table hops_prep_visit;
+
 
 /*SET @location:=location_id_parameter;*/
 

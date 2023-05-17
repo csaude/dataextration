@@ -8,6 +8,7 @@ CREATE TABLE  `pharmacy_patient` (
   `district` varchar(100) DEFAULT NULL,
   `sex` varchar(255) DEFAULT NULL,
   `date_of_birth` datetime DEFAULT NULL,
+  `current_age` int(11) DEFAULT NULL,
   `enrollment_date` datetime DEFAULT NULL,
   `age_enrollment` int(11) DEFAULT NULL,
   `marital_status_at_enrollment` varchar(100) DEFAULT NULL,
@@ -24,6 +25,7 @@ CREATE TABLE  `pharmacy_patient` (
   `tb_co_infection` varchar(255) DEFAULT NULL,
   `lactation` varchar(255) DEFAULT NULL,
   `regime_TPT` varchar(255) DEFAULT NULL,
+  `profilaxia_status` varchar(255) DEFAULT NULL,
   `regime_CTZ` varchar(255) DEFAULT NULL,
   `weight_enrollment` double DEFAULT NULL,
   `weight_date` datetime DEFAULT NULL,
@@ -215,12 +217,16 @@ UPDATE pharmacy_patient,
 SET pharmacy_patient.date_of_birth=person.birthdate
 WHERE pharmacy_patient.patient_id=person.person_id;
 
+/*IDADE ACTUAL*/
+update pharmacy_patient,person set pharmacy_patient.current_age=timestampdiff(year,person.birthdate,endDate) where
+person_id=pharmacy_patient.patient_id;
+
 /*IDADE NA INSCRICAO*/
 update pharmacy_patient,person set pharmacy_patient.age_enrollment=round(datediff(pharmacy_patient.enrollment_date,person.birthdate)/365)
 where  person_id=pharmacy_patient.patient_id;
 
 /*Exclusion criteria*/
-delete from pharmacy_patient where age_enrollment<5;
+delete from pharmacy_patient where current_age<10;
 
   /*Sexo*/
 update pharmacy_patient,person set pharmacy_patient.sex=.person.gender
@@ -373,17 +379,18 @@ set pharmacy_patient.tb_co_infection= tb.cod
 where tb.patient_id=pharmacy_patient.patient_id;
 
 /*lactation*/
-update pharmacy_patient,obs
+update pharmacy_patient,obs,encounter
 set pharmacy_patient.lactation= case obs.value_coded 
              when 1065 then 'Yes'
              when 1066 then 'No'
              when 1067 then 'Unknown'
                        else null end        
-where obs.person_id=pharmacy_patient.patient_id and obs.concept_id=6332 and voided=0;
+where obs.person_id=pharmacy_patient.patient_id and obs.concept_id=6332 and obs.voided=0 and obs.encounter_id=encounter.encounter_id and
+encounter.encounter_datetime  between startDate and endDate;
 
 
 /*Regime TPT*/
-update pharmacy_patient,obs
+update pharmacy_patient,obs,encounter
 set pharmacy_patient.regime_TPT= case obs.value_coded 
              when 656 then 'ISONIAZID'
              when 23982 then 'Isoniazide + Piridoxina'
@@ -394,23 +401,40 @@ set pharmacy_patient.regime_TPT= case obs.value_coded
              when 165305 then '1HP'
              when 165306 then 'LFX'
              else null end        
-where obs.person_id=pharmacy_patient.patient_id and obs.concept_id=23985 and voided=0;
+where obs.person_id=pharmacy_patient.patient_id and obs.concept_id=23985 and obs.voided=0 and obs.encounter_id=encounter.encounter_id and
+encounter.encounter_datetime  between startDate and endDate;
+
+/*Regime profilaxia_status*/
+update pharmacy_patient,obs,encounter
+set pharmacy_patient.profilaxia_status= case obs.value_coded 
+             when 1256 then 'START DRUGS'
+             when 1257 then 'CONTINUE REGIMEN'
+             when 1267 then 'COMPLETED'
+             else null end        
+where obs.person_id=pharmacy_patient.patient_id and obs.concept_id=165308 and obs.voided=0
+and obs.encounter_id=encounter.encounter_id and
+encounter.encounter_datetime  between startDate and endDate;
+
 
 /*Regime CTZ*/
-update pharmacy_patient,obs
+update pharmacy_patient,obs,encounter
 set pharmacy_patient.regime_CTZ= case obs.value_coded 
              when 1256 then 'START DRUGS'
              when 1257 then 'CONTINUE REGIMEN'
              when 1267 then 'COMPLETED'
              else null end        
-where obs.person_id=pharmacy_patient.patient_id and obs.concept_id=6121 and voided=0;
+where obs.person_id=pharmacy_patient.patient_id and obs.concept_id=6121 and obs.voided=0
+and obs.encounter_id=encounter.encounter_id and
+encounter.encounter_datetime  between startDate and endDate;
 
 
-delete from pharmacy_patient where pregnancy_status_at_enrollment='Yes';
+/*delete from pharmacy_patient where pregnancy_status_at_enrollment='Yes';
 delete from pharmacy_patient where lactation='Yes';
 delete from pharmacy_patient where regime_TPT IS NOT NULL;
 delete from pharmacy_patient where regime_CTZ='CONTINUE REGIMEN';
 delete from pharmacy_patient where regime_CTZ='START DRUGS';
+delete from pharmacy_patient where profilaxia_status='CONTINUE REGIMEN';
+delete from pharmacy_patient where profilaxia_status='START DRUGS';*/
 
 
 /*CARGA VIRAL*/

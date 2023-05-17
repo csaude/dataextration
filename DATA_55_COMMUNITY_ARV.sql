@@ -767,7 +767,6 @@ update community_type_arv_dispensation,
 
  /* community model*/  
    insert into community_differentiated_model(patient_id,visit_date,differentiated_model) 
-
    select o.person_id,e.encounter_datetime,
     case o.value_coded
     when 23888  then 'SEMESTER ARV PICKUP (DS)'
@@ -823,8 +822,6 @@ update community_type_arv_dispensation,
     where community_differentiated_model.patient_id=final.patient_id
     and community_differentiated_model.visit_date=final.encounter_datetime;
 
-
-    
 /*DMC DISPENSATION VISIT GROUP*/
 insert into community_support_groups_visit(patient_id,date_elegibbly_support_groups)
 Select distinct p.patient_id,e.encounter_datetime 
