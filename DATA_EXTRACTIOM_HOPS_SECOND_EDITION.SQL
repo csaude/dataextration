@@ -541,6 +541,14 @@ from  hops p
     inner join encounter e on p.patient_id=e.patient_id 
 where   e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime  < endDate;
 
+/* PROXIMA VISITAS*/
+update hops_visit,obs 
+set  hops_visit.next_visit_date=obs.value_datetime
+where   hops_visit.patient_id=obs.person_id and
+    hops_visit.visit_date=obs.obs_datetime and 
+    obs.concept_id=1410 and 
+    obs.voided=0;
+
 
 /*TB start Date*/
 insert into hops_start_tb_tretment(patient_id,start_tb_treatment)
@@ -562,13 +570,7 @@ from  hops p
   group by p.patient_id;
 
 
-/* PROXIMA VISITAS*/
-update hops_visit,obs 
-set  hops_visit.next_visit_date=obs.value_datetime
-where   hops_visit.patient_id=obs.person_id and
-    hops_visit.visit_date=obs.obs_datetime and 
-    obs.concept_id=1410 and 
-    obs.voided=0;
+
 
 update hops,location
 set hops.health_facility=location.name
