@@ -36,10 +36,6 @@ CREATE TABLE  `ewh_patient` (
   `patient_status_12_months_date_` datetime DEFAULT NULL,
   `patient_status_24_months` varchar(225) DEFAULT NULL,
   `patient_status_24_months_date_` datetime DEFAULT NULL,
-  `last_clinic_visit` datetime DEFAULT NULL,
-  `scheduled_clinic_visit` datetime DEFAULT NULL,
-  `last_artpickup` datetime DEFAULT NULL,
-  `scheduled_artpickp` datetime DEFAULT NULL,  
   `regime_CTZ` varchar(255) DEFAULT NULL,
   `CTZ_prescribe` datetime DEFAULT NULL,
   `elegibbly_dmc` varchar(100) DEFAULT NULL,
@@ -61,8 +57,7 @@ CREATE TABLE  `ewh_patient` (
   KEY `patient_id` (`patient_id`),
   KEY `enrollment_date` (`enrollment_date`),
   KEY `date_of_birth` (`date_of_birth`),
-  KEY `height_enrollment_date` (`height_enrollment_date`),
-  KEY `weight_date` (`weight_date`)
+  KEY `height_enrollment_date` (`height_enrollment_date`)
   ) ENGINE=InnoDB AUTO_INCREMENT=32768 DEFAULT CHARSET=utf8;
 
 
@@ -117,7 +112,7 @@ DROP TABLE IF EXISTS `ewh_hops_start_tb_treatment`;
 CREATE TABLE `ewh_hops_start_tb_treatment` (
   `patient_id` int(11) DEFAULT NULL,
   `start_tb_treatment` datetime DEFAULT NULL,
-  `source` varchar(255) DEFAULT 'Ficha Clinica',
+  `source` varchar(255) DEFAULT 'Ficha Clinica'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -125,7 +120,7 @@ DROP TABLE IF EXISTS `ewh_hops_end_tb_treatment`;
 CREATE TABLE `ewh_hops_end_tb_treatment` (
   `patient_id` int(11) DEFAULT NULL,
   `end_tb_treatment` datetime DEFAULT NULL,
-  `source` varchar(255) DEFAULT 'Ficha Clinica',
+  `source` varchar(255) DEFAULT 'Ficha Clinica'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -134,7 +129,7 @@ CREATE TABLE `ewh_community_arv_weight` (
   `patient_id` int(11) DEFAULT NULL,
   `weight`  varchar(10) DEFAULT NULL,
   `weight_date` datetime DEFAULT NULL,
-  `source` varchar(255) DEFAULT 'Ficha Clinica',
+  `source` varchar(255) DEFAULT 'Ficha Clinica'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS `ewh_community_arv_height`;
@@ -142,7 +137,7 @@ CREATE TABLE `ewh_community_arv_height` (
   `patient_id` int(11) DEFAULT NULL,
   `height`  varchar(10) DEFAULT NULL,
   `height_enrollment_date` datetime DEFAULT NULL,
-  `source` varchar(255) DEFAULT 'Ficha Clinica',
+  `source` varchar(255) DEFAULT 'Ficha Clinica'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS `ewh_imc`;
@@ -150,7 +145,7 @@ CREATE TABLE `ewh_imc` (
   `patient_id` int(11) DEFAULT NULL,
   `imc`  varchar(10) DEFAULT NULL,
   `imd_date` datetime DEFAULT NULL,
-  `source` varchar(255) DEFAULT 'Ficha Clinica',
+  `source` varchar(255) DEFAULT 'Ficha Clinica'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS `ewh_hops_hemoglobin`;
@@ -173,7 +168,7 @@ CREATE TABLE IF NOT EXISTS `ewh_hops_visit` (
   `patient_id` int(11) DEFAULT NULL,
   `visit_date`   datetime DEFAULT NULL,
   `next_visit_date`   datetime DEFAULT NULL,
-  `source` varchar(255) DEFAULT 'Ficha Clinica',
+  `source` varchar(255) DEFAULT 'Ficha Clinica'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -210,7 +205,7 @@ CREATE TABLE `ewh_community_arv_posology` (
   `dmc_type` varchar(100) DEFAULT NULL,
   `therapeutic_line` varchar(100) DEFAULT NULL,
   `posology` varchar(100) DEFAULT NULL,
-  `regime` varchar(100) DEFAULT NULL,
+  `regime` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -293,7 +288,7 @@ where ewh_patient.location_id=location.location_id;
 delete from ewh_patient where location_id not in (@location);
 
   /*Sexo*/
-update ewh_patient,person set ewh_patient.sex=.person.gender
+update ewh_patient,person set ewh_patient.sex=person.gender
 where  person.person_id=ewh_patient.patient_id;
 
 /*DATA DE NASCIMENTO*/
@@ -313,7 +308,7 @@ where  person_id=ewh_patient.patient_id;
 /*PROFISSAO*/
 update ewh_patient,obs
 set ewh_patient.occupation_at_enrollment= obs.value_text
-where obs.person_id=ewh_patient.patient_id and obs.concept_id=1459 and voided=0;
+where obs.person_id=ewh_patient.patient_id and obs.concept_id=1459 and obs.voided=0;
 
 /*ESTADO CIVIL*/
 update ewh_patient,obs
@@ -327,7 +322,7 @@ set ewh_patient.marital_status_at_enrollment= case obs.value_coded
              else null end
 where obs.person_id=ewh_patient.patient_id and obs.concept_id=1054 and obs.voided=0; 
 
-*Adress1*/
+/*Adress1*/
 update ewh_patient,person_address set ewh_patient.adress_1=person_address.address1
 where person_id=ewh_patient.patient_id;
 
@@ -561,9 +556,9 @@ where ewh_patient.patient_id=seguimento.patient_id;
 /*NEXT CLINIC VISIT*/
 update  ewh_patient,obs,encounter
 set   scheduled_clinic_visit=value_datetime
-where   patient_id=person_id and 
-    obs_datetime=last_clinic_visit and encounter_type=6 and
-    concept_id=5096 and voided=0;
+where   ewh_patient.patient_id=obs.person_id and 
+    obs_datetime=last_clinic_visit and encounter.encounter_type=6 and
+    concept_id=5096 and obs.voided=0;
 
     /*LAST ART PICKUP*/
 update ewh_patient,
@@ -579,9 +574,9 @@ where ewh_patient.patient_id=levantamento.patient_id;
 
 update  ewh_patient,obs,encounter
 set   scheduled_artpickp=value_datetime
-where   patient_id=person_id and 
+where   ewh_patient.patient_id=obs.person_id and 
     obs_datetime=last_artpickup and 
-    concept_id=5096  and encounter_type=6 and voided=0;
+    concept_id=5096  and encounter.encounter_type=6 and obs.voided=0;
 
 /*PRIMEIRA CARGA VIRAL*/
 UPDATE ewh_patient,
@@ -789,7 +784,7 @@ insert into ewh_art_pick_up(patient_id,pickup_art,art_date)
   select distinct p.patient_id, case o.value_coded 
              when 1065 then 'YES'
              when 1066 then 'NO'
-             else null end as pick_art, e.encounter_datetime, 
+             else null end as pick_art, e.encounter_datetime
   from ewh_patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
@@ -944,8 +939,9 @@ update ewh_hops_visit,obs
 set  ewh_hops_visit.next_visit_date=obs.value_datetime
 where   ewh_hops_visit.patient_id=obs.person_id and
     ewh_hops_visit.visit_date=obs.obs_datetime and 
-    obs.concept_id=1410 and  and e.encounter_type=6
+    obs.concept_id=1410 and e.encounter_type=6 and
     obs.voided=0;
+
 /*Peso*/
 update ewh_patient,
 ( select  p.patient_id,
@@ -1130,62 +1126,73 @@ where   ewh_fila_drugs.patient_id=obs.person_id and
     obs.voided=0;
 
 /*Campo de acomodação*/
-    update ewh_fila_drugs,obs
-    ( select p.patient_id,e.encounter_datetime,
-    case obsEstado.value_coded
-    when 1065  then 'YES'
-    when 1066  then 'NO'
-    else null end  status
-    from ewh_patient p
-    inner join encounter e on e.patient_id=p.patient_id
-    inner join obs o on o.encounter_id=e.encounter_id
-    inner join obs obsEstado on obsEstado.encounter_id=e.encounter_id
-    where e.encounter_type=18 and e.voided=0 and o.voided=0
-    and o.concept_id=23856) accommodation
-set  ewh_fila_drugs.accommodation_camp=accommodation.value_coded
-where   ewh_fila_drugs.patient_id=accommodation.person_id and
-    ewh_fila_drugs.pickup_date=accommodation.obs_datetime;
+ UPDATE ewh_fila_drugs, obs
+SET ewh_fila_drugs.accommodation_camp = (
+    SELECT 
+        CASE obsEstado.value_coded
+            WHEN 1065 THEN 'YES'
+            WHEN 1066 THEN 'NO'
+            ELSE NULL
+        END
+    FROM ewh_patient p
+    INNER JOIN encounter e ON e.patient_id = p.patient_id
+    INNER JOIN obs o ON o.encounter_id = e.encounter_id
+    INNER JOIN obs obsEstado ON obsEstado.encounter_id = e.encounter_id
+    WHERE e.encounter_type = 18
+        AND e.voided = 0
+        AND o.voided = 0
+        AND o.concept_id = 23856
+        AND ewh_fila_drugs.patient_id = accommodation.person_id
+        AND ewh_fila_drugs.pickup_date = accommodation.obs_datetime
+)
+WHERE ewh_fila_drugs.patient_id = accommodation.person_id
+    AND ewh_fila_drugs.pickup_date = accommodation.obs_datetime;
+
 
 /*tipo de dispensa na FILA*/
- update ewh_fila_drugs,obs
-( select
-    case o.value_coded
-    when 23888  then 'SEMESTER ARV PICKUP (DS)'
-    when 165175 then 'NORMAL EXPEDIENT SCHEDULE'
-    when 165176 then 'OUT OF TIME'
-    when 165180 then 'DAILY MOBILE BRIGADES'
-    when 165181 then 'DAILY MOBILE BRIGADES (HOTSPOTS)'
-    when 165182 then 'DAILY MOBILE CLINICS'
-    when 165183 then 'NIGHT MOBILE BRIGADES (HOTSPOTS)'
-    when 165314 then 'ARV ANUAL DISPENSATION (DA)'
-    when 165315 then 'DESCENTRALIZED ARV DISPENSATION (DD)'
-    when 165178 then 'COMMUNITY DISPENSE VIA PROVIDER (DCP)'
-    when 165179 then 'COMMUNITY DISPENSE VIA APE (DCA)'
-    when 165264 then 'MOBILE BRIGADES (DCBM)'
-    when 165265 then 'MOBILE CLINICS (DCCM)'
-    when 23725  then 'FAMILY APPROACH (AF)'
-    when 23729  then 'RAPID FLOW (FR)'
-    when 23724  then 'GAAC (GA)'
-    when 23726  then 'ACCESSION CLUBS (CA)'
-    when 165316 then 'HOURS EXTENSION (EH)'
-    when 165317 then 'SINGLE STOP IN TB SECTOR (TB)'
-    when 165318 then 'SINGLE STOP ON TARV SERVICES (CT)'
-    when 165319 then 'SINGLE STOP SAAJ (SAAJ)'
-    when 165320 then 'SINGLE STOP SMI (SMI)'
-    when 165321 then 'HIV ADVANCED DISEASE (DAH)'
-    when 23727  then 'SINGLE STOP (PU)'
-    when 165177 then 'FARMAC/PRIVATE PHARMACY (FARMAC)'
-    when 23731  then 'COMMUNITY DISPENSATION (DC)'
-    when 23732  then 'OTHER'
-     when 23730  then 'QUARTERLY DISPENSATION (DT)'
-    else null end  as code
-    from obs o
-    inner join encounter e on e.encounter_id=o.encounter_id
-        where e.voided=0 and o.voided=0
-    and o.concept_id=165174) model
-set  ewh_fila_drugs.dispensation_model=model.value_coded
-where   ewh_fila_drugs.patient_id=model.person_id and
-    ewh_fila_drugs.pickup_date=model.obs_datetime;
+UPDATE ewh_fila_drugs, obs
+SET ewh_fila_drugs.dispensation_model = (
+    SELECT 
+        CASE o.value_coded
+            WHEN 23888 THEN 'SEMESTER ARV PICKUP (DS)'
+            WHEN 165175 THEN 'NORMAL EXPEDIENT SCHEDULE'
+            WHEN 165176 THEN 'OUT OF TIME'
+            WHEN 165180 THEN 'DAILY MOBILE BRIGADES'
+            WHEN 165181 THEN 'DAILY MOBILE BRIGADES (HOTSPOTS)'
+            WHEN 165182 THEN 'DAILY MOBILE CLINICS'
+            WHEN 165183 THEN 'NIGHT MOBILE BRIGADES (HOTSPOTS)'
+            WHEN 165314 THEN 'ARV ANUAL DISPENSATION (DA)'
+            WHEN 165315 THEN 'DESCENTRALIZED ARV DISPENSATION (DD)'
+            WHEN 165178 THEN 'COMMUNITY DISPENSE VIA PROVIDER (DCP)'
+            WHEN 165179 THEN 'COMMUNITY DISPENSE VIA APE (DCA)'
+            WHEN 165264 THEN 'MOBILE BRIGADES (DCBM)'
+            WHEN 165265 THEN 'MOBILE CLINICS (DCCM)'
+            WHEN 23725 THEN 'FAMILY APPROACH (AF)'
+            WHEN 23729 THEN 'RAPID FLOW (FR)'
+            WHEN 23724 THEN 'GAAC (GA)'
+            WHEN 23726 THEN 'ACCESSION CLUBS (CA)'
+            WHEN 165316 THEN 'HOURS EXTENSION (EH)'
+            WHEN 165317 THEN 'SINGLE STOP IN TB SECTOR (TB)'
+            WHEN 165318 THEN 'SINGLE STOP ON TARV SERVICES (CT)'
+            WHEN 165319 THEN 'SINGLE STOP SAAJ (SAAJ)'
+            WHEN 165320 THEN 'SINGLE STOP SMI (SMI)'
+            WHEN 165321 THEN 'HIV ADVANCED DISEASE (DAH)'
+            WHEN 23727 THEN 'SINGLE STOP (PU)'
+            WHEN 165177 THEN 'FARMAC/PRIVATE PHARMACY (FARMAC)'
+            WHEN 23731 THEN 'COMMUNITY DISPENSATION (DC)'
+            WHEN 23732 THEN 'OTHER'
+            WHEN 23730 THEN 'QUARTERLY DISPENSATION (DT)'
+            ELSE NULL
+        END
+    FROM obs o
+    INNER JOIN encounter e ON e.encounter_id = o.encounter_id
+    WHERE e.voided = 0
+        AND o.voided = 0
+        AND o.concept_id = 165174
+)
+WHERE ewh_fila_drugs.patient_id = model.person_id
+    AND ewh_fila_drugs.pickup_date = model.obs_datetime;
+
 
 
 
