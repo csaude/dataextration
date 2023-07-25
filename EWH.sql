@@ -24,6 +24,8 @@ CREATE TABLE  `ewh_patient` (
   `scheduled_artpickp` datetime DEFAULT NULL,  
   `WHO_clinical_stage_at_enrollment` varchar(10) DEFAULT NULL,
   `WHO_clinical_stage_at_enrollment_date` datetime DEFAULT NULL,
+  `first_viral_load_result` varchar(100) DEFAULT NULL,
+  `first_viral_load_result_date` datetime DEFAULT NULL,
   `last_tb_at_screening` varchar(255) DEFAULT NULL,
   `last_tb_co_infection` varchar(255) DEFAULT NULL,
   `patient_status_1_months` varchar(225) DEFAULT NULL,
@@ -75,7 +77,7 @@ CREATE TABLE `ewh_pharmacy_cd4_absolute` (
   `patient_id` int(11) DEFAULT NULL,
   `cd4` double DEFAULT NULL,
   `cd4_date` datetime DEFAULT NULL,
-  `uuid` varchar(255) DEFAULT NULL,
+  /*`uuid` varchar(255) DEFAULT NULL,*/
   `source` varchar(100) DEFAULT NULL,
   KEY `patient_id` (`patient_id`),
   KEY `cd4_date` (`cd4_date`)
@@ -96,7 +98,9 @@ CREATE TABLE `ewh_pharmacy_viral_load` (
   `patient_id` int(11) DEFAULT NULL,
   `cv` double DEFAULT NULL,
   `cv_qualit` varchar(300) DEFAULT NULL,
-  `cv_date` datetime DEFAULT NULL
+  `cv_comments` varchar(300) DEFAULT NULL,
+  `cv_date` datetime DEFAULT NULL,
+  `source` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -144,7 +148,7 @@ DROP TABLE IF EXISTS `ewh_imc`;
 CREATE TABLE `ewh_imc` (
   `patient_id` int(11) DEFAULT NULL,
   `imc`  varchar(10) DEFAULT NULL,
-  `imd_date` datetime DEFAULT NULL,
+  `imc_date` datetime DEFAULT NULL,
   `source` varchar(255) DEFAULT 'Ficha Clinica'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -692,7 +696,7 @@ where saida.patient_id=ewh_patient.patient_id;
     case e.encounter_type
     when 6 then 'Ficha Clinica'
     when 53 then 'Ficha Resumo'
-    else outro end as fonte
+    else null end as fonte
     from obs o
     inner join encounter e on e.encounter_id=o.encounter_id
         where e.voided=0 and o.voided=0
@@ -730,7 +734,7 @@ from  ewh_patient p
 where   e.voided=0 and o.voided=0 and e.encounter_type in (6,13) and o.concept_id=5497  and o.obs_datetime BETWEEN startDate AND endDate;
 
 /*CD4 percentage*/
-insert into ewh_pharmacy_cd4_percentage(patient_id,cd4,cd4_date)
+insert into ewh_pharmacy_cd4_percentage(patient_id,cd4,cd4_date, source)
 Select distinct p.patient_id,o.value_numeric, o.obs_datetime, case e.encounter_type
     when 6 then 'Ficha Clinica'
     when 13 then 'Ficha Laboratorio'
@@ -743,7 +747,7 @@ where   e.voided=0 and o.voided=0 and e.encounter_type in (6,13) and o.concept_i
 
 /*CARGA VIRAL*/
 insert into ewh_pharmacy_viral_load(patient_id,cv,cv_qualit,cv_comments,cv_date,source)
-select valor.patient_id,valor.value_numeric,valor.value_cod,valor.comments,valor.obs_datetime,valor.source
+select valor.patient_id,valor.value_numeric,valor.value_cod,valor.comments,valor.obs_datetime,valor.encounter_type
 from
 (Select p.patient_id,
     o.value_numeric,
@@ -760,24 +764,16 @@ from
      else null end as value_cod,
     o.comments,
 	  o.obs_datetime,
-    e.encounter_id,
-    case e.encounter_type
+        case e.encounter_type
     when 6 then 'Ficha Clinica'
     when 13 then 'Ficha Laboratorio'
     when 51 then 'FSR'
-    else null end as fonte
+    else null end as encounter_type
 from  ewh_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type in (6,13,51) and o.concept_id in (856,1305) and e.encounter_datetime  between startDate and endDate
-)  valor group by valor.patient_id,valor.value_numeric,valor.encounter_id; 
-
-
-
-
-
-
-
+)  valor group by valor.patient_id,valor.value_numeric/*,valor.encounter_id*/; 
 
 /*LEVANTAMENTO AMC_ART*/
 insert into ewh_art_pick_up(patient_id,pickup_art,art_date)
@@ -850,7 +846,7 @@ select  p.patient_id as patient_id, o.value_numeric,
             from  patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
-  where   e.voided=0 and e.encounter_typ=6 and o.obs_datetime=e.encounter_datetime and o.concept_id=5090 
+  where   e.voided=0 and e.encounter_type=6 and o.obs_datetime=e.encounter_datetime and o.concept_id=5090 
   AND p.patient_id in (select patient_id from ewh_patient) and o.obs_datetime   BETWEEN startDate AND endDate;
 
 /* Body mass index*/
@@ -860,7 +856,7 @@ select  p.patient_id as patient_id, o.value_numeric,
             from  patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
-  where   e.voided=0 and e.encounter_typ=6 and o.obs_datetime=e.encounter_datetime and o.concept_id=1342 
+  where   e.voided=0 and e.encounter_type=6 and o.obs_datetime=e.encounter_datetime and o.concept_id=1342 
   AND p.patient_id in (select patient_id from ewh_patient) and o.obs_datetime   BETWEEN startDate AND endDate;
 
 
@@ -1096,7 +1092,7 @@ when 53 then '[ABC/3TC] Abacavir 120mg/Lamivudina 60mg 30 Comp'
    encounter_datetime, obs_group_id
 from  ewh_patient p
 inner join encounter e on p.patient_id=e.patient_id 
-    inner join obs o on o.encounter_id=e.encounter_idconcept_id in (1088,165256)
+    inner join obs o on o.encounter_id=e.encounter_id and concept_id in (1088,165256)
     inner join drug d on o.value_drug=d.drug_id
 where   e.voided=0 and o.voided=0 and d.retired=0 and e.encounter_type=18 and o.concept_id in (1088,165256) and o.obs_datetime BETWEEN startDate AND endDate;
 
@@ -1142,11 +1138,11 @@ SET ewh_fila_drugs.accommodation_camp = (
         AND e.voided = 0
         AND o.voided = 0
         AND o.concept_id = 23856
-        AND ewh_fila_drugs.patient_id = accommodation.person_id
-        AND ewh_fila_drugs.pickup_date = accommodation.obs_datetime
+        AND ewh_fila_drugs.patient_id = o.person_id
+        AND ewh_fila_drugs.pickup_date = o.obs_datetime
 )
-WHERE ewh_fila_drugs.patient_id = accommodation.person_id
-    AND ewh_fila_drugs.pickup_date = accommodation.obs_datetime;
+WHERE ewh_fila_drugs.patient_id = obs.person_id
+    AND ewh_fila_drugs.pickup_date = obs.obs_datetime;
 
 
 /*tipo de dispensa na FILA*/
@@ -1190,10 +1186,8 @@ SET ewh_fila_drugs.dispensation_model = (
         AND o.voided = 0
         AND o.concept_id = 165174
 )
-WHERE ewh_fila_drugs.patient_id = model.person_id
-    AND ewh_fila_drugs.pickup_date = model.obs_datetime;
-
-
+WHERE ewh_fila_drugs.patient_id = obs.person_id
+    AND ewh_fila_drugs.pickup_date = obs.obs_datetime;
 
 
 /*DMC*/
