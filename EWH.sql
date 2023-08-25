@@ -43,10 +43,8 @@ CREATE TABLE  `ewh_patient` (
   `elegibbly_dmc` varchar(100) DEFAULT NULL,
   `date_elegibbly_dmc` datetime DEFAULT NULL,
   `current_status_in_DMC` varchar(225) DEFAULT NULL, 
-  `imc_`    double DEFAULT NULL,
-  `imc_date` datetime DEFAULT NULL,
-  `hemoglobin` int(11)  DEFAULT NULL,
   `blood_pressure` varchar(255) DEFAULT NULL,
+  `hemoglobin` int(11)  DEFAULT NULL,
   `hemoglobin_date` datetime DEFAULT NULL,
   `weight_enrollment` double DEFAULT NULL,
   `weight_enrollment_date` datetime DEFAULT NULL,
@@ -197,7 +195,7 @@ CREATE TABLE `ewh_fila_drugs` (
   `pickup_date` datetime DEFAULT NULL,
   `next_art_date` datetime DEFAULT NULL,
   `accommodation_camp` char(3) DEFAULT NULL,
-  `dispensation_model` char(3) DEFAULT NULL,
+  `dispensation_model` varchar(300) DEFAULT NULL,
   `source` varchar(100) DEFAULT 'FILA'
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -276,6 +274,13 @@ insert into ewh_patient(patient_id, enrollment_date, location_id)
 
 /*distrito*/
 Update ewh_patient set ewh_patient.district=district;
+
+/*NID*/
+UPDATE ewh_patient,
+       patient_identifier
+SET ewh_patient.nid=patient_identifier.identifier
+where ewh_patient.patient_id=patient_identifier.patient_id;
+
 
 /*BUSCAR ID DO PACIENTE E LOCATION*/
 UPDATE ewh_patient,
@@ -657,8 +662,20 @@ set 	ewh_patient.current_status_in_DMC=saida.codeestado
 /*ewh_patient.patient_status_date=saida.start_date*/
 where saida.patient_id=ewh_patient.patient_id;
 
-
-
+/*imc
+update ewh_patient,
+( select  p.patient_id,
+      min(encounter_datetime) encounter_datetime
+  from  patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.encounter_id=e.encounter_id
+  where   e.voided=0 and e.encounter_type=1 and o.obs_datetime=e.encounter_datetime and o.concept_id=1342 and e.encounter_datetime between startDate and endDate
+  group by p.patient_id
+)imc,obs
+set ewh_patient.imc=obs.value_numeric, ewh_patient.imc_date=imc.encounter_datetime
+where ewh_patient.patient_id=obs.person_id 
+and ewh_patient.patient_id=imc.patient_id 
+and obs.voided=0 and obs.obs_datetime=imc.encounter_datetime;*/
 
 /* community model*/  
    insert into ewh_patient_model(patient_id,visit_date,differentiated_model,source) 
@@ -773,7 +790,7 @@ from  ewh_patient p
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type in (6,13,51) and o.concept_id in (856,1305) and e.encounter_datetime  between startDate and endDate
-)  valor group by valor.patient_id,valor.value_numeric/*,valor.encounter_id*/; 
+)  valor group by valor.patient_id,valor.obs_datetime; 
 
 /*LEVANTAMENTO AMC_ART*/
 insert into ewh_art_pick_up(patient_id,pickup_art,art_date)
@@ -931,11 +948,11 @@ from  ewh_patient p
 where   e.voided=0 and e.encounter_type=6 and e.encounter_datetime  < endDate;
 
 /* PROXIMA VISITAS*/
-update ewh_hops_visit,obs 
+update ewh_hops_visit,encounter,obs 
 set  ewh_hops_visit.next_visit_date=obs.value_datetime
 where   ewh_hops_visit.patient_id=obs.person_id and
     ewh_hops_visit.visit_date=obs.obs_datetime and 
-    obs.concept_id=1410 and e.encounter_type=6 and
+    obs.concept_id=1410 and encounter.encounter_type=6 and
     obs.voided=0;
 
 /*Peso*/
@@ -945,7 +962,7 @@ update ewh_patient,
   from  patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
-  where   e.voided=0 and e.encounter_type=1 
+  where   e.voided=0 and e.encounter_type=6
   and o.obs_datetime=e.encounter_datetime and o.concept_id=5089 and e.encounter_datetime between startDate and endDate
   group by p.patient_id
 )peso,obs
@@ -962,7 +979,7 @@ update ewh_patient,
       from  patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.encounter_id=e.encounter_id
-  where   e.voided=0 and e.encounter_type=1 and o.obs_datetime=e.encounter_datetime and o.concept_id=5090 and e.encounter_datetime between startDate and endDate
+  where   e.voided=0 and e.encounter_type=6 and o.obs_datetime=e.encounter_datetime and o.concept_id=5090 and e.encounter_datetime between startDate and endDate
   group by p.patient_id
 )altura,obs
 set ewh_patient.height_enrollment=obs.value_numeric, ewh_patient.height_enrollment_date=altura.encounter_datetime
@@ -1045,6 +1062,7 @@ select  p.patient_id, case  o.value_coded
         when 23787 then 'ABC+AZT+LPV/r'
         when 23789 then 'TDF+AZT+LPV/r'
         when 23788 then 'TDF+ABC+3TC+LPV/r'
+        when 5424 then 'OTHER ANTIRETROVIRAL DRUG'
         when 165330 then 'ATV/r+TDF+3TC+DTG'
         else null end,
 case d.drug_id     
@@ -1122,33 +1140,30 @@ where   ewh_fila_drugs.patient_id=obs.person_id and
     obs.voided=0;
 
 /*Campo de acomodação*/
- UPDATE ewh_fila_drugs, obs
-SET ewh_fila_drugs.accommodation_camp = (
-    SELECT 
-        CASE obsEstado.value_coded
-            WHEN 1065 THEN 'YES'
-            WHEN 1066 THEN 'NO'
-            ELSE NULL
-        END
-    FROM ewh_patient p
-    INNER JOIN encounter e ON e.patient_id = p.patient_id
-    INNER JOIN obs o ON o.encounter_id = e.encounter_id
-    INNER JOIN obs obsEstado ON obsEstado.encounter_id = e.encounter_id
-    WHERE e.encounter_type = 18
-        AND e.voided = 0
-        AND o.voided = 0
-        AND o.concept_id = 23856
-        AND ewh_fila_drugs.patient_id = o.person_id
-        AND ewh_fila_drugs.pickup_date = o.obs_datetime
-)
-WHERE ewh_fila_drugs.patient_id = obs.person_id
-    AND ewh_fila_drugs.pickup_date = obs.obs_datetime;
+UPDATE ewh_fila_drugs AS efd
+JOIN obs AS obs_patient ON efd.patient_id = obs_patient.person_id
+                         AND efd.pickup_date = obs_patient.obs_datetime
+JOIN ewh_patient AS p ON efd.patient_id = p.patient_id
+JOIN encounter AS e ON p.patient_id = e.patient_id
+JOIN obs AS o ON e.encounter_id = o.encounter_id
+JOIN obs AS obsEstado ON e.encounter_id = obsEstado.encounter_id
+SET efd.accommodation_camp = CASE obsEstado.value_coded
+                                WHEN 1065 THEN 'YES'
+                                WHEN 1066 THEN 'NO'
+                                ELSE NULL
+                            END
+WHERE e.encounter_type = 18
+    AND e.voided = 0
+    AND o.voided = 0
+    AND o.concept_id = 23856;
+
 
 
 /*tipo de dispensa na FILA*/
-UPDATE ewh_fila_drugs, obs
-SET ewh_fila_drugs.dispensation_model = (
-    SELECT 
+UPDATE ewh_fila_drugs, obs,
+
+(
+    SELECT o.obs_id,
         CASE o.value_coded
             WHEN 23888 THEN 'SEMESTER ARV PICKUP (DS)'
             WHEN 165175 THEN 'NORMAL EXPEDIENT SCHEDULE'
@@ -1179,18 +1194,21 @@ SET ewh_fila_drugs.dispensation_model = (
             WHEN 23732 THEN 'OTHER'
             WHEN 23730 THEN 'QUARTERLY DISPENSATION (DT)'
             ELSE NULL
-        END
+        END as regime
     FROM obs o
     INNER JOIN encounter e ON e.encounter_id = o.encounter_id
     WHERE e.voided = 0
         AND o.voided = 0
         AND o.concept_id = 165174
-)
+) dis
+
+SET ewh_fila_drugs.dispensation_model = dis.regime
 WHERE ewh_fila_drugs.patient_id = obs.person_id
-    AND ewh_fila_drugs.pickup_date = obs.obs_datetime;
+    AND ewh_fila_drugs.pickup_date = obs.obs_datetime
+    AND obs.obs_id=dis.obs_id;
 
 
-/*DMC*/
+/*Posologia*/
 insert into ewh_community_arv_posology(patient_id,visit_date)
 Select distinct p.patient_id,e.encounter_datetime 
 from  ewh_patient p 
@@ -1228,23 +1246,9 @@ where ewh_community_arv_posology.patient_id=obs.person_id and
     and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and ewh_community_arv_posology.visit_date=encounter.encounter_datetime;
 
 
-update ewh_patient,
-( select  p.patient_id,
-      min(encounter_datetime) encounter_datetime
-  from  patient p
-      inner join encounter e on p.patient_id=e.patient_id
-      inner join obs o on o.encounter_id=e.encounter_id
-  where   e.voided=0 and e.encounter_type=1 and o.obs_datetime=e.encounter_datetime and o.concept_id=1342 and e.encounter_datetime between startDate and endDate
-  group by p.patient_id
-)imc,obs
-set ewh_patient.imc=obs.value_numeric, ewh_patient.imc_date=imc.encounter_datetime
-where ewh_patient.patient_id=obs.person_id 
-and ewh_patient.patient_id=imc.patient_id 
-and obs.voided=0 and obs.obs_datetime=imc.encounter_datetime;
-
 /*Regime posologia*/
 update ewh_community_arv_posology,obs,encounter 
-set ewh_community_arv_posology.regime= case  o.value_coded     
+set ewh_community_arv_posology.regime= case  obs.value_coded     
         when 1651 then 'AZT+3TC+NVP'
         when 6324 then 'TDF+3TC+EFV'
         when 1703 then 'AZT+3TC+EFV'
@@ -1314,6 +1318,7 @@ set ewh_community_arv_posology.regime= case  o.value_coded
         when 23787 then 'ABC+AZT+LPV/r'
         when 23789 then 'TDF+AZT+LPV/r'
         when 23788 then 'TDF+ABC+3TC+LPV/r'
+        when 5424 then 'OTHER ANTIRETROVIRAL DRUG'
         when 165330 then 'ATV/r+TDF+3TC+DTG'
         else null end
         where ewh_community_arv_posology.patient_id=obs.person_id and
