@@ -179,7 +179,7 @@ CREATE TABLE IF NOT EXISTS `ewh_art_pick_up` (
   `patient_id` int(11) DEFAULT NULL,
   `pickup_art` varchar(5) DEFAULT NULL,
   `art_date` datetime DEFAULT NULL,
-  `next_art_date` datetime DEFAULT NULL,
+  `encounter` int(100) DEFAULT NULL,
   `source` varchar(100) DEFAULT 'Registo de Levantamento de ARVs Master Card'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -196,6 +196,7 @@ CREATE TABLE `ewh_fila_drugs` (
   `next_art_date` datetime DEFAULT NULL,
   `accommodation_camp` char(3) DEFAULT NULL,
   `dispensation_model` varchar(300) DEFAULT NULL,
+  `encounter` int(100) DEFAULT NULL,
   `source` varchar(100) DEFAULT 'FILA'
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -793,23 +794,23 @@ where   e.voided=0 and o.voided=0 and e.encounter_type in (6,13,51) and o.concep
 )  valor group by valor.patient_id,valor.obs_datetime; 
 
 /*LEVANTAMENTO AMC_ART*/
-insert into ewh_art_pick_up(patient_id,pickup_art,art_date)
+insert into ewh_art_pick_up(patient_id,pickup_art,encounter)
   select distinct p.patient_id, case o.value_coded 
              when 1065 then 'YES'
              when 1066 then 'NO'
-             else null end as pick_art, e.encounter_datetime
+             else null end as pick_art, e.encounter_id
   from ewh_patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
-  where   encounter_type=52 and o.concept_id=23865  and e.voided=0 
-  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and o.obs_datetime BETWEEN startDate AND endDate;
+  where   encounter_type=52 and o.concept_id=23865  and e.voided=0 and o.encounter_id=e.encounter_id
+  and p.patient_id=o.person_id and o.obs_datetime BETWEEN startDate AND endDate;
+
 
 update ewh_art_pick_up,obs
-set  ewh_art_pick_up.next_art_date=obs.value_datetime
+set  ewh_art_pick_up.art_date=obs.value_datetime
 where   ewh_art_pick_up.patient_id=obs.person_id and
-    ewh_art_pick_up.art_date=obs.obs_datetime and
-    obs.concept_id=5096 and
-    obs.voided=0;
+    obs.concept_id=23866 and
+    obs.voided=0 and ewh_art_pick_up.encounter=obs.encounter_id and obs.obs_datetime BETWEEN startDate AND endDate;
 
 
 /*TB*/
@@ -991,7 +992,7 @@ and obs.concept_id=5090;
 
 
 /*Formulação FILA*/
-insert into ewh_fila_drugs(patient_id,regime,formulation,pickup_date, group_id)
+insert into ewh_fila_drugs(patient_id,regime,formulation,pickup_date, group_id, encounter)
 select  p.patient_id, case  o.value_coded     
                when 1651 then 'AZT+3TC+NVP'
         when 6324 then 'TDF+3TC+EFV'
@@ -1107,12 +1108,13 @@ when 51 then '[DTG] Dolutegravir 10 mg 90 Comp'
 when 52 then '[DTG] Dolutegravir 10 mg 30 Comp'
 when 53 then '[ABC/3TC] Abacavir 120mg/Lamivudina 60mg 30 Comp'				
    else null end,                  
-   encounter_datetime, obs_group_id
+   e.encounter_datetime, o.obs_group_id, e.encounter_id
 from  ewh_patient p
 inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id and concept_id in (1088,165256)
     inner join drug d on o.value_drug=d.drug_id
-where   e.voided=0 and o.voided=0 and d.retired=0 and e.encounter_type=18 and o.concept_id in (1088,165256) and o.obs_datetime BETWEEN startDate AND endDate;
+where   e.voided=0 and o.voided=0 and d.retired=0 and e.encounter_type=18 and o.concept_id in (1088,165256) 
+and o.obs_datetime BETWEEN startDate AND endDate;
 
 /*quantidade levantada*/
 update ewh_fila_drugs,obs
@@ -1137,7 +1139,7 @@ update ewh_fila_drugs,obs
 set  ewh_fila_drugs.next_art_date=obs.value_datetime
 where   ewh_fila_drugs.patient_id=obs.person_id and
       obs.concept_id=5096 and
-    obs.voided=0;
+    obs.voided=0 and ewh_fila_drugs.encounter=obs.encounter_id and obs.obs_datetime BETWEEN startDate AND endDate;
 
 /*Campo de acomodação*/
 UPDATE ewh_fila_drugs AS efd
