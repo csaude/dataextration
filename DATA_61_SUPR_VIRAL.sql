@@ -60,22 +60,54 @@ CREATE TABLE `sp_pharmacy_viral_load` (
   `source` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `sp_hops_visit`;
-CREATE TABLE IF NOT EXISTS `sp_hops_visit` (
+DROP TABLE IF EXISTS `sp_visit`;
+CREATE TABLE IF NOT EXISTS `sp_visit` (
   `patient_id` int(11) DEFAULT NULL,
   `visit_date`   datetime DEFAULT NULL,
   `next_visit_date`   datetime DEFAULT NULL,
-  `source` varchar(255)
+  `source` varchar(255),
+  `encounter` int(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS `sp_art_regimes`;
 CREATE TABLE `sp_art_regimes` (
   `patient_id` int(11) DEFAULT NULL,
   `regime` varchar(255) DEFAULT NULL,
-  `regime_date` datetime DEFAULT NULL,
-  KEY `patient_id` (`patient_id`),
-  KEY `regime_date` (`regime_date`)
+  `regime_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+DROP TABLE IF EXISTS `sp_reint_visit`;
+CREATE TABLE `sp_reint_visit` (
+  `patient_id` int(11) DEFAULT NULL,
+  `visit_type` varchar(255) DEFAULT NULL,
+  `first_visit_date` datetime DEFAULT NULL,
+  `found_1` varchar(25) DEFAULT NULL,
+  `second_visit_date` datetime DEFAULT NULL,
+  `third_visit_date` datetime DEFAULT NULL,
+  `reason_missed_visit` varchar(255) DEFAULT NULL,
+  `date_return_us_1` datetime DEFAULT NULL,
+  `date_return_us_2` datetime DEFAULT NULL,
+  `date_return_us_3` datetime DEFAULT NULL,
+  `encounter` int(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+DROP TABLE IF EXISTS `sp_differentiated_model`;
+CREATE TABLE `sp_differentiated_model` (
+  `patient_id` int(11) DEFAULT NULL,
+  `visit_date` datetime DEFAULT NULL,
+  `differentiated_model` varchar(100) DEFAULT NULL,
+  `differentiated_model_status` varchar(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+
+CREATE INDEX idx_patient_id ON sp_patient(patient_id);
+CREATE INDEX idx_encounter_datetime ON encounter(encounter_datetime);
+CREATE INDEX idx_encounter_type ON encounter(encounter_type);
+CREATE INDEX idx_obs_datetime ON obs(obs_datetime);
+
 
 -- ----------------------------
 -- Procedure structure for Fillewh
@@ -89,9 +121,10 @@ begin
 truncate table sp_art_pick_up;
 truncate table sp_fila_drugs;
 truncate table sp_pharmacy_viral_load;
-truncate table sp_hops_visit;
+truncate table sp_visit;
 truncate table sp_art_regimes;
-
+truncate table sp_reint_visit;
+truncate table sp_differentiated_model;
 
 SET @location:=location_id_parameter;
 
@@ -150,7 +183,7 @@ WHERE sp_patient.patient_id=person.person_id;
 /*SEXO*/
 UPDATE sp_patient,
        person
-SET sp_patient.openmrs_gender=.person.gender
+SET sp_patient.openmrs_gender=person.gender
 WHERE sp_patient.patient_id=person.person_id;
 
 
@@ -308,18 +341,18 @@ insert into sp_art_pick_up(patient_id,pickup_art,encounter)
              when 1065 then 'YES'
              when 1066 then 'NO'
              else null end as pick_art, e.encounter_id
-  from ewh_patient p
+  from sp_patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
   where   encounter_type=52 and o.concept_id=23865  and e.voided=0 and o.encounter_id=e.encounter_id
-  and p.patient_id=o.person_id and o.obs_datetime BETWEEN startDate AND endDate;
+  and p.patient_id=o.person_id and o.obs_datetime < endDate;
 
 
 update sp_art_pick_up,obs
 set  sp_art_pick_up.art_date=obs.value_datetime
 where   sp_art_pick_up.patient_id=obs.person_id and
     obs.concept_id=23866 and
-    obs.voided=0 and sp_art_pick_up.encounter=obs.encounter_id and obs.obs_datetime BETWEEN startDate AND endDate;
+    obs.voided=0 and sp_art_pick_up.encounter=obs.encounter_id and obs.obs_datetime < endDate;
 
 
 
@@ -441,12 +474,12 @@ when 52 then '[DTG] Dolutegravir 10 mg 30 Comp'
 when 53 then '[ABC/3TC] Abacavir 120mg/Lamivudina 60mg 30 Comp'				
    else null end,                  
    e.encounter_datetime, o.obs_group_id, e.encounter_id
-from  ewh_patient p
+from  sp_patient p
 inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id and concept_id in (1088,165256)
     inner join drug d on o.value_drug=d.drug_id
 where   e.voided=0 and o.voided=0 and d.retired=0 and e.encounter_type=18 and o.concept_id in (1088,165256) 
-and o.obs_datetime BETWEEN startDate AND endDate;
+and o.obs_datetime < endDate;
 
 /*quantidade levantada*/
 update sp_fila_drugs,obs
@@ -471,13 +504,13 @@ update sp_fila_drugs,obs
 set  sp_fila_drugs.next_art_date=obs.value_datetime
 where   sp_fila_drugs.patient_id=obs.person_id and
       obs.concept_id=5096 and
-    obs.voided=0 and sp_fila_drugs.encounter=obs.encounter_id and obs.obs_datetime BETWEEN startDate AND endDate;
+    obs.voided=0 and sp_fila_drugs.encounter=obs.encounter_id and obs.obs_datetime < endDate;
 
 /*Campo de acomodação*/
 UPDATE sp_fila_drugs AS efd
 JOIN obs AS obs_patient ON efd.patient_id = obs_patient.person_id
                          AND efd.pickup_date = obs_patient.obs_datetime
-JOIN ewh_patient AS p ON efd.patient_id = p.patient_id
+JOIN sp_patient AS p ON efd.patient_id = p.patient_id
 JOIN encounter AS e ON p.patient_id = e.patient_id
 JOIN obs AS o ON e.encounter_id = o.encounter_id
 JOIN obs AS obsEstado ON e.encounter_id = obsEstado.encounter_id
@@ -569,35 +602,42 @@ from
 from  sp_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type in (6,13,51) and o.concept_id in (856,1305) and e.encounter_datetime  between startDate and endDate
+where   e.voided=0 and o.voided=0 and e.encounter_type in (6,13,51) and o.concept_id in (856,1305) and e.encounter_datetime < endDate
 )  valor group by valor.patient_id,valor.obs_datetime; 
 
 
 /*VISITAS*/
-insert into sp_hops_visit(patient_id,visit_date,source)
+insert into sp_visit(patient_id,visit_date,source, encounter)
 Select distinct p.patient_id,e.encounter_datetime, case e.encounter_type
     when 6 then 'Ficha Clinica'
     when 53 then 'Ficha Resumo'
-    when 51 then 'FSR'
-    else null end as encounter_type
+    when 35 then 'Ficha APSS e PP'
+    else null end as encounter_type, e.encounter_id
 from  sp_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
-where   e.voided=0 and e.encounter_type in (6,53) and e.encounter_datetime  < endDate;
+    inner join obs o on o.encounter_id=e.encounter_id 
+where   e.voided=0 and e.encounter_type in (6,53,35) and e.encounter_datetime  < endDate;
 
-/* PROXIMA VISITAS*/
-update sp_hops_visit,encounter,obs 
-set  sp_hops_visit.next_visit_date=obs.value_datetime
-where   sp_hops_visit.patient_id=obs.person_id and
-    sp_hops_visit.visit_date=obs.obs_datetime and 
-    obs.concept_id=1410 and encounter.encounter_type=6 and
-    obs.voided=0;
+/* PROXIMA VISITAS Clinica*/
+update sp_visit,obs,encounter 
+set  sp_visit.next_visit_date=obs.value_datetime
+where   sp_visit.patient_id=obs.person_id and
+    obs.concept_id=1410 and 
+    encounter.encounter_type=6 and obs.voided=0 and sp_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
 
+
+/* PROXIMA VISITAS Apss*/
+update sp_visit,obs,encounter
+set  sp_visit.next_visit_date=obs.value_datetime
+where   sp_visit.patient_id=obs.person_id and 
+    obs.concept_id=6310 and 
+    encounter.encounter_type=35 and obs.voided=0 and sp_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
 
 /*LEVANTAMENTO Regime*/
 insert into sp_art_regimes(patient_id,regime,regime_date)
   select distinct p.patient_id,
   case   o.value_coded     
-                when 1651 then 'AZT+3TC+NVP'
+        when 1651 then 'AZT+3TC+NVP'
         when 6324 then 'TDF+3TC+EFV'
         when 1703 then 'AZT+3TC+EFV'
         when 6243 then 'TDF+3TC+NVP'
@@ -668,16 +708,207 @@ insert into sp_art_regimes(patient_id,regime,regime_date)
         when 23788 then 'TDF+ABC+3TC+LPV/r'
         when 165330 then 'ATV/r+TDF+3TC+DTG'
         when 6424 then 'TDF+3TC+LPV/r'
-
         else null end,
         encounter_datetime
-  from hops p
+  from sp_patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
   where   encounter_type in (53,6) and o.concept_id=23893  and e.voided=0  
   and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and o.obs_datetime < endDate; 
 
-  
+ /*VISITAS REITEGRAÇÃO*/
+insert into sp_reint_visit(patient_id,first_visit_date,visit_type, found_1, encounter)
+select 
+consultas.patient_id,
+consultas.encounter_datetime,
+tipo_visita.encounter_type,
+encontrado.found_1,
+consultas.encounter_id
+from
+-- Consultas
+(Select 
+p.patient_id, 
+e.encounter_datetime, 
+e.encounter_id
+from 
+sp_patient p inner join encounter e on p.patient_id=e.patient_id
+where   e.voided=0  and e.encounter_type=21 and e.encounter_datetime  BETWEEN startDate AND endDate
+) consultas
+
+-- Informacao adicional das consultas
+left  join
+(
+Select 
+e.encounter_id,
+case o.value_coded
+    when 2161 then 'SUPPORT VISIT'
+    when 2160 then 'MISSED VISIT'
+    when 23914 then 'VISIT FOR SPECIAL CASES'
+ else null end as encounter_type
+
+from  sp_patient p
+    inner join encounter e on p.patient_id=e.patient_id
+    INNER JOIN obs o ON o.encounter_id=e.encounter_id
+where   e.voided=0 and o.concept_id in (1981) and e.encounter_type=21 and e.encounter_datetime  BETWEEN startDate AND endDate
+
+) tipo_visita on consultas.encounter_id=tipo_visita.encounter_id
+left  join
+(
+Select
+e.encounter_id,
+    case o.value_coded
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end as found_1
+from  sp_patient p
+    inner join encounter e on p.patient_id=e.patient_id
+    INNER JOIN obs o ON o.encounter_id=e.encounter_id
+where   e.voided=0 and o.concept_id in (2003) and e.encounter_type=21 and e.encounter_datetime  BETWEEN startDate AND endDate
+) encontrado on consultas.encounter_id=encontrado.encounter_id;
+
+
+/*segunda visita*/
+update sp_reint_visit,encounter,obs
+set sp_reint_visit.second_visit_date=obs.value_datetime
+where sp_reint_visit.patient_id=obs.person_id 
+and sp_reint_visit.encounter=obs.encounter_id
+and obs.concept_id=6254 and encounter.encounter_type=21 and obs.voided=0;
+
+/*terceira visita*/
+update sp_reint_visit,encounter,obs
+set sp_reint_visit.third_visit_date=obs.value_datetime
+where sp_reint_visit.patient_id=obs.person_id 
+and sp_reint_visit.encounter=obs.encounter_id
+and obs.concept_id=6255 and encounter.encounter_type=21 and obs.voided=0;
+
+/*motivos de falta*/
+UPDATE sp_reint_visit,
+(select
+reii.encounter_id,
+GROUP_CONCAT(reii.motivo) AS motivo
+from
+(
+    SELECT
+o.encounter_id,
+o.obs_id,
+        CASE o.value_coded
+            WHEN 2005 THEN 'PATIENT FORGOT VISIT DATE '
+            WHEN 2013 THEN 'PATIENT IS TREATING HIV WITH TRADITIONAL MEDICINE '
+            WHEN 2009 THEN 'PATIENT HAS SOCIAL PROBLEMS '
+            WHEN 2011 THEN 'PATIENT TOOK A TRIP '
+            WHEN 2007 THEN 'DISTANCE OR MONEY FOR TRANSPORT IS TO MUCH FOR PATIENT '
+            WHEN 2014 THEN 'PATIENTS WORK PREVENTS CLINIC VISIT '
+            WHEN 2012 THEN 'PATIENT HAS LACK OF MOTIVATION '
+            WHEN 2008 THEN 'PATIENT HAS LACK OF FOOD '
+            WHEN 5622 THEN 'Other '
+            WHEN 2010 THEN 'PATIENT IS DISSATISFIED WITH DAY HOSPITAL SERVICES '
+            WHEN 2015 THEN 'PATIENT DOES NOT LIKE ARV TREATMENT SIDE EFFECTS '
+            WHEN 2006 THEN 'PATIENT IS BEDRIDDEN AT HOME '
+            WHEN 2017 THEN 'OTHER REASON WHY PATIENT MISSED VISIT '
+            WHEN 6436 THEN 'STIGMA '
+            WHEN 6439 THEN 'Changed health unit '
+            WHEN 1956 THEN 'PATIENT DOES NOT BELIEVE TEST RESULTS '
+            WHEN 6186 THEN 'PATIENT DOES NOT BELIEVE ARV TREATMENT '
+            WHEN 6437 THEN 'Partner does not allow to return to health facility '
+            WHEN 23863 THEN 'AUTO TRANSFER '
+            WHEN 23915 THEN 'FEAR OF THE PROVIDER '
+            WHEN 23946 THEN 'Absence of Health Provider in Health Unit '
+            WHEN 1898 THEN 'RELIGION '
+            WHEN 1706 THEN 'TRANSFERRED OUT TO ANOTHER FACILITY '
+            WHEN 6303 THEN 'BASED GENDER VIOLENCE '
+            WHEN 23767 THEN 'FEEL BETTER (E)'
+                     ELSE NULL
+        END as motivo
+    FROM obs o
+    INNER JOIN encounter e ON e.encounter_id = o.encounter_id
+    WHERE e.voided = 0
+        AND o.voided = 0
+        AND o.concept_id = 2016
+) reii
+
+group by reii.encounter_id
+) rei
+
+SET sp_reint_visit.reason_missed_visit=rei.motivo
+WHERE  sp_reint_visit.encounter = rei.encounter_id;
+
+/*retorno primeira visita*/
+update sp_reint_visit,encounter,obs
+set sp_reint_visit.date_return_us_1=obs.value_datetime
+where sp_reint_visit.patient_id=obs.person_id 
+and sp_reint_visit.encounter=obs.encounter_id
+and obs.concept_id=23933 and encounter.encounter_type=21 and obs.voided=0;
+
+/*retorno segunda visita*/
+update sp_reint_visit,encounter,obs
+set sp_reint_visit.date_return_us_2=obs.value_datetime
+where sp_reint_visit.patient_id=obs.person_id 
+and sp_reint_visit.encounter=obs.encounter_id
+and obs.concept_id=23934 and encounter.encounter_type=21 and obs.voided=0;
+
+/*retorno terceira visita*/
+update sp_reint_visit,encounter,obs
+set sp_reint_visit.date_return_us_3=obs.value_datetime
+where sp_reint_visit.patient_id=obs.person_id 
+and sp_reint_visit.encounter=obs.encounter_id
+and obs.concept_id=23935 and encounter.encounter_type=21 and obs.voided=0;
+
+/* community model*/  
+   insert into sp_differentiated_model(patient_id,visit_date,differentiated_model) 
+   select o.person_id,e.encounter_datetime,
+    case o.value_coded
+    when 23888  then 'SEMESTER ARV PICKUP (DS)'
+    when 165175 then 'NORMAL EXPEDIENT SCHEDULE'
+    when 165176 then 'OUT OF TIME'
+    when 165180 then 'DAILY MOBILE BRIGADES'
+    when 165181 then 'DAILY MOBILE BRIGADES (HOTSPOTS)'
+    when 165182 then 'DAILY MOBILE CLINICS'
+    when 165183 then 'NIGHT MOBILE BRIGADES (HOTSPOTS)'
+    when 165314 then 'ARV ANUAL DISPENSATION (DA)'
+    when 165315 then 'DESCENTRALIZED ARV DISPENSATION (DD)'
+    when 165178 then 'COMMUNITY DISPENSE VIA PROVIDER (DCP)'
+    when 165179 then 'COMMUNITY DISPENSE VIA APE (DCA)'
+    when 165264 then 'MOBILE BRIGADES (DCBM)'
+    when 165265 then 'MOBILE CLINICS (DCCM)'
+    when 23725  then 'FAMILY APPROACH (AF)'
+    when 23729  then 'RAPID FLOW (FR)'
+    when 23724  then 'GAAC (GA)'
+    when 23726  then 'ACCESSION CLUBS (CA)'
+    when 165316 then 'HOURS EXTENSION (EH)'
+    when 165317 then 'SINGLE STOP IN TB SECTOR (TB)'
+    when 165318 then 'SINGLE STOP ON TARV SERVICES (CT)'
+    when 165319 then 'SINGLE STOP SAAJ (SAAJ)'
+    when 165320 then 'SINGLE STOP SMI (SMI)'
+    when 165321 then 'HIV ADVANCED DISEASE (DAH)'
+    when 23727  then 'SINGLE STOP (PU)'
+    when 165177 then 'FARMAC/PRIVATE PHARMACY (FARMAC)'
+    when 23731  then 'COMMUNITY DISPENSATION (DC)'
+    when 23732  then 'OTHER'
+     when 23730  then 'QUARTERLY DISPENSATION (DT)'
+    else null end  as code
+    from obs o
+    inner join encounter e on e.encounter_id=o.encounter_id
+        where e.voided=0 and o.voided=0
+    and o.concept_id=165174 and e.encounter_type=6 and e.encounter_datetime BETWEEN startDate AND endDate
+        and person_id IN (select patient_id from sp_patient);
+
+    update sp_differentiated_model,
+    (
+    select p.patient_id,e.encounter_datetime,
+    case obsEstado.value_coded
+    when 1256  then 'START DRUGS'
+    when 1257  then 'CONTINUE REGIMEN'
+    when 1267  then 'COMPLETED' else null end  status
+    from sp_patient p
+    inner join encounter e on e.patient_id=p.patient_id
+    inner join obs o on o.encounter_id=e.encounter_id
+    inner join obs obsEstado on obsEstado.encounter_id=e.encounter_id
+    where e.encounter_type in (6) and e.voided=0 and o.voided=0
+    and o.concept_id=165174  and obsEstado.concept_id=165322 and obsEstado.voided=0
+    ) final
+    set sp_differentiated_model.differentiated_model_status=final.status
+    where sp_differentiated_model.patient_id=final.patient_id
+    and sp_differentiated_model.visit_date=final.encounter_datetime;
 
 /* Urban and Main*/
 update sp_patient set urban='N';
