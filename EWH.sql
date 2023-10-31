@@ -38,6 +38,8 @@ CREATE TABLE  `ewh_patient` (
   `patient_status_12_months_date_` datetime DEFAULT NULL,
   `patient_status_24_months` varchar(225) DEFAULT NULL,
   `patient_status_24_months_date_` datetime DEFAULT NULL,
+  `pregnancy_status_at_enrollment` varchar(100) DEFAULT NULL,
+  `women_status` varchar(100) DEFAULT NULL,
   `regime_CTZ` varchar(255) DEFAULT NULL,
   `CTZ_prescribe` datetime DEFAULT NULL,
   `elegibbly_dmc` varchar(100) DEFAULT NULL,
@@ -102,24 +104,24 @@ CREATE TABLE `ewh_pharmacy_viral_load` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
-DROP TABLE IF EXISTS `ewh_hops_tb_investigation`;
-CREATE TABLE `ewh_hops_tb_investigation` (
+DROP TABLE IF EXISTS `ewh_tb_investigation`;
+CREATE TABLE `ewh_tb_investigation` (
   `patient_id` int(11) DEFAULT NULL,
   `tb` varchar(255) DEFAULT NULL,
   `tb_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
-DROP TABLE IF EXISTS `ewh_hops_start_tb_treatment`;
-CREATE TABLE `ewh_hops_start_tb_treatment` (
+DROP TABLE IF EXISTS `ewh_start_tb_treatment`;
+CREATE TABLE `ewh_start_tb_treatment` (
   `patient_id` int(11) DEFAULT NULL,
   `start_tb_treatment` datetime DEFAULT NULL,
   `source` varchar(255) DEFAULT 'Ficha Clinica'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
-DROP TABLE IF EXISTS `ewh_hops_end_tb_treatment`;
-CREATE TABLE `ewh_hops_end_tb_treatment` (
+DROP TABLE IF EXISTS `ewh_end_tb_treatment`;
+CREATE TABLE `ewh_end_tb_treatment` (
   `patient_id` int(11) DEFAULT NULL,
   `end_tb_treatment` datetime DEFAULT NULL,
   `source` varchar(255) DEFAULT 'Ficha Clinica'
@@ -150,27 +152,28 @@ CREATE TABLE `ewh_imc` (
   `source` varchar(255) DEFAULT 'Ficha Clinica'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `ewh_hops_hemoglobin`;
-CREATE TABLE `ewh_hops_hemoglobin` (
+DROP TABLE IF EXISTS `ewh_hemoglobin`;
+CREATE TABLE `ewh_hemoglobin` (
   `patient_id` int(11) DEFAULT NULL,
   `hemoglobin_value` varchar(100)  DEFAULT NULL,
   `hemoglobin_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `ewh_hops_blood_pressure`;
-CREATE TABLE `ewh_hops_blood_pressure` (
+DROP TABLE IF EXISTS `ewh_blood_pressure`;
+CREATE TABLE `ewh_blood_pressure` (
   `patient_id` int(11) DEFAULT NULL,
   `blood_pressure_value` varchar(100)  DEFAULT NULL,
   `blood_pressure_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
-DROP TABLE IF EXISTS `ewh_hops_visit`;
-CREATE TABLE IF NOT EXISTS `ewh_hops_visit` (
+DROP TABLE IF EXISTS `ewh_visit`;
+CREATE TABLE IF NOT EXISTS `ewh_visit` (
   `patient_id` int(11) DEFAULT NULL,
   `visit_date`   datetime DEFAULT NULL,
   `next_visit_date`   datetime DEFAULT NULL,
-  `source` varchar(255) DEFAULT 'Ficha Clinica'
+  `source` varchar(255),
+  `encounter` int(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -225,15 +228,15 @@ truncate table ewh_patient_model;
 truncate table ewh_pharmacy_cd4_absolute;
 truncate table ewh_pharmacy_cd4_percentage;
 truncate table ewh_pharmacy_viral_load;
-truncate table ewh_hops_tb_investigation;
-truncate table ewh_hops_start_tb_treatment;
-truncate table ewh_hops_end_tb_treatment;
+truncate table ewh_tb_investigation;
+truncate table ewh_start_tb_treatment;
+truncate table ewh_end_tb_treatment;
 truncate table ewh_community_arv_weight;
 truncate table ewh_community_arv_height;
 truncate table ewh_imc;
-truncate table ewh_hops_hemoglobin;
-truncate table ewh_hops_blood_pressure;
-truncate table ewh_hops_visit;
+truncate table ewh_hemoglobin;
+truncate table ewh_blood_pressure;
+truncate table ewh_visit;
 truncate table ewh_art_pick_up;
 truncate table ewh_fila_drugs;
 truncate table ewh_community_arv_posology;
@@ -551,6 +554,115 @@ update ewh_patient,
 set   ewh_patient.patient_status_24_months=out_state.codeestado, ewh_patient.patient_status_24_months_date_=out_state.start_date
 where ewh_patient.patient_id=out_state.patient_id;
 
+/*PREGNANCY STATUS AT TIME OF ART ENROLLMENT*/
+update ewh_patient,obs
+set ewh_patient.pregnancy_status_at_enrollment= if(obs.value_coded=44,'YES',null)
+where ewh_patient.patient_id=obs.person_id and obs.concept_id=1982 and obs.obs_datetime=ewh_patient.enrollment_date;
+
+update ewh_patient,obs
+set ewh_patient.pregnancy_status_at_enrollment= if(obs.value_numeric is not null,'YES',null)
+where ewh_patient.patient_id=obs.person_id and obs.concept_id=1279 and obs.obs_datetime=ewh_patient.enrollment_date and ewh_patient.pregnancy_status_at_enrollment is null;
+
+update ewh_patient,patient_program
+set ewh_patient.pregnancy_status_at_enrollment= 'YES'
+where ewh_patient.patient_id=patient_program.patient_id and program_id=8 and  voided=0 and pregnancy_status_at_enrollment is null;
+
+/*WOMEN STATUS GRAVIDA/LACTANTE*/
+update ewh_patient,
+  (  select patient_id,decisao from  (  select inicio_real.patient_id,
+            				gravida_real.data_gravida,  lactante_real.data_parto,
+            				if(max(gravida_real.data_gravida) is null and max(lactante_real.data_parto) is null,null,
+            				if(max(gravida_real.data_gravida) is null,'Lactante',
+            				if(max(lactante_real.data_parto) is null,'Gravida',
+            				if(max(lactante_real.data_parto)>max(gravida_real.data_gravida),'Lactante','Gravida')))) decisao from (	 
+            				select p.patient_id  from patient p  inner join encounter e on e.patient_id=p.patient_id
+            				where e.voided=0 and p.voided=0 and e.encounter_type in (5,7) and e.encounter_datetime<=endDate and e.location_id = 398
+            				union  select pg.patient_id from patient p
+            				inner join patient_program pg on p.patient_id=pg.patient_id
+            				where pg.voided=0 and p.voided=0 and program_id in (1,2) and date_enrolled<=endDate and location_id=398
+            				union  Select p.patient_id from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type=53 and
+            				o.concept_id=23891 and o.value_datetime is not null and
+            				o.value_datetime<=endDate and e.location_id=398  )inicio_real  left join  (
+            				Select p.patient_id,e.encounter_datetime data_gravida from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and concept_id=1982 and value_coded=1065 and
+            				e.encounter_type in (5,6) and e.encounter_datetime  between startDate and endDate and e.location_id=398
+            				union  Select p.patient_id,e.encounter_datetime data_gravida from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and concept_id=1279 and
+            				e.encounter_type in (5,6) and e.encounter_datetime between startDate and endDate and e.location_id=398
+            				union  Select p.patient_id,e.encounter_datetime data_gravida from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and concept_id=1600 and
+            				e.encounter_type in (5,6) and e.encounter_datetime between startDate and endDate and e.location_id=398	 
+            				union  Select p.patient_id,e.encounter_datetime data_gravida from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and concept_id=6334 and value_coded=6331 and
+            				e.encounter_type in (5,6) and e.encounter_datetime between startDate and endDate and e.location_id=398		 
+            				union  select pp.patient_id,pp.date_enrolled data_gravida from patient_program pp
+            				where pp.program_id=8 and pp.voided=0 and
+            				pp.date_enrolled between startDate and endDate and pp.location_id=398  union
+            				Select p.patient_id,obsART.value_datetime data_gravida from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				inner join obs obsART on e.encounter_id=obsART.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and o.concept_id=1982 and o.value_coded=1065 and
+            				e.encounter_type=53 and obsART.value_datetime between startDate and endDate and e.location_id=398 and
+            				obsART.concept_id=1190 and obsART.voided=0  union
+            				Select p.patient_id,o.value_datetime data_gravida from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and o.concept_id=1465 and
+            				e.encounter_type=6 and o.value_datetime between startDate and endDate and e.location_id=398
+            				) gravida_real on gravida_real.patient_id=inicio_real.patient_id    left join   (
+            				Select p.patient_id,o.value_datetime data_parto from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where  p.voided=0 and e.voided=0 and o.voided=0 and concept_id=5599 and
+            				e.encounter_type in (5,6) and o.value_datetime between startDate and endDate and e.location_id=398	 
+            				union  Select p.patient_id, e.encounter_datetime data_parto from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and concept_id=6332 and value_coded=1065 and
+            				e.encounter_type=6 and e.encounter_datetime between startDate and endDate and e.location_id=398
+            				union  Select p.patient_id, obsART.value_datetime data_parto from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				inner join obs obsART on e.encounter_id=obsART.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and o.concept_id=6332 and o.value_coded=1065 and
+            				e.encounter_type=53 and e.location_id=398 and
+            				obsART.value_datetime between startDate and endDate and
+            				obsART.concept_id=1190 and obsART.voided=0  union
+            				Select p.patient_id, e.encounter_datetime data_parto from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and concept_id=6334 and value_coded=6332 and
+            				e.encounter_type in (5,6) and e.encounter_datetime between startDate and endDate and e.location_id=398
+            				union  select pg.patient_id,ps.start_date data_parto from patient p
+            				inner join patient_program pg on p.patient_id=pg.patient_id
+            				inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+            				where pg.voided=0 and ps.voided=0 and p.voided=0 and
+            				pg.program_id=8 and ps.state=27 and
+            				ps.start_date between startDate and endDate and location_id=398
+            				) lactante_real on lactante_real.patient_id=inicio_real.patient_id
+            				where lactante_real.data_parto is not null or gravida_real.data_gravida is not null
+            				group by inicio_real.patient_id  ) gravidaLactante		 
+            				inner join person pe on pe.person_id=gravidaLactante.patient_id		 
+            				where pe.voided=0 and pe.gender='F') gravidaLactante 
+        set ewh_patient.women_status=gravidaLactante.decisao
+        where  ewh_patient.patient_id=gravidaLactante.patient_id;
+
+
+delete from ewh_patient where women_status='Lactante';
+delete from ewh_patient where women_status='Gravida';
+
 /*LAST CLINIC VISIT*/
 update ewh_patient,
 ( select  p.patient_id,
@@ -790,7 +902,7 @@ from
 from  ewh_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type in (6,13,51) and o.concept_id in (856,1305) and e.encounter_datetime  between startDate and endDate
+where   e.voided=0 and o.voided=0 and e.encounter_type in (6,13,51) and o.concept_id in (856,1305) and e.encounter_datetime < endDate
 )  valor group by valor.patient_id,valor.obs_datetime; 
 
 /*LEVANTAMENTO AMC_ART*/
@@ -803,18 +915,17 @@ insert into ewh_art_pick_up(patient_id,pickup_art,encounter)
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
   where   encounter_type=52 and o.concept_id=23865  and e.voided=0 and o.encounter_id=e.encounter_id
-  and p.patient_id=o.person_id and o.obs_datetime BETWEEN startDate AND endDate;
+  and p.patient_id=o.person_id and o.obs_datetime < endDate;
 
 
 update ewh_art_pick_up,obs
 set  ewh_art_pick_up.art_date=obs.value_datetime
 where   ewh_art_pick_up.patient_id=obs.person_id and
     obs.concept_id=23866 and
-    obs.voided=0 and ewh_art_pick_up.encounter=obs.encounter_id and obs.obs_datetime BETWEEN startDate AND endDate;
-
+    obs.voided=0 and ewh_art_pick_up.encounter=obs.encounter_id and obs.obs_datetime < endDate;
 
 /*TB*/
-insert into ewh_hops_tb_investigation(patient_id,tb,tb_date)
+insert into ewh_tb_investigation(patient_id,tb,tb_date)
 Select distinct p.patient_id,
     case o.value_coded
              when 703 then 'POSITIVE'
@@ -827,7 +938,7 @@ from  ewh_patient p
 where   e.voided=0 and o.voided=0 and e.encounter_type=6 and o.concept_id=6277 and e.encounter_datetime  < endDate;
 
 /*TB start Date*/
-insert into ewh_hops_start_tb_treatment(patient_id,start_tb_treatment)
+insert into ewh_start_tb_treatment(patient_id,start_tb_treatment)
 Select distinct p.patient_id, min(encounter_datetime) encounter_datetime
 from  ewh_patient p 
       inner join encounter e on p.patient_id=e.patient_id
@@ -837,7 +948,7 @@ from  ewh_patient p
 
 
   /*TB end Date*/
-insert into ewh_hops_end_tb_treatment(patient_id,end_tb_treatment)
+insert into ewh_end_tb_treatment(patient_id,end_tb_treatment)
 Select distinct p.patient_id, max(encounter_datetime) encounter_datetime
 from  ewh_patient p 
       inner join encounter e on p.patient_id=e.patient_id
@@ -915,7 +1026,7 @@ set ewh_patient.blood_pressure=updateBP.cod
 where ewh_patient.patient_id=updateBP.patient_id;
   
 /* All hemoglobin*/
-insert into ewh_hops_hemoglobin(patient_id,hemoglobin_value,hemoglobin_date)
+insert into ewh_hemoglobin(patient_id,hemoglobin_value,hemoglobin_date)
 Select distinct p.patient_id,
     o.value_numeric,
     o.obs_datetime
@@ -926,7 +1037,7 @@ where e.voided=0 and e.encounter_type in (6,13) and e.encounter_datetime BETWEEN
 GROUP BY p.patient_id;
 
 /* All Blood Pressure*/
-insert into ewh_hops_blood_pressure(patient_id,blood_pressure_value,blood_pressure_date)
+insert into ewh_blood_pressure(patient_id,blood_pressure_value,blood_pressure_date)
 Select distinct p.patient_id,
     o.value_numeric,
     o.obs_datetime
@@ -937,24 +1048,22 @@ where e.voided=0 and e.encounter_datetime BETWEEN startDate AND endDate and o.co
 GROUP BY p.patient_id;
 
 
-
-
-
-
 /*VISITAS*/
-insert into ewh_hops_visit(patient_id,visit_date)
-Select distinct p.patient_id,e.encounter_datetime 
+insert into ewh_visit(patient_id,visit_date,source, encounter)
+Select distinct p.patient_id,e.encounter_datetime, case e.encounter_type
+    when 6 then 'Ficha Clinica'
+    else null end as encounter_type, e.encounter_id
 from  ewh_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id 
 where   e.voided=0 and e.encounter_type=6 and e.encounter_datetime  < endDate;
 
-/* PROXIMA VISITAS*/
-update ewh_hops_visit,encounter,obs 
-set  ewh_hops_visit.next_visit_date=obs.value_datetime
-where   ewh_hops_visit.patient_id=obs.person_id and
-    ewh_hops_visit.visit_date=obs.obs_datetime and 
-    obs.concept_id=1410 and encounter.encounter_type=6 and
-    obs.voided=0;
+/* PROXIMA VISITAS Clinica*/
+update ewh_visit,obs,encounter 
+set  ewh_visit.next_visit_date=obs.value_datetime
+where   ewh_visit.patient_id=obs.person_id and
+    obs.concept_id=1410 and 
+    encounter.encounter_type=6 and obs.voided=0 and ewh_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
 
 /*Peso*/
 update ewh_patient,
@@ -1114,7 +1223,7 @@ inner join encounter e on p.patient_id=e.patient_id
     inner join obs o on o.encounter_id=e.encounter_id and concept_id in (1088,165256)
     inner join drug d on o.value_drug=d.drug_id
 where   e.voided=0 and o.voided=0 and d.retired=0 and e.encounter_type=18 and o.concept_id in (1088,165256) 
-and o.obs_datetime BETWEEN startDate AND endDate;
+and o.obs_datetime < endDate;
 
 /*quantidade levantada*/
 update ewh_fila_drugs,obs
@@ -1139,7 +1248,7 @@ update ewh_fila_drugs,obs
 set  ewh_fila_drugs.next_art_date=obs.value_datetime
 where   ewh_fila_drugs.patient_id=obs.person_id and
       obs.concept_id=5096 and
-    obs.voided=0 and ewh_fila_drugs.encounter=obs.encounter_id and obs.obs_datetime BETWEEN startDate AND endDate;
+    obs.voided=0 and ewh_fila_drugs.encounter=obs.encounter_id and obs.obs_datetime < endDate;
 
 /*Campo de acomodação*/
 UPDATE ewh_fila_drugs AS efd
@@ -1169,7 +1278,7 @@ UPDATE ewh_fila_drugs, obs,
         CASE o.value_coded
             WHEN 23888 THEN 'SEMESTER ARV PICKUP (DS)'
             WHEN 165175 THEN 'NORMAL EXPEDIENT SCHEDULE'
-            WHEN 165176 THEN 'OUT OF TIME'
+            WHEN 165176 THEN 'HOURS EXTENSION (EH)' /*OUT OF TIME*/
             WHEN 165180 THEN 'DAILY MOBILE BRIGADES'
             WHEN 165181 THEN 'DAILY MOBILE BRIGADES (HOTSPOTS)'
             WHEN 165182 THEN 'DAILY MOBILE CLINICS'
@@ -1201,7 +1310,7 @@ UPDATE ewh_fila_drugs, obs,
     INNER JOIN encounter e ON e.encounter_id = o.encounter_id
     WHERE e.voided = 0
         AND o.voided = 0
-        AND o.concept_id = 165174
+        AND o.concept_id = 165174 AND e.encounter_type=18 and o.obs_datetime < endDate
 ) dis
 
 SET ewh_fila_drugs.dispensation_model = dis.regime
@@ -1215,7 +1324,7 @@ insert into ewh_community_arv_posology(patient_id,visit_date)
 Select distinct p.patient_id,e.encounter_datetime 
 from  ewh_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
-where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
+where e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime < endDate;
 
 update ewh_community_arv_posology,obs,encounter 
 set ewh_community_arv_posology.dmc_type= case obs.value_coded

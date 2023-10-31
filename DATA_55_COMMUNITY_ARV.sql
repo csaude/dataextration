@@ -12,6 +12,7 @@ CREATE TABLE  `community_arv_patient` (
   `age_enrollment` int(11) DEFAULT NULL,
   `marital_status_at_enrollment` varchar(100) DEFAULT NULL,
   `pregnancy_status_at_enrollment` varchar(100) DEFAULT NULL,
+  `women_status` varchar(100) DEFAULT NULL,
   `education_at_enrollment` varchar(100) DEFAULT NULL,
   `occupation_at_enrollment` varchar(100) DEFAULT NULL,
   `partner_status_at_enrollment` varchar(100) DEFAULT NULL,
@@ -48,13 +49,30 @@ CREATE TABLE `community_arv_WHO_clinical_stage` (
   `who_stage_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `community_arv_art_pick_up`;
-CREATE TABLE IF NOT EXISTS `community_arv_art_pick_up` (
+DROP TABLE IF EXISTS `community_art_pick_up`;
+CREATE TABLE IF NOT EXISTS `community_art_pick_up` (
   `patient_id` int(11) DEFAULT NULL,
-  `regime` varchar(255) DEFAULT NULL,
+  `pickup_art` varchar(5) DEFAULT NULL,
   `art_date` datetime DEFAULT NULL,
-  `next_art_date` datetime DEFAULT NULL
+  `encounter` int(100) DEFAULT NULL,
+  `source` varchar(100) DEFAULT 'Registo de Levantamento de ARVs Master Card'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS `community_art_fila_drugs`;
+CREATE TABLE `community_art_fila_drugs` (
+  `patient_id` int(11) DEFAULT NULL,
+  `regime` varchar(300) DEFAULT NULL,
+  `formulation` varchar(300) DEFAULT NULL,
+  `group_id` int(11) DEFAULT NULL,
+  `quantity` int(11) DEFAULT NULL,
+  `dosage` varchar(300) DEFAULT NULL,
+  `pickup_date` datetime DEFAULT NULL,
+  `next_art_date` datetime DEFAULT NULL,
+  `accommodation_camp` char(3) DEFAULT NULL,
+  `dispensation_model` varchar(300) DEFAULT NULL,
+  `encounter` int(100) DEFAULT NULL,
+  `source` varchar(100) DEFAULT 'FILA'
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS `community_arv_weight`;
 CREATE TABLE `community_arv_weight` (
@@ -70,15 +88,14 @@ CREATE TABLE `community_arv_height` (
   `height_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `community_arv_cv`;
-CREATE TABLE `community_arv_cv` (
+DROP TABLE IF EXISTS `community_arv_viral_load`;
+CREATE TABLE `community_arv_viral_load` (
   `patient_id` int(11) DEFAULT NULL,
-  `copies_cv` decimal(12,2) DEFAULT NULL,
-  `logs_cv` decimal(12,2) DEFAULT NULL,
-  `source`varchar(100) DEFAULT NULL,
+  `cv` double DEFAULT NULL,
+  `cv_qualit` varchar(300) DEFAULT NULL,
+  `cv_comments` varchar(300) DEFAULT NULL,
   `cv_date` datetime DEFAULT NULL,
-  KEY `patient_id` (`patient_id`),
-  KEY `cv_date` (`cv_date`)
+  `source` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS `community_arv_cd4_absolute`;
@@ -101,13 +118,12 @@ CREATE TABLE `community_arv_cd4_percentage` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS `community_arv_visit`;
-CREATE TABLE `community_arv_visit` (
+CREATE TABLE IF NOT EXISTS `community_arv_visit` (
   `patient_id` int(11) DEFAULT NULL,
-  `visit_date` datetime DEFAULT NULL,
-  `next_visit_date` datetime DEFAULT NULL,
-  KEY `patient_id` (`patient_id`),
-  KEY `visit_date` (`visit_date`),
-  KEY `next_visit_date` (`next_visit_date`)
+  `visit_date`   datetime DEFAULT NULL,
+  `next_visit_date`   datetime DEFAULT NULL,
+  `source` varchar(255),
+  `encounter` int(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS `community_arv_posology`;
@@ -152,13 +168,6 @@ CREATE TABLE `community_dmc_type_of_dispensation_visit` (
   `value_dmc` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `community_apss_visit`;
-CREATE TABLE `community_apss_visit` (
-  `patient_id` int(11) DEFAULT NULL,
-  `visit_date` datetime DEFAULT NULL,
-  `next_visit_date` datetime DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
 
 DROP PROCEDURE IF EXISTS `FillCOMMARV`;
 DELIMITER ;;
@@ -167,10 +176,11 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `FillCOMMARV`(startDate date,endDate
 begin
 
 TRUNCATE TABLE community_arv_WHO_clinical_stage;
-TRUNCATE TABLE community_arv_art_pick_up;
+TRUNCATE TABLE community_art_pick_up;
+TRUNCATE TABLE community_art_fila_drugs;
 TRUNCATE TABLE community_arv_weight;
 TRUNCATE TABLE community_arv_height;
-TRUNCATE TABLE community_arv_cv;
+TRUNCATE TABLE community_arv_viral_load;
 TRUNCATE TABLE community_arv_cd4_absolute;
 TRUNCATE TABLE community_arv_cd4_percentage;
 TRUNCATE TABLE community_arv_visit;
@@ -264,6 +274,100 @@ where community_arv_patient.patient_id=obs.person_id and obs.concept_id=1279 and
 update community_arv_patient,patient_program
 set community_arv_patient.pregnancy_status_at_enrollment= 'YES'
 where community_arv_patient.patient_id=patient_program.patient_id and program_id=8 and  voided=0 and pregnancy_status_at_enrollment is null;
+
+
+/*WOMEN STATUS GRAVIDA/LACTANTE*/
+update community_arv_patient,
+  (  select patient_id,decisao from  (  select inicio_real.patient_id,
+            				gravida_real.data_gravida,  lactante_real.data_parto,
+            				if(max(gravida_real.data_gravida) is null and max(lactante_real.data_parto) is null,null,
+            				if(max(gravida_real.data_gravida) is null,'Lactante',
+            				if(max(lactante_real.data_parto) is null,'Gravida',
+            				if(max(lactante_real.data_parto)>max(gravida_real.data_gravida),'Lactante','Gravida')))) decisao from (	 
+            				select p.patient_id  from patient p  inner join encounter e on e.patient_id=p.patient_id
+            				where e.voided=0 and p.voided=0 and e.encounter_type in (5,7) and e.encounter_datetime<=endDate and e.location_id = 398
+            				union  select pg.patient_id from patient p
+            				inner join patient_program pg on p.patient_id=pg.patient_id
+            				where pg.voided=0 and p.voided=0 and program_id in (1,2) and date_enrolled<=endDate and location_id=398
+            				union  Select p.patient_id from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and e.encounter_type=53 and
+            				o.concept_id=23891 and o.value_datetime is not null and
+            				o.value_datetime<=endDate and e.location_id=398  )inicio_real  left join  (
+            				Select p.patient_id,e.encounter_datetime data_gravida from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and concept_id=1982 and value_coded=1065 and
+            				e.encounter_type in (5,6) and e.encounter_datetime  between startDate and endDate and e.location_id=398
+            				union  Select p.patient_id,e.encounter_datetime data_gravida from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and concept_id=1279 and
+            				e.encounter_type in (5,6) and e.encounter_datetime between startDate and endDate and e.location_id=398
+            				union  Select p.patient_id,e.encounter_datetime data_gravida from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and concept_id=1600 and
+            				e.encounter_type in (5,6) and e.encounter_datetime between startDate and endDate and e.location_id=398	 
+            				union  Select p.patient_id,e.encounter_datetime data_gravida from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and concept_id=6334 and value_coded=6331 and
+            				e.encounter_type in (5,6) and e.encounter_datetime between startDate and endDate and e.location_id=398		 
+            				union  select pp.patient_id,pp.date_enrolled data_gravida from patient_program pp
+            				where pp.program_id=8 and pp.voided=0 and
+            				pp.date_enrolled between startDate and endDate and pp.location_id=398  union
+            				Select p.patient_id,obsART.value_datetime data_gravida from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				inner join obs obsART on e.encounter_id=obsART.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and o.concept_id=1982 and o.value_coded=1065 and
+            				e.encounter_type=53 and obsART.value_datetime between startDate and endDate and e.location_id=398 and
+            				obsART.concept_id=1190 and obsART.voided=0  union
+            				Select p.patient_id,o.value_datetime data_gravida from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and o.concept_id=1465 and
+            				e.encounter_type=6 and o.value_datetime between startDate and endDate and e.location_id=398
+            				) gravida_real on gravida_real.patient_id=inicio_real.patient_id    left join   (
+            				Select p.patient_id,o.value_datetime data_parto from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where  p.voided=0 and e.voided=0 and o.voided=0 and concept_id=5599 and
+            				e.encounter_type in (5,6) and o.value_datetime between startDate and endDate and e.location_id=398	 
+            				union  Select p.patient_id, e.encounter_datetime data_parto from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and concept_id=6332 and value_coded=1065 and
+            				e.encounter_type=6 and e.encounter_datetime between startDate and endDate and e.location_id=398
+            				union  Select p.patient_id, obsART.value_datetime data_parto from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				inner join obs obsART on e.encounter_id=obsART.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and o.concept_id=6332 and o.value_coded=1065 and
+            				e.encounter_type=53 and e.location_id=398 and
+            				obsART.value_datetime between startDate and endDate and
+            				obsART.concept_id=1190 and obsART.voided=0  union
+            				Select p.patient_id, e.encounter_datetime data_parto from patient p
+            				inner join encounter e on p.patient_id=e.patient_id
+            				inner join obs o on e.encounter_id=o.encounter_id
+            				where p.voided=0 and e.voided=0 and o.voided=0 and concept_id=6334 and value_coded=6332 and
+            				e.encounter_type in (5,6) and e.encounter_datetime between startDate and endDate and e.location_id=398
+            				union  select pg.patient_id,ps.start_date data_parto from patient p
+            				inner join patient_program pg on p.patient_id=pg.patient_id
+            				inner join patient_state ps on pg.patient_program_id=ps.patient_program_id
+            				where pg.voided=0 and ps.voided=0 and p.voided=0 and
+            				pg.program_id=8 and ps.state=27 and
+            				ps.start_date between startDate and endDate and location_id=398
+            				) lactante_real on lactante_real.patient_id=inicio_real.patient_id
+            				where lactante_real.data_parto is not null or gravida_real.data_gravida is not null
+            				group by inicio_real.patient_id  ) gravidaLactante		 
+            				inner join person pe on pe.person_id=gravidaLactante.patient_id		 
+            				where pe.voided=0 and pe.gender='F') gravidaLactante 
+        set community_arv_patient.women_status=gravidaLactante.decisao
+        where  community_arv_patient.patient_id=gravidaLactante.patient_id;
+
 
 /*ESCOLARIDADE*/
 update community_arv_patient,obs
@@ -542,9 +646,28 @@ insert into community_arv_WHO_clinical_stage (patient_id, who_stage,who_stage_da
 
 
 /*LEVANTAMENTO AMC_ART*/
-insert into community_arv_art_pick_up(patient_id,regime,art_date)
-  select distinct p.patient_id,
-  case   o.value_coded     
+insert into community_art_pick_up(patient_id,pickup_art,encounter)
+  select distinct p.patient_id, case o.value_coded 
+             when 1065 then 'YES'
+             when 1066 then 'NO'
+             else null end as pick_art, e.encounter_id
+  from community_arv_patient p
+      inner join encounter e on p.patient_id=e.patient_id
+      inner join obs o on o.person_id=e.patient_id
+  where   encounter_type=52 and o.concept_id=23865  and e.voided=0 and o.encounter_id=e.encounter_id
+  and p.patient_id=o.person_id and o.obs_datetime < endDate;
+
+
+update community_art_pick_up,obs
+set  community_art_pick_up.art_date=obs.value_datetime
+where   community_art_pick_up.patient_id=obs.person_id and
+    obs.concept_id=23866 and
+    obs.voided=0 and community_art_pick_up.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+
+/*Formulação FILA*/
+insert into community_art_fila_drugs(patient_id,regime,formulation,pickup_date, group_id, encounter)
+select  p.patient_id, case  o.value_coded     
                when 1651 then 'AZT+3TC+NVP'
         when 6324 then 'TDF+3TC+EFV'
         when 1703 then 'AZT+3TC+EFV'
@@ -614,21 +737,149 @@ insert into community_arv_art_pick_up(patient_id,regime,art_date)
         when 23787 then 'ABC+AZT+LPV/r'
         when 23789 then 'TDF+AZT+LPV/r'
         when 23788 then 'TDF+ABC+3TC+LPV/r'
+        when 5424 then 'OTHER ANTIRETROVIRAL DRUG'
         when 165330 then 'ATV/r+TDF+3TC+DTG'
-                else null end,
-        encounter_datetime
-  from community_arv_patient p
-      inner join encounter e on p.patient_id=e.patient_id
-      inner join obs o on o.person_id=e.patient_id
-  where   encounter_type=18 and o.concept_id=1088  and e.voided=0 
-  and p.patient_id=o.person_id  and e.encounter_datetime=o.obs_datetime and o.obs_datetime < endDate; /*por confirmar*/
+        else null end,
+case d.drug_id     
+when 11 then ' [TDF/3TC/DTG] Tenofovir 300mg/Lamivudina 300mg/Dolutegravir 50mg TLD30'
+when 12 then '[TDF/3TC/DTG] Tenofovir 300mg/Lamivudina 300mg/Dolutegravir 50mg TLD90'
+when 13 then '[TDF/3TC/DTG] Tenofovir 300mg/Lamivudina 300mg/Dolutegravir 50mg TLD180'
+when 17 then '[LPV/RTV] Lopinavir/Ritonavir -Aluvia 200mg/50mg'
+when 18 then '[ABC/3TC] Abacavir 600mg/Lamivudina 300mg'
+when 19 then '[DTG] Dolutegravir 50mg'
+when 20 then '[ABC/3TC] Abacavir 120mg/Lamivudina 60mg'
+when 21 then '[ABC/3TC] Abacavir 60 and Lamivudina 30mg'
+when 22 then '[3TC/AZT] Lamivudina 150mg/ Zidovudina 300mg'
+when 23 then '[3TC/AZT] Lamivudina 30mg/ Zidovudina 60mg'
+when 24 then '[TDF/3TC] Tenofovir 300mg/Lamivudina 300mg'
+when 25 then '[RAL] Raltegravir 400mg'
+when 26 then '[LPV/RTV] Lopinavir/Ritonavir 400mg/100mg'
+when 27 then '[LPV/RTV] Lopinavir/Ritonavir -Aluvia 100mg/25mg'
+when 28 then '[LPV/RTV] Lopinavir/Ritonavir 200mg/50mg'
+when 29 then '[LPV/RTV] Lopinavir/Ritornavir 40mg/10mg Pellets/Granulos'
+when 30 then '[LPV/RTV]  Lopinavir/Ritonavir-Kaletra 80/20 mg/ml'
+when 31 then '[ATV/RTV] Atazanavir 300mg/Ritonavir 100mg'
+when 32 then '[NVP] Nevirapine 200mg'
+when 33 then '[NVP]  Nevirapina 50mg'
+when 34 then '[NVP] Nevirapine 50mg/5ml'
+when 35 then '[AZT] Zidovudine 50mg/5ml'
+when 36 then '[AZT] Zidovudine 300mg'
+when 37 then '[ABC] Abacavir 300mg'
+when 38 then '[ABC] Abacavir 60mg'
+when 39 then '[EFV] Efavirenz 600mg'
+when 40 then '[EFV] Efavirenz 200mg'
+when 41 then '[3TC] Lamivudine150mg'
+when 42 then '[TDF] Tenofovir 300mg'
+when 43 then '[TDF/3TC/EFV] Tenofovir 300mg/Lamivudina 300mg/Efavirenze 400mg TLE90'
+when 44 then '[TDF/3TC/EFV] Tenofovir 300mg/Lamivudina 300mg/Efavirenze 400mg TLE30'
+when 45 then '[TDF/3TC/EFV] Tenofovir 300mg/Lamivudina 300mg/Efavirenze 400mg TLE180'
+when 46 then '[TDF/3TC/EFV] Tenofovir 300mg/Lamivudina 300mg/Efavirenze 600mg'
+when 47 then '[3TC/AZT/NVP] Lamivudina 150mg/Zidovudina 300mg/Nevirapina 200mg'
+when 48 then '[3TC/AZT/NVP] Lamivudina 30mg/Zidovudina 60mg/Nevirapina 50mg'
+when 49 then '[3TC/AZT/ABC] Lamivudina 150mg/Zidovudina 300mg/Abacavir 300mg'
+when 50 then '[TDF/FTC] Tenofovir 300mg/Emtricitabina 200mg'
+when 51 then '[DTG] Dolutegravir 10 mg 90 Comp'
+when 52 then '[DTG] Dolutegravir 10 mg 30 Comp'
+when 53 then '[ABC/3TC] Abacavir 120mg/Lamivudina 60mg 30 Comp'				
+   else null end,                  
+   e.encounter_datetime, o.obs_group_id, e.encounter_id
+from  community_arv_patient p
+inner join encounter e on p.patient_id=e.patient_id 
+    inner join obs o on o.encounter_id=e.encounter_id and concept_id in (1088,165256)
+    inner join drug d on o.value_drug=d.drug_id
+where   e.voided=0 and o.voided=0 and d.retired=0 and e.encounter_type=18 and o.concept_id in (1088,165256) 
+and o.obs_datetime < endDate;
 
-update community_arv_art_pick_up,obs
-set  community_arv_art_pick_up.next_art_date=obs.value_datetime
-where   community_arv_art_pick_up.patient_id=obs.person_id and
-    community_arv_art_pick_up.art_date=obs.obs_datetime and
-    obs.concept_id=5096 and
+/*quantidade levantada*/
+update community_art_fila_drugs,obs
+set  community_art_fila_drugs.quantity=obs.value_numeric
+where   community_art_fila_drugs.patient_id=obs.person_id and
+    community_art_fila_drugs.pickup_date=obs.obs_datetime and 
+    community_art_fila_drugs.group_id=obs.obs_group_id and
+    obs.concept_id=1715 and
     obs.voided=0;
+
+/*dosagem */
+update community_art_fila_drugs,obs
+set  community_art_fila_drugs.dosage=obs.value_text
+where   community_art_fila_drugs.patient_id=obs.person_id and
+    community_art_fila_drugs.pickup_date=obs.obs_datetime and
+    community_art_fila_drugs.group_id=obs.obs_group_id and
+    obs.concept_id=1711 and
+    obs.voided=0;
+
+/*proximo levantamento*/
+update community_art_fila_drugs,obs
+set  community_art_fila_drugs.next_art_date=obs.value_datetime
+where   community_art_fila_drugs.patient_id=obs.person_id and
+      obs.concept_id=5096 and
+    obs.voided=0 and community_art_fila_drugs.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+/*Campo de acomodação*/
+UPDATE community_art_fila_drugs AS efd
+JOIN obs AS obs_patient ON efd.patient_id = obs_patient.person_id
+                         AND efd.pickup_date = obs_patient.obs_datetime
+JOIN community_arv_patient AS p ON efd.patient_id = p.patient_id
+JOIN encounter AS e ON p.patient_id = e.patient_id
+JOIN obs AS o ON e.encounter_id = o.encounter_id
+JOIN obs AS obsEstado ON e.encounter_id = obsEstado.encounter_id
+SET efd.accommodation_camp = CASE obsEstado.value_coded
+                                WHEN 1065 THEN 'YES'
+                                WHEN 1066 THEN 'NO'
+                                ELSE NULL
+                            END
+WHERE e.encounter_type = 18
+    AND e.voided = 0
+    AND o.voided = 0
+    AND o.concept_id = 23856;
+
+/*tipo de dispensa na FILA*/
+UPDATE community_art_fila_drugs, obs,
+
+(
+    SELECT o.obs_id,
+        CASE o.value_coded
+            WHEN 23888 THEN 'SEMESTER ARV PICKUP (DS)'
+            WHEN 165175 THEN 'NORMAL EXPEDIENT SCHEDULE'
+            WHEN 165176 THEN 'HOURS EXTENSION (EH)' /*OUT OF TIME*/
+            WHEN 165180 THEN 'DAILY MOBILE BRIGADES'
+            WHEN 165181 THEN 'DAILY MOBILE BRIGADES (HOTSPOTS)'
+            WHEN 165182 THEN 'DAILY MOBILE CLINICS'
+            WHEN 165183 THEN 'NIGHT MOBILE BRIGADES (HOTSPOTS)'
+            WHEN 165314 THEN 'ARV ANUAL DISPENSATION (DA)'
+            WHEN 165315 THEN 'DESCENTRALIZED ARV DISPENSATION (DD)'
+            WHEN 165178 THEN 'COMMUNITY DISPENSE VIA PROVIDER (DCP)'
+            WHEN 165179 THEN 'COMMUNITY DISPENSE VIA APE (DCA)'
+            WHEN 165264 THEN 'MOBILE BRIGADES (DCBM)'
+            WHEN 165265 THEN 'MOBILE CLINICS (DCCM)'
+            WHEN 23725 THEN 'FAMILY APPROACH (AF)'
+            WHEN 23729 THEN 'RAPID FLOW (FR)'
+            WHEN 23724 THEN 'GAAC (GA)'
+            WHEN 23726 THEN 'ACCESSION CLUBS (CA)'
+            WHEN 165316 THEN 'HOURS EXTENSION (EH)'
+            WHEN 165317 THEN 'SINGLE STOP IN TB SECTOR (TB)'
+            WHEN 165318 THEN 'SINGLE STOP ON TARV SERVICES (CT)'
+            WHEN 165319 THEN 'SINGLE STOP SAAJ (SAAJ)'
+            WHEN 165320 THEN 'SINGLE STOP SMI (SMI)'
+            WHEN 165321 THEN 'HIV ADVANCED DISEASE (DAH)'
+            WHEN 23727 THEN 'SINGLE STOP (PU)'
+            WHEN 165177 THEN 'FARMAC/PRIVATE PHARMACY (FARMAC)'
+            WHEN 23731 THEN 'COMMUNITY DISPENSATION (DC)'
+            WHEN 23732 THEN 'OTHER'
+            WHEN 23730 THEN 'QUARTERLY DISPENSATION (DT)'
+            ELSE NULL
+        END as regime
+    FROM obs o
+    INNER JOIN encounter e ON e.encounter_id = o.encounter_id
+    WHERE e.voided = 0
+        AND o.voided = 0
+        AND o.concept_id = 165174 AND e.encounter_type=18 and o.obs_datetime < endDate
+) dis
+
+SET community_art_fila_drugs.dispensation_model = dis.regime
+WHERE community_art_fila_drugs.patient_id = obs.person_id
+    AND community_art_fila_drugs.pickup_date = obs.obs_datetime
+    AND obs.obs_id=dis.obs_id;
 
 
 
@@ -654,30 +905,37 @@ select  p.patient_id as patient_id, o.value_numeric,
   AND p.patient_id in (select patient_id from community_arv_patient) and o.obs_datetime   BETWEEN startDate AND endDate;
 
 /*DMC CARGA VIRAL LABORATORIO*/
-insert into community_arv_cv(patient_id,copies_cv,cv_date,source)
-Select distinct p.patient_id,o.value_numeric,o.obs_datetime,"LABORATORY"
+
+/*CARGA VIRAL*/
+insert into community_arv_viral_load(patient_id,cv,cv_qualit,cv_comments,cv_date,source)
+select valor.patient_id,valor.value_numeric,valor.value_cod,valor.comments,valor.obs_datetime,valor.encounter_type
+from
+(Select p.patient_id,
+    o.value_numeric,
+    case o.value_coded
+    when 1306 then 'BEYOND DETECTABLE LIMIT'
+    when 1304 then 'POOR SAMPLE QUALITY'
+    when 23814 then 'UNDETECTABLE VIRAL LOAD'
+    when 23907 then 'LESS THAN 40 COPIES/ML'
+    when 23905 then 'LESS THAN 10 COPIES/ML'
+    when 23904 then 'LESS THAN 839 COPIES/ML'
+    when 23906 then 'LESS THAN 20 COPIES/ML'
+    when 23908 then 'LESS THAN 400 COPIES/ML'
+    when 165331 then 'LESS THAN'
+     else null end as value_cod,
+    o.comments,
+	  o.obs_datetime,
+        case e.encounter_type
+    when 6 then 'Ficha Clinica'
+    when 13 then 'Ficha Laboratorio'
+    when 51 then 'FSR'
+    else null end as encounter_type
 from  community_arv_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type=13 
-and o.concept_id in(1518,856) and o.obs_datetime < endDate;
+where   e.voided=0 and o.voided=0 and e.encounter_type in (6,13,51) and o.concept_id in (856,1305) and e.encounter_datetime < endDate
+)  valor group by valor.patient_id,valor.obs_datetime; 
 
-/*DMC CARGA VIRAL SEGUIMENTO*/
-insert into community_arv_cv(patient_id,copies_cv,cv_date,source)
-Select distinct p.patient_id,o.value_numeric,o.obs_datetime,"FOLLOW_UP"
-from  community_arv_patient p 
-    inner join encounter e on p.patient_id=e.patient_id 
-    inner join obs o on o.encounter_id=e.encounter_id
-where   e.voided=0 and o.voided=0 and e.encounter_type=9
-and o.concept_id in(1518,856) and  o.obs_datetime < endDate;
-
-/*DMC CARGA VIRAL LOGS*/
-update community_arv_cv,obs 
-set  community_arv_cv.logs_cv=obs.value_numeric
-where  community_arv_cv.patient_id=obs.person_id and
-    community_arv_cv.cv_date=obs.obs_datetime and 
-    obs.concept_id in(1518,856) and 
-    obs.voided=0;
 
  /*CD4 absolute*/
 insert into community_arv_cd4_absolute(patient_id,cd4,cd4_date)
@@ -696,19 +954,30 @@ from  community_arv_patient p
 where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=730   and o.obs_datetime   BETWEEN startDate AND endDate;
 
 /*VISITAS*/
-insert into community_arv_visit(patient_id,visit_date)
-Select distinct p.patient_id,e.encounter_datetime 
+insert into community_arv_visit(patient_id,visit_date,source, encounter)
+Select distinct p.patient_id,e.encounter_datetime, case e.encounter_type
+    when 6 then 'Ficha Clinica'
+    when 53 then 'Ficha Resumo'
+    when 35 then 'Ficha APSS e PP'
+    else null end as encounter_type, e.encounter_id
 from  community_arv_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
-where   e.voided=0 and e.encounter_type in (6,9) and e.encounter_datetime BETWEEN startDate AND endDate;
+    inner join obs o on o.encounter_id=e.encounter_id 
+where   e.voided=0 and e.encounter_type in (6,53,35) and e.encounter_datetime  < endDate;
 
-/*PROXIMA VISITAS*/
-update community_arv_visit,obs 
+/* PROXIMA VISITAS Clinica*/
+update community_arv_visit,obs,encounter 
 set  community_arv_visit.next_visit_date=obs.value_datetime
 where   community_arv_visit.patient_id=obs.person_id and
-    community_arv_visit.visit_date=obs.obs_datetime and 
     obs.concept_id=1410 and 
-    obs.voided=0;
+    encounter.encounter_type=6 and obs.voided=0 and community_arv_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+/* PROXIMA VISITAS Apss*/
+update community_arv_visit,obs,encounter
+set  community_arv_visit.next_visit_date=obs.value_datetime
+where   community_arv_visit.patient_id=obs.person_id and 
+    obs.concept_id=6310 and 
+    encounter.encounter_type=35 and obs.voided=0 and community_arv_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
 
 /*DMC*/
 insert into community_arv_posology(patient_id,visit_date)
@@ -1031,20 +1300,6 @@ where   community_dmc_type_of_dispensation_visit.patient_id=obs.person_id and
     obs.concept_id=23732 and obs.voided=0
   and encounter.encounter_id=obs.encounter_id and encounter.encounter_type in(6,9) and community_dmc_type_of_dispensation_visit.date_elegibbly_dmc=encounter.encounter_datetime;
 
-/*VISITAS*/
-insert into community_apss_visit(patient_id,visit_date)
-Select distinct p.patient_id,e.encounter_datetime 
-from  community_arv_patient p 
-    inner join encounter e on p.patient_id=e.patient_id 
-where   e.voided=0 and e.encounter_type in (35) and e.encounter_datetime BETWEEN startDate AND endDate;
-
-/*PROXIMA VISITAS*/
-update community_apss_visit,obs,encounter 
-set  community_apss_visit.next_visit_date=obs.value_datetime
-where   community_apss_visit.patient_id=obs.person_id and
-    community_apss_visit.visit_date=obs.obs_datetime and 
-    obs.concept_id=6310 and 
-    obs.voided=0 and encounter.encounter_type in (35);
 
 /*URBAN AND MAIN*/
 update community_arv_patient set urban='N';
