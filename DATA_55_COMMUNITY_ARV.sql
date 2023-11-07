@@ -10,6 +10,7 @@ CREATE TABLE  `community_arv_patient` (
   `date_of_birth` datetime DEFAULT NULL,
   `enrollment_date` datetime DEFAULT NULL,
   `age_enrollment` int(11) DEFAULT NULL,
+  `openmrs_current_age` int(11) DEFAULT NULL,
   `marital_status_at_enrollment` varchar(100) DEFAULT NULL,
   `pregnancy_status_at_enrollment` varchar(100) DEFAULT NULL,
   `women_status` varchar(100) DEFAULT NULL,
@@ -243,8 +244,12 @@ WHERE community_arv_patient.patient_id=person.person_id;
 update community_arv_patient,person set community_arv_patient.age_enrollment=round(datediff(community_arv_patient.enrollment_date,person.birthdate)/365)
 where  person_id=community_arv_patient.patient_id;
 
+/*Data de Nascimento*/
+update community_arv_patient,person set community_arv_patient.openmrs_current_age=round(datediff("2023-09-20",person.birthdate)/365)
+where  person_id=community_arv_patient.patient_id;
+
 /*Exclusion criteria*/
-delete from community_arv_patient where age_enrollment<2;
+delete from community_arv_patient where openmrs_current_age<2;
 
   /*Sexo*/
 update community_arv_patient,person set community_arv_patient.sex=.person.gender
