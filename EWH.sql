@@ -275,6 +275,8 @@ insert into ewh_patient(patient_id, enrollment_date, location_id)
       preTarvFinal where preTarvFinal.initialDate <= endDate
       GROUP BY preTarvFinal.patient_id;
 
+/*Apagar todos fora desta localização*/
+delete from ewh_patient where location_id not in (@location);
 
 /*distrito*/
 Update ewh_patient set ewh_patient.district=district;
@@ -297,8 +299,7 @@ update ewh_patient,location
 set ewh_patient.health_facility=location.name
 where ewh_patient.location_id=location.location_id;
 
-/*Apagar todos fora desta localização*/
-delete from ewh_patient where location_id not in (@location);
+
 
   /*Sexo*/
 update ewh_patient,person set ewh_patient.sex=person.gender

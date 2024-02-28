@@ -169,6 +169,52 @@ CREATE TABLE `community_dmc_type_of_dispensation_visit` (
   `value_dmc` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- community_arv_patient table
+CREATE INDEX idx_patient_id_arv_patient ON community_arv_patient (patient_id);
+
+-- community_arv_WHO_clinical_stage table
+CREATE INDEX idx_patient_id_WHO_clinical_stage ON community_arv_WHO_clinical_stage (patient_id);
+
+-- community_art_pick_up table
+CREATE INDEX idx_patient_id_art_pick_up ON community_art_pick_up (patient_id);
+
+-- community_art_fila_drugs table
+CREATE INDEX idx_patient_id_art_fila_drugs ON community_art_fila_drugs (patient_id);
+
+-- community_arv_weight table
+CREATE INDEX idx_patient_id_arv_weight ON community_arv_weight (patient_id);
+
+-- community_arv_height table
+CREATE INDEX idx_patient_id_arv_height ON community_arv_height (patient_id);
+
+-- community_arv_viral_load table
+CREATE INDEX idx_patient_id_arv_viral_load ON community_arv_viral_load (patient_id);
+
+-- community_arv_cd4_absolute table
+CREATE INDEX idx_patient_id_arv_cd4_absolute ON community_arv_cd4_absolute (patient_id);
+
+-- community_arv_cd4_percentage table
+CREATE INDEX idx_patient_id_arv_cd4_percentage ON community_arv_cd4_percentage (patient_id);
+
+-- community_arv_visit table
+CREATE INDEX idx_patient_id_arv_visit ON community_arv_visit (patient_id);
+
+-- community_arv_posology table
+CREATE INDEX idx_patient_id_arv_posology ON community_arv_posology (patient_id);
+
+-- community_type_arv_dispensation table
+CREATE INDEX idx_patient_id_type_arv_dispensation ON community_type_arv_dispensation (patient_id);
+
+-- community_differentiated_model table
+CREATE INDEX idx_patient_id_differentiated_model ON community_differentiated_model (patient_id);
+
+-- community_support_groups_visit table
+CREATE INDEX idx_patient_id_support_groups_visit ON community_support_groups_visit (patient_id);
+
+-- community_dmc_type_of_dispensation_visit table
+CREATE INDEX idx_patient_id_dmc_type_of_dispensation ON community_dmc_type_of_dispensation_visit (patient_id);
+
+
 
 DROP PROCEDURE IF EXISTS `FillCOMMARV`;
 DELIMITER ;;

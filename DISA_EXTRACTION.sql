@@ -24,6 +24,9 @@ CREATE TABLE `disa_extraction_cv` (
   `cv_qualit` varchar(300) DEFAULT NULL,
   `cv_date` datetime DEFAULT NULL,
   `request_id` varchar(30) DEFAULT NULL,
+  `harvest_date` datetime DEFAULT NULL,
+  `encounter` int(100) DEFAULT NULL,
+  `source` varchar(30) DEFAULT NULL,
   KEY `patient_id` (`patient_id`),
   KEY `cv_date` (`cv_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -42,14 +45,46 @@ truncate table disa_extraction_cv;
 
 SET @location:=location_id_parameter;
 
-/*BUSCAR ID DO PACIENTE E LOCATION*/
-UPDATE disa_extraction_patient,
-       patient_identifier
-SET disa_extraction_patient.patient_id=patient_identifier.patient_id, disa_extraction_patient.location_id=patient_identifier.location_id
-WHERE  patient_identifier.identifier=disa_extraction_patient.nid;
+/*INSCRICAO*/
+insert into disa_extraction_patient(patient_id, enrollment_date, location_id)
+        SELECT preTarvFinal.patient_id,preTarvFinal.initialDate,preTarvFinal.location FROM
+         
+         (   
+             SELECT preTarv.patient_id, MIN(preTarv.initialDate) initialDate,preTarv.location as location FROM 
+             ( 
+             SELECT p.patient_id,min(o.value_datetime) AS initialDate,e.location_id as location FROM patient p  
+             
+             INNER JOIN encounter e  ON e.patient_id=p.patient_id 
+             INNER JOIN obs o on o.encounter_id=e.encounter_id 
+             WHERE e.voided=0 AND o.voided=0 AND e.encounter_type=53 
+             AND o.value_datetime IS NOT NULL AND o.concept_id=23808 AND o.value_datetime<=endDate
+             GROUP BY p.patient_id 
+             UNION 
+             SELECT p.patient_id,min(e.encounter_datetime) AS initialDate,e.location_id as location FROM patient p 
+             INNER JOIN encounter e  ON e.patient_id=p.patient_id 
+             INNER JOIN obs o on o.encounter_id=e.encounter_id 
+             WHERE e.voided=0 AND o.voided=0 AND e.encounter_type IN(5,7) 
+             AND e.encounter_datetime<=endDate 
+             GROUP BY p.patient_id 
+             UNION 
+             SELECT pg.patient_id, MIN(pg.date_enrolled) AS initialDate,pg.location_id as location FROM patient p 
+             INNER JOIN patient_program pg on pg.patient_id=p.patient_id 
+             WHERE pg.program_id=1  AND pg.voided=0 AND pg.date_enrolled<=endDate  GROUP BY patient_id 
+              ) preTarv 
+             GROUP BY preTarv.patient_id
+        ) 
+      preTarvFinal where preTarvFinal.initialDate <= endDate
+      GROUP BY preTarvFinal.patient_id;
+
 
 /*Apagar todos fora desta localização*/
 delete from disa_extraction_patient where location_id not in (@location);
+
+/*BUSCAR NID*/
+UPDATE disa_extraction_patient,
+       patient_identifier
+SET  disa_extraction_patient.nid=patient_identifier.identifier
+WHERE  disa_extraction_patient.patient_id=patient_identifier.patient_id;
 
 /*DATA DE NASCIMENTO*/
 UPDATE disa_extraction_patient,
@@ -62,23 +97,6 @@ UPDATE disa_extraction_patient,
        person
 SET disa_extraction_patient.openmrs_gender=.person.gender
 WHERE disa_extraction_patient.patient_id=person.person_id;
-
-/*INSCRICAO*/
-UPDATE disa_extraction_patient,
-
-  (SELECT e.patient_id,
-          min(encounter_datetime) data_abertura
-   FROM patient p
-   INNER JOIN encounter e ON e.patient_id=p.patient_id
-   INNER JOIN person pe ON pe.person_id=p.patient_id
-   WHERE p.voided=0
-     AND e.encounter_type IN (5,
-                              7,53)
-     AND e.voided=0
-     AND pe.voided=0
-   GROUP BY p.patient_id) enrollment
-SET disa_extraction_patient.enrollment_date=enrollment.data_abertura
-WHERE disa_extraction_patient.patient_id=enrollment.patient_id;
 
 /* Unidade Sanitaria*/
 update disa_extraction_patient,location
@@ -120,8 +138,8 @@ from  disa_extraction_patient p
 where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id in (856) and e.encounter_datetime  between startDate and endDate;*/
 
 /*CARGA VIRAL*/
-insert into disa_extraction_cv(patient_id,cv,cv_qualit,cv_date,request_id)
-select valor.patient_id,valor.value_numeric,valor.value_cod,valor.obs_datetime,requisicao.value_text
+insert into disa_extraction_cv(patient_id,cv,cv_qualit,cv_date,encounter,source,request_id)
+select valor.patient_id,valor.value_numeric,valor.value_cod,valor.obs_datetime,valor.encounter_id,valor.encounter_type,requisicao.value_text
 from
 (Select p.patient_id,
     o.value_numeric,
@@ -137,7 +155,10 @@ from
     when 165331 then 'LESS THAN'
      else null end as value_cod,
 	o.obs_datetime,
-    e.encounter_id
+    e.encounter_id, case e.encounter_type
+     when 13 then 'Ficha Laboratorio'
+    when 51 then 'FSR'
+    else null end as encounter_type
 from  disa_extraction_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
@@ -156,6 +177,14 @@ from  disa_extraction_patient p
 where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id in (22771) and e.encounter_datetime  between startDate and endDate 
 ) requisicao on valor.encounter_id= requisicao.encounter_id
 group by valor.patient_id,valor.obs_datetime,valor.encounter_id; 
+
+
+/*Data da Colheita*/
+update disa_extraction_cv,obs
+set  disa_extraction_cv.harvest_date=obs.value_datetime
+where   disa_extraction_cv.patient_id=obs.person_id and
+    obs.concept_id=23821 and
+    obs.voided=0 and disa_extraction_cv.encounter=obs.encounter_id and obs.obs_datetime < endDate;
 
 
 /* Urban and Main*/

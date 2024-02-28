@@ -5,6 +5,9 @@ CREATE TABLE IF NOT EXISTS `sp_patient` (
   `patient_id` int(11) DEFAULT NULL,
   `district`varchar(100) DEFAULT NULL,
   `health_facility`varchar(100) DEFAULT NULL,
+  `nid`varchar(100) DEFAULT NULL,
+  `first_name`varchar(100) DEFAULT NULL,
+  `family_name`varchar(100) DEFAULT NULL,
   `openmrs_birth_date` datetime DEFAULT NULL,
   `openmrs_gender` varchar(1) DEFAULT NULL,
   `age_enrollment` int(11) DEFAULT NULL,
@@ -50,9 +53,12 @@ CREATE TABLE `sp_fila_drugs` (
   `source` varchar(100) DEFAULT 'FILA'
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `sp_pharmacy_viral_load`;
-CREATE TABLE `sp_pharmacy_viral_load` (
+DROP TABLE IF EXISTS `sp_viral_load`;
+CREATE TABLE `sp_viral_load` (
   `patient_id` int(11) DEFAULT NULL,
+  `nid`varchar(100) DEFAULT NULL,
+  `family_name`varchar(100) DEFAULT NULL,
+  `first_name`varchar(100) DEFAULT NULL,
   `cv` double DEFAULT NULL,
   `cv_qualit` varchar(300) DEFAULT NULL,
   `cv_comments` varchar(300) DEFAULT NULL,
@@ -103,10 +109,10 @@ CREATE TABLE `sp_differentiated_model` (
 
 
 
-CREATE INDEX idx_patient_id ON sp_patient(patient_id);
-CREATE INDEX idx_encounter_datetime ON encounter(encounter_datetime);
-CREATE INDEX idx_encounter_type ON encounter(encounter_type);
-CREATE INDEX idx_obs_datetime ON obs(obs_datetime);
+/*CREATE INDEX idx_patient_id ON sp_patient(patient_id);
+--CREATE INDEX idx_encounter_datetime ON encounter(encounter_datetime);
+--CREATE INDEX idx_encounter_type ON encounter(encounter_type);
+--CREATE INDEX idx_obs_datetime ON obs(obs_datetime);*/
 
 
 -- ----------------------------
@@ -120,7 +126,7 @@ begin
 
 truncate table sp_art_pick_up;
 truncate table sp_fila_drugs;
-truncate table sp_pharmacy_viral_load;
+truncate table sp_viral_load;
 truncate table sp_visit;
 truncate table sp_art_regimes;
 truncate table sp_reint_visit;
@@ -173,6 +179,23 @@ update sp_patient,location
 set sp_patient.health_facility=location.name
 where sp_patient.location_id=location.location_id;
 
+/*BUSCAR NID*/
+UPDATE sp_patient,
+       patient_identifier
+SET  sp_patient.nid=patient_identifier.identifier
+WHERE  sp_patient.patient_id=patient_identifier.patient_id;
+
+/*FIRST NAME*/
+UPDATE sp_patient,
+       person_name
+SET sp_patient.first_name=person_name.given_name
+WHERE sp_patient.patient_id=person_name.person_id;
+
+/*FAMILY NAME*/
+UPDATE sp_patient,
+       person_name
+SET sp_patient.family_name=person_name.family_name
+WHERE sp_patient.patient_id=person_name.person_id;
 
 /*DATA DE NASCIMENTO*/
 UPDATE sp_patient,
@@ -576,7 +599,7 @@ WHERE sp_fila_drugs.patient_id = obs.person_id
 
 
 /*CARGA VIRAL*/
-insert into sp_pharmacy_viral_load(patient_id,cv,cv_qualit,cv_comments,cv_date,source)
+insert into sp_viral_load(patient_id,cv,cv_qualit,cv_comments,cv_date,source)
 select valor.patient_id,valor.value_numeric,valor.value_cod,valor.comments,valor.obs_datetime,valor.encounter_type
 from
 (Select p.patient_id,
@@ -605,6 +628,24 @@ from  sp_patient p
 where   e.voided=0 and o.voided=0 and e.encounter_type in (6,13,51) and o.concept_id in (856,1305) and e.encounter_datetime < endDate
 )  valor group by valor.patient_id,valor.obs_datetime; 
 
+/*BUSCAR NID*/
+UPDATE sp_viral_load,
+       patient_identifier
+SET  sp_viral_load.nid=patient_identifier.identifier
+WHERE  sp_viral_load.patient_id=patient_identifier.patient_id;
+
+/*FIRST NAME*/
+UPDATE sp_viral_load,
+       person_name
+SET sp_viral_load.first_name=person_name.given_name
+WHERE sp_viral_load.patient_id=person_name.person_id;
+
+/*FAMILY NAME*/
+UPDATE sp_viral_load,
+       person_name
+SET sp_viral_load.family_name=person_name.family_name
+WHERE sp_viral_load.patient_id=person_name.person_id;
+
 
 /*VISITAS*/
 insert into sp_visit(patient_id,visit_date,source, encounter)
@@ -632,6 +673,9 @@ set  sp_visit.next_visit_date=obs.value_datetime
 where   sp_visit.patient_id=obs.person_id and 
     obs.concept_id=6310 and 
     encounter.encounter_type=35 and obs.voided=0 and sp_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+
+
 
 /*LEVANTAMENTO Regime*/
 insert into sp_art_regimes(patient_id,regime,regime_date)
