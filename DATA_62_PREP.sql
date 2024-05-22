@@ -120,24 +120,22 @@ CREATE TABLE `prep_differentiated_model` (
 DROP TABLE IF EXISTS `prep_initial_form`;
 CREATE TABLE `prep_initial_form` (
  `patient_id` int(11) DEFAULT NULL,
- `nid_prep ` varchar(255) DEFAULT NULL,
- `birth_date ` datetime DEFAULT NULL,
- `current_age ` int(2) DEFAULT NULL,
- `gender ` varchar(255) DEFAULT NULL,
- `date_initial_test ` datetime DEFAULT NULL,
- `marital_status ` varchar(255) DEFAULT NULL,
- `partner_nid ` varchar(255) DEFAULT NULL,
- `hf_partner_hiv_care ` varchar(255) DEFAULT NULL,
- `special_case_10_14 ` varchar(255) DEFAULT NULL,
- `member_target_population ` varchar(255) DEFAULT NULL,
- `pregnancy_status_enrollment_prep ` varchar(255) DEFAULT NULL,
- `first_time_prep ` varchar(255) DEFAULT NULL,
- `date_first_time ` datetime DEFAULT NULL,
- `return_prep ` varchar(255) DEFAULT NULL,
- `date_return ` datetime DEFAULT NULL,
- `continue_prep ` varchar(255) DEFAULT NULL,
- `date_continue_prep `datetime DEFAULT NULL,
- `encounter ` int(255) DEFAULT NULL
+ `nid_prep` varchar(255) DEFAULT NULL,
+ `birth_date` datetime DEFAULT NULL,
+ `current_age` int(2) DEFAULT NULL,
+ `gender` varchar(255) DEFAULT NULL,
+ `visit_date` datetime DEFAULT NULL,
+ `date_initial_test` datetime DEFAULT NULL,
+ `marital_status` varchar(255) DEFAULT NULL,
+ `partner_nid` varchar(255) DEFAULT NULL,
+ `hf_partner_hiv_care` varchar(255) DEFAULT NULL,
+ `special_case_10_14` varchar(255) DEFAULT NULL,
+ `member_target_population` varchar(255) DEFAULT NULL,
+ `pregnancy_status_enrollment_prep` varchar(255) DEFAULT NULL,
+ `situation_prep` varchar(255) DEFAULT NULL,
+ `date_situation` datetime DEFAULT NULL,
+  `source` varchar(100) DEFAULT 'FORMULARIO DE CONSULTA INICIAL PREP',
+ `encounter` int(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 /*prep_seguimento*/
@@ -155,13 +153,13 @@ CREATE TABLE `prep_follow_up_form` (
 `sti_symptoms` varchar(255) DEFAULT NULL,
 `adherence_counseling` varchar(255) DEFAULT NULL,
 `counseling_risk_reduction` varchar(255) DEFAULT NULL,
-`women_pregnant_status` varchar(255) DEFAULT NULL,
-`women_lactation_status` varchar(255) DEFAULT NULL,
-`women_pregnant_lactation_status` varchar(255) DEFAULT NULL,
+`women_status` varchar(255) DEFAULT NULL,
 `prep_prescription` varchar(255) DEFAULT NULL,
 `prep_prescription_bottles` varchar(255) DEFAULT NULL,
 `prep_interruption`varchar(255) DEFAULT NULL,
-`next_scheduled_visit` datetime DEFAULT NULL
+`next_scheduled_visit` datetime DEFAULT NULL,
+ `source` varchar(100) DEFAULT 'FORMULARIO DE CONSULTA DE SEGUIMENTO PREP',
+ `encounter` int(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -171,8 +169,16 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `FillPREP`(startDate date,endDate da
     READS SQL DATA
 begin
 
-TRUNCATE TABLE cacum_related;
-TRUNCATE TABLE cacum_women_pregnant_lactation;
+TRUNCATE TABLE prep_cd4_absolute;
+TRUNCATE TABLE prep_cd4_percentage;
+TRUNCATE TABLE prep_art_pick_up;
+TRUNCATE TABLE prep_fila_drugs;
+TRUNCATE TABLE prep_extraction_cv;
+TRUNCATE TABLE prep_visit;
+TRUNCATE TABLE prep_art_regimes;
+TRUNCATE TABLE prep_differentiated_model;
+TRUNCATE TABLE prep_initial_form;
+TRUNCATE TABLE prep_follow_up_form;
 
 SET @location:=location_id_parameter;
 
@@ -458,7 +464,7 @@ where saida.patient_id=prep_patient.patient_id;
  /*CD4 absolute*/
 insert into prep_cd4_absolute(patient_id,cd4,cd4_date)
 Select distinct p.patient_id,o.value_numeric, o.obs_datetime
-from  pharmacy_patient p 
+from  prep_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=5497  and o.obs_datetime BETWEEN startDate AND endDate;
@@ -466,7 +472,7 @@ where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=5497 
 /*CD4 percentage*/
 insert into prep_cd4_percentage(patient_id,cd4,cd4_date)
 Select distinct p.patient_id,o.value_numeric, o.obs_datetime
-from  pharmacy_patient p 
+from  prep_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type=13 and o.concept_id=730   and o.obs_datetime BETWEEN startDate AND endDate;
@@ -477,7 +483,7 @@ insert into prep_art_pick_up(patient_id,pickup_art,encounter)
              when 1065 then 'YES'
              when 1066 then 'NO'
              else null end as pick_art, e.encounter_id
-  from sp_patient p
+  from prep_patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
   where   encounter_type=52 and o.concept_id=23865  and e.voided=0 and o.encounter_id=e.encounter_id
@@ -610,7 +616,7 @@ when 52 then '[DTG] Dolutegravir 10 mg 30 Comp'
 when 53 then '[ABC/3TC] Abacavir 120mg/Lamivudina 60mg 30 Comp'				
    else null end,                  
    e.encounter_datetime, o.obs_group_id, e.encounter_id
-from  sp_patient p
+from  prep_patient p
 inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id and concept_id in (1088,165256)
     inner join drug d on o.value_drug=d.drug_id
@@ -646,7 +652,7 @@ where   prep_fila_drugs.patient_id=obs.person_id and
 UPDATE prep_fila_drugs AS efd
 JOIN obs AS obs_patient ON efd.patient_id = obs_patient.person_id
                          AND efd.pickup_date = obs_patient.obs_datetime
-JOIN sp_patient AS p ON efd.patient_id = p.patient_id
+JOIN prep_patient AS p ON efd.patient_id = p.patient_id
 JOIN encounter AS e ON p.patient_id = e.patient_id
 JOIN obs AS o ON e.encounter_id = o.encounter_id
 JOIN obs AS obsEstado ON e.encounter_id = obsEstado.encounter_id
@@ -733,7 +739,7 @@ from
      when 13 then 'Ficha Laboratorio'
     when 51 then 'FSR'
     else null end as encounter_type
-from  disa_extraction_patient p 
+from  prep_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id in (856,1305) and e.encounter_datetime  between startDate and endDate
@@ -745,7 +751,7 @@ Select p.patient_id,
     o.obs_datetime,
     o.value_text,
     e.encounter_id
-from  disa_extraction_patient p 
+from  prep_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id
 where   e.voided=0 and o.voided=0 and e.encounter_type in (13,51) and o.concept_id in (22771) and e.encounter_datetime  between startDate and endDate 
@@ -769,7 +775,7 @@ Select distinct p.patient_id,e.encounter_datetime, case e.encounter_type
     when 53 then 'Ficha Resumo'
     when 35 then 'Ficha APSS e PP'
     else null end as encounter_type, e.encounter_id
-from  sp_patient p 
+from  prep_patient p 
     inner join encounter e on p.patient_id=e.patient_id 
     inner join obs o on o.encounter_id=e.encounter_id 
 where   e.voided=0 and e.encounter_type in (6,53,35) and e.encounter_datetime  < endDate;
@@ -788,9 +794,6 @@ set  prep_visit.next_visit_date=obs.value_datetime
 where   prep_visit.patient_id=obs.person_id and 
     obs.concept_id=6310 and 
     encounter.encounter_type=35 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
-
-
-
 
 /*LEVANTAMENTO Regime*/
 insert into prep_art_regimes(patient_id,regime,regime_date)
@@ -869,7 +872,7 @@ insert into prep_art_regimes(patient_id,regime,regime_date)
         when 6424 then 'TDF+3TC+LPV/r'
         else null end,
         encounter_datetime
-  from sp_patient p
+  from prep_patient p
       inner join encounter e on p.patient_id=e.patient_id
       inner join obs o on o.person_id=e.patient_id
   where   encounter_type in (53,6) and o.concept_id=23893  and e.voided=0  
@@ -933,20 +936,325 @@ insert into prep_art_regimes(patient_id,regime,regime_date)
     and prep_differentiated_model.visit_date=final.encounter_datetime;
 
 
-/*FICHA PREP INICIAL*/
+/*FICHA PREP inicial*/
+INSERT INTO prep_initial_form (patient_id, nid_prep, birth_date, current_age, gender, visit_date, encounter)
+SELECT
+    persondata.person_id,
+    nids.nid AS nid_prep,
+    persondata.birthdate, 
+    persondata.current_age,
+    persondata.gender,
+    obs.obs_datetime AS visit_date,
+    e.encounter_id
+FROM
+    (SELECT
+        pe.person_id,
+        TIMESTAMPDIFF(YEAR, pe.birthdate, NOW()) AS current_age,
+        pe.birthdate,
+        pe.gender
+    FROM
+        person pe
+    WHERE
+        pe.voided = 0
+        AND pe.birthdate IS NOT NULL
+        AND pe.gender IS NOT NULL) AS persondata
+LEFT JOIN
+    (SELECT
+        patient_id,
+        GROUP_CONCAT(identifier SEPARATOR ", ") AS nid,
+        location_id
+    FROM 
+        patient_identifier
+    WHERE 
+        voided = 0
+        AND identifier_type = 17
+    GROUP BY 
+        patient_id) AS nids
+ON
+    persondata.person_id = nids.patient_id
+INNER JOIN
+    prep_patient p ON p.patient_id = persondata.person_id
+INNER JOIN
+    encounter e ON p.patient_id = e.patient_id
+INNER JOIN
+    obs ON obs.encounter_id = e.encounter_id
+WHERE   
+    e.voided = 0
+    AND e.encounter_type = 80
+    AND obs.voided = 0
+    AND obs.obs_datetime < endDate;
 
-insert into prep_initial_form(patient_id,visit_date,differentiated_model) 
+
+/*Prep inicialdate initial*/
+update prep_initial_form,obs,encounter
+set  prep_initial_form.birth_date=obs.value_datetime
+where   prep_initial_form.patient_id=obs.person_id and 
+    obs.concept_id=165194 and 
+    encounter.encounter_type=80 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+    /*Prep inicialdate marital status*/
+update prep_initial_form,obs,encounter
+set  prep_initial_form.birth_date= case obs.value_coded
+              when 1056 then 'SEPARATED'
+              when 1057 then 'NEVER MARRIED'
+              when 1058 then 'DIVORCED'
+              when 1059 then 'WIDOWED'
+              when 1060 then 'LIVING WITH PARTNER'
+              when 5555 then 'MARRIED'
+              when 1175 then 'NOT APPLICABLE'
+              when 5622 then 'Other'
+  else null end 
+where   prep_initial_form.patient_id=obs.person_id and 
+    obs.concept_id=1054 and 
+    encounter.encounter_type=80 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
 
 
+/*Prep hiv partner US*/
+update prep_initial_form,obs,encounter
+set  prep_initial_form.hf_partner_hiv_care=obs.value_text
+where   prep_initial_form.patient_id=obs.person_id and 
+    obs.concept_id=165195 and 
+    encounter.encounter_type=80 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+/*Prep special case*/
+update prep_initial_form,obs,encounter
+set  prep_initial_form.special_case_10_14= case obs.value_coded
+              when 1065 then 'YES'
+              when 1066 then 'No' 
+  else null end 
+where   prep_initial_form.patient_id=obs.person_id and 
+    obs.concept_id=165285 and 
+    encounter.encounter_type=80 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
 
 
+/*Pregnancy status*/
+update prep_initial_form,obs,encounter
+set  prep_initial_form.pregnancy_status_enrollment_prep= case obs.value_coded
+              when 1175 then 'YES'
+              when 1066 then 'No' 
+              when 1067 then 'Unknown' 
+              when 44 then 'GESTATION' 
+              when 1065 then 'Yes' 
+  else null end 
+where   prep_initial_form.patient_id=obs.person_id and 
+    obs.concept_id=1982 and 
+    encounter.encounter_type=80 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+/*Prep Initial Status*/
+update prep_initial_form,obs,encounter
+set  prep_initial_form.situation_prep= case obs.value_coded
+              when 1256 then 'START DRUGS'
+              when 1705 then 'RESTART' 
+              when 1257 then 'CONTINUE REGIMEN'
+  else null end,
+  prep_initial_form.situation_prep=obs.obs_datetime 
+where   prep_initial_form.patient_id=obs.person_id and 
+    obs.concept_id=165296 and 
+    encounter.encounter_type=80 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+/*Prep Initial Status*/
+update prep_initial_form,obs,encounter
+set  prep_initial_form.situation_prep= case obs.value_coded
+              when 1256 then 'START DRUGS'
+              when 1705 then 'RESTART' 
+              when 1257 then 'CONTINUE REGIMEN'
+  else null end,
+  prep_initial_form.date_situation=obs.obs_datetime 
+where   prep_initial_form.patient_id=obs.person_id and 
+    obs.concept_id=165296 and 
+    encounter.encounter_type=80 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+/*FICHA PREP seguimento*/
+INSERT INTO prep_follow_up_form (patient_id, date_follow_up, encounter, nid_prep)
+SELECT DISTINCT p.patient_id, e.encounter_datetime, e.encounter_id, nids.nid AS nid_prep
+FROM prep_patient p 
+INNER JOIN encounter e ON p.patient_id = e.patient_id 
+INNER JOIN obs o ON o.encounter_id = e.encounter_id
+LEFT JOIN (
+    SELECT
+        patient_id,
+        GROUP_CONCAT(identifier SEPARATOR ", ") AS nid,
+        location_id
+    FROM 
+        patient_identifier
+    WHERE 
+        voided = 0
+        AND identifier_type = 17
+    GROUP BY 
+        patient_id
+) AS nids ON p.patient_id = nids.patient_id
+WHERE   
+    e.voided = 0
+    AND e.encounter_type = 81
+    AND e.encounter_datetime < endDate;
 
 
+/*Prep Seguimento KP*/
+update prep_initial_form,obs,encounter
+set  prep_follow_up_form.key_population= case obs.value_coded
+              when 1377 then 'Men who have sex with Men'
+              when 20454 then 'Drug Use' 
+              when 20426 then 'IMPRISONMENT AND OTHER INCARCERATION'
+              when 1901 then 'SEX WORKER'
+              when 165205 then 'TRANSGENDER'
+              when 5622 then 'other'
+  else null end 
+where   prep_follow_up_form.patient_id=obs.person_id and 
+    obs.concept_id=23703 and 
+    encounter.encounter_type=81 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
 
 
+/*Prep seguimento retestagem*/
+update prep_follow_up_form,obs,encounter
+set  prep_follow_up_form.result_hiv_retesting= case obs.value_coded
+            when 664 then 'NEGATIVE'
+            when 703 then 'POSITIVE'
+            when 1304 then 'POOR SAMPLE QUALITY'
+            when 1175 then 'NOT APPLICABLE'
+            when 1138 then 'INDETERMINATE'
+            when 1067 then 'Unknown'
+            when 1118 then 'NOT DONE'
+  else null end,
+  prep_follow_up_form.date_hiv_retesting=obs.obs_datetime 
+where   prep_follow_up_form.patient_id=obs.person_id and 
+    obs.concept_id=1040 and 
+    encounter.encounter_type=81 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
 
 
+/*Prep Seguimento sintomas*/
+update prep_follow_up_form,obs,encounter
+set  prep_follow_up_form.symptoms_hiv_infection= case obs.value_coded
+              when 1065 then 'Yes'
+              when 1066 then 'No' 
+       else null end 
+where   prep_follow_up_form.patient_id=obs.person_id and 
+    obs.concept_id=165219 and 
+    encounter.encounter_type=81 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
 
+/*Prep condom use*/
+update prep_follow_up_form,obs,encounter
+set  prep_follow_up_form.condom_prevention_method= case obs.value_coded
+              when 1065 then 'Yes'
+              when 1066 then 'No' 
+       else null end 
+where   prep_follow_up_form.patient_id=obs.person_id and 
+    obs.concept_id=5571 and 
+    encounter.encounter_type=81 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+    /*Prep seguimento efeitos secundarios*/
+update prep_follow_up_form,obs,encounter
+set  prep_follow_up_form.side_effects= case obs.value_coded
+              when 3 then 'ANEMIA NOS'
+              when 6292 then	'NEUTROPENIA'
+              when 6293 then	'PANCREATITIS' 
+              when 6294 then	'HEPATOTOXICITY' 
+              when 6295 then	'PSYCHOLOGICAL CHANGES' 
+              when 821 then'PERIPHERAL NEUROPATHY' 
+              when 6296 then	'MYOPATHY' 
+              when 6297 then	'SKIN ALLERGY' 
+              when 6298 then	'LIPODYSTROPHY' 
+              when 16 then   'DIARRHOEA' 
+              when 1406 then	'OTHER DIAGNOSIS' 
+              when 6299 then	'LACTIC ACIDOSIS' 
+              when 29 then 'HEPATITIS' 
+              when 11428 then	'Erupção cutânea generalizada devida a drogas e medicamentos' 
+              when 14475 then	'Nausea and Vomiting' 
+              when 14671 then	'Hyperglycaemia' 
+              when 23747 then	'DYSLIPIDEMIA' 
+              when 23748 then	'CYTOPENIA' 
+              when 23749 then	'NEPHROTOXICITY' 
+              when 23750 then	'STEVENS-JOHNSON SYNDROME' 
+              when 23751 then	'HYPERSENSITIVITY TO ABC/RAL' 
+              when 23752 then	'HEPATIC STEATOSIS WITH HYPERLACTATAEMIA' 
+              when 151 then 'ABDOMINAL PAIN'
+       else null end 
+where   prep_follow_up_form.patient_id=obs.person_id and 
+    obs.concept_id=2015 and 
+    encounter.encounter_type=81 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+/*Prep doenca renal*/
+update prep_follow_up_form,obs,encounter
+set  prep_follow_up_form.sti_symptoms= case obs.value_coded
+              when 1065 then 'Yes'
+              when 1066 then 'No' 
+       else null end
+where   prep_follow_up_form.patient_id=obs.person_id and 
+    obs.concept_id=165294 and 
+    encounter.encounter_type=81 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+/*Prep adesão conseling*/
+update prep_follow_up_form,obs,encounter
+set  prep_follow_up_form.adherence_counseling= case obs.value_coded
+              when 1065 then 'Yes'
+              when 1066 then 'No' 
+       else null end
+where   prep_follow_up_form.patient_id=obs.person_id and 
+    obs.concept_id=165221 and 
+    encounter.encounter_type=81 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+/*Prep adesão risk conseling*/
+update prep_follow_up_form,obs,encounter
+set  prep_follow_up_form.counseling_risk_reduction= case obs.value_coded
+              when 1065 then 'Yes'
+              when 1066 then 'No' 
+       else null end
+where   prep_follow_up_form.patient_id=obs.person_id and 
+    obs.concept_id=165222 and 
+    encounter.encounter_type=81 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+
+    /*Prep seguimento women status*/
+update prep_follow_up_form,obs,encounter
+set  prep_follow_up_form.women_status= case obs.value_coded
+              when 1982 then 'Pregnant'
+              when 6332 then 'Lactation' 
+              when 1175 then 'Not Applicable' 
+       else null end
+where   prep_follow_up_form.patient_id=obs.person_id and 
+    obs.concept_id=165223 and 
+    encounter.encounter_type=81 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+/*Prep prescricao*/
+update prep_follow_up_form,obs,encounter
+set  prep_follow_up_form.prep_prescription= case obs.value_coded
+              when 165214 then 'TDF/3TC'
+              when 165215 then 'TDF/FTC' 
+              when 165216 then 'OTHER DRUG PREP'
+              when 165224 then 'SEM PRESCRICAO' 
+       else null end
+where   prep_follow_up_form.patient_id=obs.person_id and 
+    obs.concept_id=165213 and 
+    encounter.encounter_type=81 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+    /*Prep nr frascos*/
+update prep_follow_up_form,obs,encounter
+set  prep_follow_up_form.prep_prescription_bottles=obs.value_numeric
+where   prep_follow_up_form.patient_id=obs.person_id and 
+    obs.concept_id=165217 and 
+    encounter.encounter_type=81 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+
+/*Prep prep interruption*/
+update prep_follow_up_form,obs,encounter
+set  prep_follow_up_form.prep_interruption= case obs.value_coded
+              when 1169   then 'HIV INFECTED'
+              when 165226 then 'NO MORE SUBSTANTIAL RISKS'
+              when 2015   then 'PATIENT DOES NOT LIKE ARV TREATMENT SIDE EFFECTS' 
+              when 165227 then 'USER PREFERENCE' 
+              when 5622   then 'Other' 
+              when 1175   then 'NOT APPLICABLE' 
+       else null end
+where   prep_follow_up_form.patient_id=obs.person_id and 
+    obs.concept_id=165225 and 
+    encounter.encounter_type=81 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
+
+
+/*Prep proxima visita*/
+update prep_follow_up_form,obs,encounter
+set  prep_follow_up_form.next_scheduled_visit=obs.value_datetime
+where   prep_follow_up_form.patient_id=obs.person_id and 
+    obs.concept_id=165228 and 
+    encounter.encounter_type=81 and obs.voided=0 and prep_visit.encounter=obs.encounter_id and obs.obs_datetime < endDate;
 
 
 
